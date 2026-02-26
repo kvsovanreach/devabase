@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Code2,
   BarChart3,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProjectSwitcher } from './project-switcher';
@@ -75,6 +76,7 @@ const navigation: (NavItem | NavGroup)[] = [
     label: 'Developer',
     icon: Code2,
     items: [
+      { name: 'API Docs', href: '/api-docs', icon: BookOpen },
       { name: 'Playground', href: '/playground', icon: Play },
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
       { name: 'API Keys', href: '/keys', icon: Key },
@@ -170,14 +172,14 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3">
-          <ul className="space-y-1">
+        <nav className="flex-1 overflow-y-auto py-2 px-3">
+          <ul className="space-y-0.5">
             {navigation.map((item, index) => {
               if (isNavGroup(item)) {
                 // Render group
                 const GroupIcon = item.icon;
                 return (
-                  <li key={item.label} className={cn(index > 0 && 'mt-4')}>
+                  <li key={item.label} className={cn(index > 0 && 'mt-3')}>
                     {/* Group Label */}
                     <div
                       className={cn(
@@ -200,7 +202,7 @@ export function Sidebar() {
                               href={subItem.href}
                               title={isCollapsed ? subItem.name : undefined}
                               className={cn(
-                                'flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] font-medium transition-all duration-150',
+                                'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[14px] font-medium transition-all duration-150',
                                 isActive
                                   ? 'bg-primary text-white shadow-sm'
                                   : 'text-text-secondary hover:text-foreground hover:bg-surface-hover',
@@ -226,7 +228,7 @@ export function Sidebar() {
                     href={item.href}
                     title={isCollapsed ? item.name : undefined}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150',
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-all duration-150',
                       isActive
                         ? 'bg-primary text-white shadow-sm'
                         : 'text-text-secondary hover:text-foreground hover:bg-surface-hover',
@@ -253,7 +255,7 @@ export function Sidebar() {
                     href={item.href}
                     title={isCollapsed ? item.name : undefined}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150',
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-all duration-150',
                       isActive
                         ? 'bg-primary text-white shadow-sm'
                         : 'text-text-secondary hover:text-foreground hover:bg-surface-hover',
@@ -273,7 +275,7 @@ export function Sidebar() {
             onClick={toggleSidebar}
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={cn(
-              'hidden lg:flex w-full items-center gap-3 px-3 py-2.5 mt-1 rounded-lg text-[15px] font-medium transition-all duration-150',
+              'hidden lg:flex w-full items-center gap-3 px-3 py-2 mt-1 rounded-lg text-[15px] font-medium transition-all duration-150',
               'text-text-secondary hover:text-foreground hover:bg-surface-hover',
               isCollapsed && 'lg:justify-center lg:px-0'
             )}

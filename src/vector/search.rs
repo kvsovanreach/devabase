@@ -180,7 +180,7 @@ pub async fn search_with_content(
                 jsonb_set(
                     COALESCE(c.metadata, '{{}}'::jsonb),
                     '{{document_name}}',
-                    to_jsonb(COALESCE(d.name, 'Unknown'))
+                    to_jsonb(COALESCE(d.filename, 'Unknown'))
                 ),
                 '{{}}'::jsonb
             ) as metadata

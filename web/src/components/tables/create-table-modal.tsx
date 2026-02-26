@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Link2 } from 'lucide-react';
 import { Modal, ModalFooter } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InlineSelect } from '@/components/ui/inline-select';
-import { useCreateTable, ColumnDefinition } from '@/hooks/use-tables';
+import { useCreateTable, useTables, ColumnDefinition } from '@/hooks/use-tables';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -32,10 +32,20 @@ const DEFAULT_COLUMNS: ColumnDefinition[] = [
   { name: 'created_at', type: 'timestamptz', default: 'now()' },
 ];
 
+const ON_DELETE_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'CASCADE', label: 'Cascade' },
+  { value: 'SET NULL', label: 'Set Null' },
+  { value: 'RESTRICT', label: 'Restrict' },
+  { value: 'NO ACTION', label: 'No Action' },
+];
+
 export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
   const createTable = useCreateTable();
+  const { data: existingTables } = useTables();
   const [name, setName] = useState('');
   const [columns, setColumns] = useState<ColumnDefinition[]>([...DEFAULT_COLUMNS]);
+  const [expandedFk, setExpandedFk] = useState<number | null>(null);
 
   const addColumn = () => {
     setColumns([
@@ -79,6 +89,20 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
     onClose();
     setName('');
     setColumns([...DEFAULT_COLUMNS]);
+    setExpandedFk(null);
+  };
+
+  // Get table options for foreign key dropdown
+  const tableOptions = [
+    { value: '', label: 'Select table...' },
+    ...(existingTables?.map((t) => ({ value: t.name, label: t.name })) || []),
+  ];
+
+  // Get column options for a specific table
+  const getColumnOptions = (tableName: string) => {
+    const table = existingTables?.find((t) => t.name === tableName);
+    if (!table) return [{ value: 'id', label: 'id' }];
+    return table.columns.map((c) => ({ value: c.name, label: c.name }));
   };
 
   return (
@@ -134,7 +158,7 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                           }
                         />
                       </div>
-                      <div className="flex items-center gap-5 text-[13px]">
+                      <div className="flex items-center gap-4 text-[13px] flex-wrap">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
@@ -168,7 +192,77 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                           />
                           <span className="text-text-secondary">Unique</span>
                         </label>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedFk(expandedFk === index ? null : index)}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                            column.references_table
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-text-tertiary hover:text-text-secondary hover:bg-surface-hover'
+                          }`}
+                        >
+                          <Link2 className="w-3.5 h-3.5" />
+                          {column.references_table ? `→ ${column.references_table}` : 'Foreign Key'}
+                        </button>
                       </div>
+
+                      {/* Foreign Key Configuration */}
+                      {expandedFk === index && (
+                        <div className="p-3 bg-surface rounded-lg border border-border-light space-y-2">
+                          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">
+                            Foreign Key Reference
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <InlineSelect
+                              options={tableOptions}
+                              value={column.references_table || ''}
+                              onChange={(value) =>
+                                updateColumn(index, {
+                                  references_table: value || undefined,
+                                  references_column: value ? 'id' : undefined,
+                                })
+                              }
+                              placeholder="Table"
+                            />
+                            <InlineSelect
+                              options={
+                                column.references_table
+                                  ? getColumnOptions(column.references_table)
+                                  : [{ value: 'id', label: 'id' }]
+                              }
+                              value={column.references_column || 'id'}
+                              onChange={(value) =>
+                                updateColumn(index, { references_column: value })
+                              }
+                              placeholder="Column"
+                            />
+                            <InlineSelect
+                              options={ON_DELETE_OPTIONS}
+                              value={column.on_delete || ''}
+                              onChange={(value) =>
+                                updateColumn(index, { on_delete: value || undefined })
+                              }
+                              placeholder="On Delete"
+                            />
+                          </div>
+                          {column.references_table && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateColumn(index, {
+                                  references_table: undefined,
+                                  references_column: undefined,
+                                  on_delete: undefined,
+                                })
+                              }
+                              className="text-[12px] text-error hover:underline"
+                            >
+                              Remove foreign key
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       <Input
                         value={column.default || ''}
                         onChange={(e) =>

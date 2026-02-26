@@ -367,9 +367,9 @@ export default function DashboardPage() {
                   View all
                 </Link>
               </div>
-              <div className="space-y-2 md:space-y-3">
+              <div className="flex flex-col gap-2 md:gap-3">
                 {collections.slice(0, 4).map((collection) => (
-                  <Link key={collection.name} href={`/collections/${collection.name}`}>
+                  <Link key={collection.name} href={`/collections/${collection.name}`} className="block">
                     <Card hover className="p-3 md:p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
@@ -408,9 +408,9 @@ export default function DashboardPage() {
                   View all
                 </Link>
               </div>
-              <div className="space-y-2 md:space-y-3">
+              <div className="flex flex-col gap-2 md:gap-3">
                 {tables.slice(0, 4).map((table) => (
-                  <Link key={table.name} href={`/tables/${table.name}`}>
+                  <Link key={table.name} href={`/tables/${table.name}`} className="block">
                     <Card hover className="p-3 md:p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">

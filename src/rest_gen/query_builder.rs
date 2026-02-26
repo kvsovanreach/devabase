@@ -11,6 +11,7 @@ pub fn build_create_table_sql(
     let full_table_name = super::schema::get_full_table_name(project_id, table_name);
 
     let mut column_defs = Vec::new();
+    let mut foreign_keys = Vec::new();
 
     // Always add project_id as first column (hidden from API but used for filtering)
     column_defs.push("project_id UUID NOT NULL".to_string());
@@ -35,12 +36,41 @@ pub fn build_create_table_sql(
         }
 
         column_defs.push(def);
+
+        // Handle foreign key reference
+        if let Some(ref_table) = &col.references_table {
+            let ref_column = col.references_column.as_deref().unwrap_or("id");
+            let ref_full_table = super::schema::get_full_table_name(project_id, ref_table);
+
+            let mut fk = format!(
+                "FOREIGN KEY (\"{}\") REFERENCES \"{}\"(\"{}\")",
+                col.name, ref_full_table, ref_column
+            );
+
+            if let Some(on_delete) = &col.on_delete {
+                let action = match on_delete.to_uppercase().as_str() {
+                    "CASCADE" => "CASCADE",
+                    "SET NULL" | "SETNULL" => "SET NULL",
+                    "SET DEFAULT" | "SETDEFAULT" => "SET DEFAULT",
+                    "RESTRICT" => "RESTRICT",
+                    "NO ACTION" | "NOACTION" => "NO ACTION",
+                    _ => "NO ACTION",
+                };
+                fk.push_str(&format!(" ON DELETE {}", action));
+            }
+
+            foreign_keys.push(fk);
+        }
     }
+
+    // Combine column definitions and foreign key constraints
+    let mut all_defs = column_defs;
+    all_defs.extend(foreign_keys);
 
     Ok(format!(
         "CREATE TABLE \"{}\" ({})",
         full_table_name,
-        column_defs.join(", ")
+        all_defs.join(", ")
     ))
 }
 

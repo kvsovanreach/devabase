@@ -177,15 +177,15 @@ export default function MembersSettingsPage() {
                         <div className="flex items-center gap-3 md:gap-4">
                           <div className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center shadow-sm flex-shrink-0">
                             <span className="text-[12px] md:text-[13px] font-semibold text-white">
-                              {getInitials(member.user?.name || 'User')}
+                              {getInitials(member.name || 'User')}
                             </span>
                           </div>
                           <div className="min-w-0">
                             <p className="text-[14px] md:text-[15px] font-medium text-foreground truncate">
-                              {member.user?.name || 'Unknown'}
+                              {member.name || 'Unknown'}
                             </p>
                             <p className="text-[12px] md:text-[13px] text-text-secondary truncate">
-                              {member.user?.email || member.user_id}
+                              {member.email}
                             </p>
                           </div>
                         </div>
@@ -200,7 +200,7 @@ export default function MembersSettingsPage() {
                               onClick={() => setRemoveTarget({
                                 type: 'member',
                                 id: member.user_id,
-                                name: member.user?.name || member.user?.email || 'this member',
+                                name: member.name || member.email || 'this member',
                               })}
                               className="text-error hover:text-error hover:bg-error/5"
                             >

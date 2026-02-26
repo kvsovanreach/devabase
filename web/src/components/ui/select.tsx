@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment } from 'react';
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions, Transition } from '@headlessui/react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Check } from 'lucide-react';
 
@@ -80,42 +80,35 @@ function Select({
           </ListboxButton>
 
           {options.length > 0 && (
-            <Transition
-              as={Fragment}
-              enter="transition ease-out duration-150"
-              enterFrom="opacity-0 scale-95 -translate-y-1"
-              enterTo="opacity-100 scale-100 translate-y-0"
-              leave="transition ease-in duration-100"
-              leaveFrom="opacity-100 scale-100 translate-y-0"
-              leaveTo="opacity-0 scale-95 -translate-y-1"
+            <ListboxOptions
+              anchor="bottom start"
+              className="z-[100] w-[var(--button-width)] mt-2 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden focus:outline-none transition ease-out duration-150 data-[closed]:opacity-0 data-[closed]:scale-95"
             >
-              <ListboxOptions className="absolute z-50 w-full mt-2 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden focus:outline-none">
-                <div className="py-1.5 max-h-64 overflow-y-auto">
-                  {options.map((option) => (
-                    <ListboxOption
-                      key={option.value}
-                      value={option.value}
-                      as={Fragment}
-                    >
-                      {({ focus, selected }) => (
-                        <div
-                          className={cn(
-                            'flex items-center justify-between px-4 py-2.5 text-[15px] cursor-pointer transition-colors',
-                            focus ? 'bg-surface-hover' : '',
-                            selected ? 'text-primary font-medium' : 'text-foreground'
-                          )}
-                        >
-                          <span className="block truncate">{option.label}</span>
-                          {selected && (
-                            <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-                          )}
-                        </div>
-                      )}
-                    </ListboxOption>
-                  ))}
-                </div>
-              </ListboxOptions>
-            </Transition>
+              <div className="py-1.5 max-h-64 overflow-y-auto">
+                {options.map((option) => (
+                  <ListboxOption
+                    key={option.value}
+                    value={option.value}
+                    as={Fragment}
+                  >
+                    {({ focus, selected }) => (
+                      <div
+                        className={cn(
+                          'flex items-center justify-between px-4 py-2.5 text-[15px] cursor-pointer transition-colors',
+                          focus ? 'bg-surface-hover' : '',
+                          selected ? 'text-primary font-medium' : 'text-foreground'
+                        )}
+                      >
+                        <span className="block truncate">{option.label}</span>
+                        {selected && (
+                          <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+                        )}
+                      </div>
+                    )}
+                  </ListboxOption>
+                ))}
+              </div>
+            </ListboxOptions>
           )}
         </div>
       </Listbox>

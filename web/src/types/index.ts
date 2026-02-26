@@ -46,11 +46,12 @@ export interface Project {
 
 export interface ProjectMember {
   id: string;
-  project_id: string;
   user_id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
   role: ProjectRole;
   joined_at: string;
-  user?: User;
 }
 
 export interface CreateProjectRequest {

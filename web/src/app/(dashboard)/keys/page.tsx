@@ -6,14 +6,12 @@ import { useProjectStore } from '@/stores/project-store';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Modal, ModalFooter } from '@/components/ui/modal';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
-import { Key, Plus, Copy, Trash2, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { formatRelativeTime } from '@/lib/utils';
+import { Key, Plus, Copy, Trash2, Eye, EyeOff, AlertCircle, Clock, Shield, MoreHorizontal } from 'lucide-react';
+import { formatRelativeTime, cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface DeleteTarget {
@@ -31,6 +29,7 @@ export default function ApiKeysPage() {
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Show message if no project selected
   if (!currentProject) {
@@ -76,9 +75,13 @@ export default function ApiKeysPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, id?: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
+    if (id) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
   };
 
   const handleCloseModal = () => {
@@ -88,18 +91,36 @@ export default function ApiKeysPage() {
     setShowSecret(false);
   };
 
+  // Stats
+  const totalKeys = apiKeys?.length || 0;
+  const recentlyUsedCount = apiKeys?.filter((k) => {
+    if (!k.last_used_at) return false;
+    const lastUsed = new Date(k.last_used_at);
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return lastUsed > dayAgo;
+  }).length || 0;
+  const expiringCount = apiKeys?.filter((k) => {
+    if (!k.expires_at) return false;
+    const expires = new Date(k.expires_at);
+    const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    return expires < weekFromNow && expires > new Date();
+  }).length || 0;
+
   return (
     <div>
       <Header />
       <div className="p-4 md:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+        {/* Page Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-[22px] md:text-[26px] font-semibold text-foreground tracking-tight">API Keys</h2>
+            <h2 className="text-[22px] md:text-[26px] font-semibold text-foreground tracking-tight">
+              API Keys
+            </h2>
             <p className="text-[14px] md:text-[15px] text-text-secondary mt-1">
-              Manage API keys for <span className="text-foreground font-medium">{currentProject.name}</span>.
+              Manage API keys for programmatic access to your project.
             </p>
           </div>
-          <Button onClick={() => setIsCreateModalOpen(true)} className="w-full sm:w-auto">
+          <Button onClick={() => setIsCreateModalOpen(true)} className="w-full lg:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             New API Key
           </Button>
@@ -108,40 +129,179 @@ export default function ApiKeysPage() {
         {isLoading ? (
           <PageSpinner />
         ) : apiKeys && apiKeys.length > 0 ? (
-          <div className="space-y-3">
-            {apiKeys.map((apiKey) => (
-              <Card key={apiKey.id} className="p-4 md:p-5">
-                <div className="flex items-start sm:items-center gap-3 md:gap-4">
-                  <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-warning-muted flex items-center justify-center flex-shrink-0">
-                    <Key className="w-5 h-5 text-warning" />
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-surface border border-border-light rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Key className="w-5 h-5 text-primary" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-[14px] md:text-[15px] font-medium text-foreground">{apiKey.name}</h3>
-                      <Badge variant="default">{apiKey.prefix}...</Badge>
+                  <div>
+                    <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
+                      Total Keys
+                    </p>
+                    <p className="text-[22px] font-bold text-foreground">{totalKeys}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-surface border border-border-light rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
+                      Active
+                    </p>
+                    <p className="text-[22px] font-bold text-foreground">{totalKeys}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-surface border border-border-light rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-info" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
+                      Used Today
+                    </p>
+                    <p className="text-[22px] font-bold text-foreground">{recentlyUsedCount}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-surface border border-border-light rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                    expiringCount > 0 ? "bg-warning/10" : "bg-surface-secondary"
+                  )}>
+                    <AlertCircle className={cn(
+                      "w-5 h-5",
+                      expiringCount > 0 ? "text-warning" : "text-text-tertiary"
+                    )} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
+                      Expiring Soon
+                    </p>
+                    <p className="text-[22px] font-bold text-foreground">{expiringCount}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* API Keys Table */}
+            <div className="bg-surface border border-border-light rounded-xl overflow-hidden">
+              {/* Table Header */}
+              <div className="hidden md:grid md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-surface-secondary border-b border-border-light">
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+                  Name
+                </div>
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+                  Key
+                </div>
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+                  Created
+                </div>
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+                  Last Used
+                </div>
+                <div className="w-20"></div>
+              </div>
+
+              {/* Table Rows */}
+              <div className="divide-y divide-border-light">
+                {apiKeys.map((apiKey) => (
+                  <div
+                    key={apiKey.id}
+                    className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-5 py-4 hover:bg-surface-hover/50 transition-colors"
+                  >
+                    {/* Name */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+                        <Key className="w-4 h-4 text-warning" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-medium text-foreground truncate">
+                          {apiKey.name}
+                        </p>
+                        <p className="text-[12px] text-text-tertiary md:hidden">
+                          {apiKey.prefix}...
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1.5 text-[12px] md:text-[13px] text-text-secondary">
+
+                    {/* Key */}
+                    <div className="hidden md:flex items-center">
+                      <button
+                        onClick={() => copyToClipboard(apiKey.prefix + '...', apiKey.id)}
+                        className={cn(
+                          "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] font-mono transition-all",
+                          copiedId === apiKey.id
+                            ? "bg-success/10 text-success"
+                            : "bg-surface-secondary hover:bg-surface-hover text-text-secondary"
+                        )}
+                      >
+                        <span>{apiKey.prefix}...</span>
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Created */}
+                    <div className="hidden md:flex items-center">
+                      <span className="text-[13px] text-text-secondary">
+                        {formatRelativeTime(apiKey.created_at)}
+                      </span>
+                    </div>
+
+                    {/* Last Used */}
+                    <div className="hidden md:flex items-center">
+                      <span className="text-[13px] text-text-secondary">
+                        {apiKey.last_used_at ? formatRelativeTime(apiKey.last_used_at) : 'Never'}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => copyToClipboard(apiKey.prefix + '...')}
+                        className="md:hidden p-2 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-hover transition-colors"
+                        title="Copy key prefix"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget({ id: apiKey.id, name: apiKey.name })}
+                        className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors"
+                        title="Delete key"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Mobile: Additional Info */}
+                    <div className="md:hidden flex items-center gap-4 text-[12px] text-text-tertiary mt-1">
                       <span>Created {formatRelativeTime(apiKey.created_at)}</span>
                       {apiKey.last_used_at && (
-                        <span className="hidden sm:inline">Last used {formatRelativeTime(apiKey.last_used_at)}</span>
-                      )}
-                      {apiKey.expires_at && (
-                        <span className="hidden sm:inline">Expires {formatRelativeTime(apiKey.expires_at)}</span>
+                        <span>Used {formatRelativeTime(apiKey.last_used_at)}</span>
                       )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDeleteTarget({ id: apiKey.id, name: apiKey.name })}
-                    className="text-error hover:text-error hover:bg-error-muted flex-shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Usage Hint */}
+            <div className="mt-6 p-4 bg-surface-secondary/50 border border-border-light rounded-xl">
+              <p className="text-[13px] text-text-secondary">
+                <span className="font-medium text-foreground">Usage: </span>
+                Include your API key in the <code className="px-1.5 py-0.5 bg-surface rounded text-primary text-[12px]">Authorization</code> header as{' '}
+                <code className="px-1.5 py-0.5 bg-surface rounded text-primary text-[12px]">Bearer YOUR_API_KEY</code>
+              </p>
+            </div>
+          </>
         ) : (
           <EmptyState
             icon={<Key className="w-8 h-8" />}
@@ -192,10 +352,8 @@ export default function ApiKeysPage() {
                 </div>
               </div>
             </div>
-            <div className="p-3 md:p-4 bg-warning-muted rounded-xl text-[12px] md:text-[13px] text-warning flex items-start gap-2.5">
-              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <div className="p-3 md:p-4 bg-warning/10 border border-warning/20 rounded-xl text-[12px] md:text-[13px] text-warning flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               Make sure to copy this key now. You will not be able to see it again.
             </div>
             <ModalFooter>
@@ -206,9 +364,10 @@ export default function ApiKeysPage() {
           <form onSubmit={handleCreate}>
             <Input
               label="Key Name"
-              placeholder="My API Key"
+              placeholder="Production, Development, CI/CD..."
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
+              helperText="Give your key a descriptive name to identify its purpose"
               required
             />
             <ModalFooter>
@@ -228,7 +387,7 @@ export default function ApiKeysPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete API Key"
-        description={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${deleteTarget?.name}"? Any applications using this key will lose access. This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
         isLoading={deleteApiKey.isPending}

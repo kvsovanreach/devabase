@@ -26,6 +26,12 @@ pub struct ColumnDefinition {
     pub unique: bool,
     #[serde(default)]
     pub default: Option<String>,
+    #[serde(default)]
+    pub references_table: Option<String>,
+    #[serde(default)]
+    pub references_column: Option<String>,
+    #[serde(default)]
+    pub on_delete: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

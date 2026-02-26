@@ -62,7 +62,6 @@ export function Modal({
                   'shadow-[0_-24px_80px_-12px_rgba(0,0,0,0.5)] sm:shadow-[0_24px_80px_-12px_rgba(0,0,0,0.5)]',
                   'transition-all',
                   'rounded-t-2xl sm:rounded-2xl',
-                  'max-h-[90vh] sm:max-h-none overflow-y-auto',
                   sizes[size]
                 )}
               >

@@ -26,6 +26,9 @@ export interface ColumnDefinition {
   nullable?: boolean;
   unique?: boolean;
   default?: string;
+  references_table?: string;
+  references_column?: string;
+  on_delete?: string;
 }
 
 export interface CreateTableRequest {

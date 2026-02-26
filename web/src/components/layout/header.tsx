@@ -28,6 +28,7 @@ const pathNames: Record<string, string> = {
   schema: 'Schema',
   playground: 'Playground',
   analytics: 'Analytics',
+  'api-docs': 'API Docs',
 };
 
 export function Header() {
