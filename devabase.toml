@@ -1,0 +1,60 @@
+# Devabase Configuration
+
+[server]
+host = "0.0.0.0"
+port = 8080
+ui_enabled = true
+
+[database]
+url = "${DATABASE_URL}"
+max_connections = 20
+run_migrations = true
+
+[storage]
+driver = "local"
+path = "./data/files"
+max_file_size = "100MB"
+
+[vector]
+default_dimensions = 768  # Match your embedding model's output (sroberta-multitask = 768)
+default_metric = "cosine"
+index_type = "hnsw"
+
+[embedding]
+# Supported providers: "openai", "ollama", "custom"
+#
+# For OpenAI:
+#   provider = "openai"
+#   api_key = "${OPENAI_API_KEY}"
+#   model = "text-embedding-3-small"  # or text-embedding-3-large, text-embedding-ada-002
+#
+# For Custom embedding service (OpenAI-compatible API):
+#   provider = "custom"
+#   base_url = "http://your-host:port/api/v1"
+#   api_key = "your-api-key"  # sent as X-API-KEY header
+#   model = "your-model-name"
+#   Endpoint called: POST {base_url}/{model}/embeddings
+#
+#provider = "openai"
+#api_key = "${OPENAI_API_KEY}"
+#model = "text-embedding-3-small"
+#batch_size = 100
+
+provider = "custom"
+api_key = "sk-d7a20eb034c847e8994e192b40c69a61"  # Optional, sent as X-API-KEY header
+base_url = "http://gpu-local.sovanreach.com:9020/api/v1"
+model = "sroberta-multitask"
+
+[chunking]
+default_strategy = "markdown"
+chunk_size = 256  # Reduced for 128 token limit (~4 chars/token)
+chunk_overlap = 32
+
+[cache]
+enabled = true
+ttl_seconds = 86400
+
+[auth]
+jwt_secret = "${JWT_SECRET}"
+api_key_prefix = "dvb_"
+token_expiry_hours = 24

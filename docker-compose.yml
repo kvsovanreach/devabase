@@ -1,0 +1,106 @@
+services:
+  # ===========================================================================
+  # PostgreSQL Database with pgvector
+  # ===========================================================================
+  devabase-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: DEVABASE_POSTGRES
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devabase}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devabase}
+      POSTGRES_DB: ${POSTGRES_DB:-devabase}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devabase} -d ${POSTGRES_DB:-devabase}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devabase-network
+
+  # ===========================================================================
+  # Rust Backend API
+  # ===========================================================================
+  devabase-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: devabase-backend:latest
+    container_name: DEVABASE_BACKEND
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Server
+      DEVABASE_HOST: 0.0.0.0
+      DEVABASE_PORT: 8080
+
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-devabase}:${POSTGRES_PASSWORD:-devabase}@devabase-postgres:5432/${POSTGRES_DB:-devabase}
+
+      # Auth
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-a-long-random-string}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
+
+      # Storage
+      STORAGE_PATH: /app/data/storage
+
+      # Logging
+      RUST_LOG: ${RUST_LOG:-info,devabase=debug}
+    volumes:
+      - backend-data:/app/data
+    depends_on:
+      devabase-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - devabase-network
+
+  # ===========================================================================
+  # Next.js Frontend
+  # ===========================================================================
+  devabase-frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    image: devabase-frontend:latest
+    container_name: DEVABASE_FRONTEND
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    depends_on:
+      devabase-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - devabase-network
+
+volumes:
+  pgdata:
+    name: devabase_pgdata
+  backend-data:
+    name: devabase_backend_data
+
+networks:
+  devabase-network:
+    name: devabase-network
+    driver: bridge
