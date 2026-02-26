@@ -11,11 +11,11 @@
 [![PostgreSQL](https://img.shields.io/badge/postgresql-16-blue.svg)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/devabase/devabase)
 
-[Documentation](https://docs.devabase.io) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Discord](https://discord.gg/devabase)
+[Documentation](https://docs.devabase.io) · [Quick Start](#-quick-start) · [API Reference](#-api-reference)
 
 <br />
 
-<img src="docs/assets/dashboard-preview.png" alt="Devabase Dashboard" width="800" />
+<img src="docs/assets/dashboard.png" alt="Devabase Dashboard" width="800" />
 
 </div>
 
@@ -400,8 +400,6 @@ cd web && npm run build
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 - 🐛 [Report bugs](https://github.com/kvsovanreach/devabase/issues)
 - 💡 [Request features](https://github.com/kvsovanreach/devabase/discussions)
 - 📖 [Improve docs](https://github.com/kvsovanreach/devabase/tree/main/docs)
@@ -418,6 +416,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Built with ❤️ by the Devabase team**
 
-[Website](https://devabase.io) · [Documentation](https://docs.devabase.io) · [Discord](https://discord.gg/devabase) · [Twitter](https://twitter.com/devabase)
+[Website](https://devabase.io) · [Documentation](https://docs.devabase.io)
 
 </div>
