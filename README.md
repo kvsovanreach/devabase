@@ -15,7 +15,7 @@
 
 <br />
 
-<img src="docs/assets/system-demo.gif" alt="Devabase System" width="100" />
+<img src="docs/assets/system_demo.gif" alt="Devabase System" width="1000" />
 
 </div>
 
