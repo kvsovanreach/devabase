@@ -371,6 +371,71 @@ The web dashboard provides a complete interface for managing your Devabase insta
 
 ---
 
+## 💻 CLI
+
+The `deva` CLI lets you manage Devabase from your terminal — perfect for scripting, CI/CD, and developers who prefer the command line.
+
+### Installation
+
+```bash
+# Quick install (macOS/Linux)
+curl -fsSL https://get.devabase.io/cli | sh
+
+# Or with Cargo
+cargo install devabase-cli
+
+# Or download from GitHub releases
+# https://github.com/kvsovanreach/devabase/releases
+```
+
+### Usage
+
+```bash
+# Authenticate
+deva login
+deva login --api-key deva_xxxx    # Or use API key
+
+# Select project
+deva project list
+deva project use my-project
+
+# Manage collections
+deva collections list
+deva collections create docs --dimensions 1536
+deva collections delete docs
+
+# Upload documents
+deva documents upload ./manual.pdf -c docs
+deva documents list -c docs
+
+# Query tables
+deva tables list
+deva tables export users -f csv -o users.csv
+deva tables query orders --filter "status=pending" --limit 50
+
+# Execute SQL
+deva sql "SELECT * FROM customers WHERE created_at > '2024-01-01'"
+
+# Output formats
+deva collections list --format json    # JSON output
+deva tables query users --format csv   # CSV output
+```
+
+### Configuration
+
+Config is stored in `~/.devabase/config.json`:
+
+```bash
+deva config                           # Show current config
+deva config api_url                   # Get value
+deva config api_url http://localhost:8080  # Set value
+```
+
+Environment variables:
+- `DEVABASE_API_URL` — Override API URL
+
+---
+
 ## 🧑‍💻 Development
 
 ```bash
