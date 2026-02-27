@@ -14,6 +14,8 @@ import {
   Chunk,
   SearchRequest,
   SearchResult,
+  HybridSearchRequest,
+  HybridSearchResult,
   ApiKey,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
@@ -344,7 +346,25 @@ class ApiClient {
       collection: data.collection,
       query: data.query,
       top_k: data.limit,
+      filter: data.filter,
+      rerank: data.rerank,
     });
+    return response.data;
+  }
+
+  // Hybrid search endpoint (vector + keyword/BM25)
+  async hybridSearch(data: HybridSearchRequest): Promise<HybridSearchResult[]> {
+    const collection = encodeURIComponent(data.collection);
+    const response = await this.client.post<HybridSearchResult[]>(
+      `/collections/${collection}/vectors/hybrid-search`,
+      {
+        query: data.query,
+        top_k: data.limit || 10,
+        vector_weight: data.vector_weight,
+        keyword_weight: data.keyword_weight,
+        filter: data.filter,
+      }
+    );
     return response.data;
   }
 
@@ -422,6 +442,13 @@ class ApiClient {
 
   async post<T>(url: string, data?: unknown): Promise<{ data: T }> {
     return this.client.post<T>(url, data);
+  }
+
+  // For long-running operations like knowledge extraction
+  async postLongRunning<T>(url: string, data?: unknown): Promise<{ data: T }> {
+    return this.client.post<T>(url, data, {
+      timeout: API_CONFIG.longRunningTimeout,
+    });
   }
 
   async patch<T>(url: string, data?: unknown): Promise<{ data: T }> {

@@ -17,6 +17,7 @@ interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultCollection?: string;
+  onUploadComplete?: (collection: string) => void;
 }
 
 interface UploadFile {
@@ -33,7 +34,7 @@ function getNameWithoutExtension(filename: string): string {
   return lastDot > 0 ? filename.substring(0, lastDot) : filename;
 }
 
-export function UploadModal({ isOpen, onClose, defaultCollection }: UploadModalProps) {
+export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComplete }: UploadModalProps) {
   const { data: collections } = useCollections();
   const queryClient = useQueryClient();
   const [selectedCollection, setSelectedCollection] = useState(defaultCollection || '');
@@ -131,11 +132,15 @@ export function UploadModal({ isOpen, onClose, defaultCollection }: UploadModalP
 
     if (errorCount === 0 && successCount > 0) {
       toast.success(`${successCount} file(s) uploaded successfully. Processing...`);
+      // Notify parent of the collection used for upload
+      onUploadComplete?.(selectedCollection);
       setTimeout(() => {
         handleClose();
       }, 300);
     } else if (successCount > 0 && errorCount > 0) {
       toast.success(`${successCount} file(s) uploaded, ${errorCount} failed`);
+      // Still notify parent even with partial success
+      onUploadComplete?.(selectedCollection);
     } else if (errorCount > 0) {
       toast.error(`Failed to upload ${errorCount} file(s)`);
     }

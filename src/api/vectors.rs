@@ -7,8 +7,10 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::auth::AuthContext;
+use crate::db::models::Project;
+use crate::rag::get_project_embedding_provider;
 use crate::server::AppState;
-use crate::vector::{self, SearchQuery, VectorMatch, VectorUpsert};
+use crate::vector::{self, SearchQuery, VectorMatch, VectorUpsert, HybridSearchParams, HybridSearchResult};
 use crate::{Error, Result};
 
 // ─────────────────────────────────────────
@@ -110,6 +112,62 @@ pub async fn collection_search(
     };
 
     let results = vector::search_vectors(&state.pool, project_id, &collection_name, query).await?;
+    Ok(Json(results))
+}
+
+/// Request for hybrid search combining vector and keyword search
+#[derive(Debug, Deserialize)]
+pub struct HybridSearchRequest {
+    /// The search query text (used for both embedding and keyword search)
+    pub query: String,
+    /// Number of results to return (default: 10)
+    #[serde(default = "default_top_k")]
+    pub top_k: i32,
+    /// Weight for vector search results (0.0-1.0, default: 0.7)
+    pub vector_weight: Option<f32>,
+    /// Weight for keyword search results (0.0-1.0, default: 0.3)
+    pub keyword_weight: Option<f32>,
+    /// Filter by metadata
+    pub filter: Option<serde_json::Value>,
+}
+
+/// POST /collections/:name/vectors/hybrid-search - Hybrid search combining vector and keyword
+pub async fn collection_hybrid_search(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Path(collection_name): Path<String>,
+    Json(request): Json<HybridSearchRequest>,
+) -> Result<Json<Vec<HybridSearchResult>>> {
+    let project_id = auth.require_project()?;
+
+    // Verify collection exists in this project
+    let _collection = vector::get_collection(&state.pool, &collection_name, Some(project_id)).await?;
+
+    // Get project settings for embedding provider
+    let project: Project = sqlx::query_as("SELECT * FROM sys_projects WHERE id = $1")
+        .bind(project_id)
+        .fetch_one(state.pool.inner())
+        .await
+        .map_err(|_| Error::NotFound("Project not found".to_string()))?;
+
+    let settings = project.settings.unwrap_or_default();
+    let embedding_provider = get_project_embedding_provider(&settings)?;
+
+    // Generate embedding from query text
+    let embeddings = embedding_provider.embed(&[request.query.clone()]).await?;
+    let embedding = embeddings.into_iter().next()
+        .ok_or_else(|| Error::Internal("Failed to generate embedding".to_string()))?;
+
+    let params = HybridSearchParams {
+        query: request.query,
+        embedding,
+        top_k: Some(request.top_k),
+        vector_weight: request.vector_weight,
+        keyword_weight: request.keyword_weight,
+        filter: request.filter,
+    };
+
+    let results = vector::hybrid_search(&state.pool, project_id, &collection_name, params).await?;
     Ok(Json(results))
 }
 

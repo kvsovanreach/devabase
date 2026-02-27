@@ -298,6 +298,15 @@
   .from-primary\/10 { --tw-gradient-from: color-mix(in srgb, var(--primary) 10%, transparent); }
   .to-primary\/5 { --tw-gradient-to: color-mix(in srgb, var(--primary) 5%, transparent); }
   .to-transparent { --tw-gradient-to: transparent; }
+
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-none {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+  }
 }
 
 /* ============================================

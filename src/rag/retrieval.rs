@@ -4,7 +4,7 @@ use crate::Result;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{EmbeddingProvider, EmbeddingService};
+use super::{EmbeddingProvider, EmbeddingService, Reranker};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RetrievalQuery {
@@ -30,6 +30,8 @@ pub struct RetrievalResult {
     pub document_id: uuid::Uuid,
     pub content: String,
     pub score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rerank_score: Option<f64>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -113,6 +115,7 @@ pub async fn retrieve(
             document_id: r.document_id,
             content: r.content,
             score: r.score,
+            rerank_score: None,
             metadata: r.metadata,
         })
         .collect())
@@ -151,9 +154,54 @@ pub async fn retrieve_with_provider(
             document_id: r.document_id,
             content: r.content,
             score: r.score,
+            rerank_score: None,
             metadata: r.metadata,
         })
         .collect())
+}
+
+/// Retrieve with reranking support
+pub async fn retrieve_with_reranking(
+    pool: &DbPool,
+    embedding_provider: &dyn EmbeddingProvider,
+    reranker: Option<&dyn Reranker>,
+    query: RetrievalQuery,
+    project_id: Option<Uuid>,
+) -> Result<Vec<RetrievalResult>> {
+    // First, do the standard retrieval
+    let results = retrieve_with_provider(pool, embedding_provider, query.clone(), project_id).await?;
+
+    // If reranking is enabled and we have a reranker, rerank the results
+    if query.rerank.unwrap_or(false) {
+        if let Some(reranker) = reranker {
+            if !results.is_empty() {
+                let documents: Vec<String> = results.iter().map(|r| r.content.clone()).collect();
+                let reranked = reranker.rerank(&query.query, documents, None).await?;
+
+                // Reorder results based on rerank scores
+                let mut reranked_results: Vec<RetrievalResult> = reranked
+                    .into_iter()
+                    .map(|r| {
+                        let mut result = results[r.index].clone();
+                        result.rerank_score = Some(r.score);
+                        result
+                    })
+                    .collect();
+
+                // Sort by rerank score (descending)
+                reranked_results.sort_by(|a, b| {
+                    b.rerank_score
+                        .unwrap_or(0.0)
+                        .partial_cmp(&a.rerank_score.unwrap_or(0.0))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                return Ok(reranked_results);
+            }
+        }
+    }
+
+    Ok(results)
 }
 
 pub async fn retrieve_with_context(

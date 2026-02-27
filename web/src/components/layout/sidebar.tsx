@@ -27,6 +27,8 @@ import {
   Code2,
   BarChart3,
   BookOpen,
+  FlaskConical,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProjectSwitcher } from './project-switcher';
@@ -70,6 +72,8 @@ const navigation: (NavItem | NavGroup)[] = [
     items: [
       { name: 'RAG Chat', href: '/rag', icon: MessageSquare },
       { name: 'Prompts', href: '/prompts', icon: Sparkles },
+      { name: 'Knowledge', href: '/knowledge', icon: Share2 },
+      { name: 'Evaluation', href: '/evaluation', icon: FlaskConical },
     ],
   },
   {

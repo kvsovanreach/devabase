@@ -42,6 +42,9 @@ pub enum Error {
     #[error("Embedding error: {0}")]
     Embedding(String),
 
+    #[error("Rerank error: {0}")]
+    Rerank(String),
+
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
 
@@ -75,6 +78,7 @@ impl IntoResponse for Error {
             }
             Error::Storage(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             Error::Embedding(msg) => (StatusCode::BAD_GATEWAY, msg.as_str()),
+            Error::Rerank(msg) => (StatusCode::BAD_GATEWAY, msg.as_str()),
             Error::RateLimitExceeded => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded"),
             Error::Io(e) => {
                 tracing::error!("IO error: {}", e);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCollections } from '@/hooks/use-collections';
 import { useDocumentsWithPolling, useDeleteDocument } from '@/hooks/use-documents';
 import { useProjectStore } from '@/stores/project-store';
@@ -33,8 +33,15 @@ export default function DocumentsPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
-  // Auto-select first collection when collections load
-  const effectiveCollection = selectedCollection || (collections?.[0]?.name ?? '');
+  // Get collection with most vectors for auto-selection
+  const collectionWithMostVectors = useMemo(() => {
+    if (!collections || collections.length === 0) return '';
+    const sorted = [...collections].sort((a, b) => b.vector_count - a.vector_count);
+    return sorted[0]?.name ?? '';
+  }, [collections]);
+
+  // Auto-select collection with most vectors when collections load
+  const effectiveCollection = selectedCollection || collectionWithMostVectors;
 
   const { data: documents, isLoading: documentsLoading, isFetching } = useDocumentsWithPolling(effectiveCollection);
   const deleteDocument = useDeleteDocument(effectiveCollection);
@@ -185,13 +192,13 @@ export default function DocumentsPage() {
           <Select
             label="Collection"
             options={collectionOptions}
-            value={selectedCollection}
+            value={effectiveCollection}
             onChange={(e) => setSelectedCollection(e.target.value)}
             placeholder="Select a collection to view documents"
           />
         </div>
 
-        {!selectedCollection ? (
+        {!effectiveCollection ? (
           <EmptyState
             icon={<FileText className="w-8 h-8" />}
             title="Select a collection"
@@ -202,27 +209,32 @@ export default function DocumentsPage() {
         ) : documents && documents.length > 0 ? (
           <div className="space-y-3">
             {documents.map((doc) => (
-              <Card key={doc.id} className="p-4 md:p-5">
+              <Card key={doc.id} className="p-4 md:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start sm:items-center gap-3 md:gap-4">
-                  <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-surface-secondary flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-5 h-5 text-text-secondary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-[14px] md:text-[15px] font-medium text-foreground truncate">
-                        {doc.filename}
-                      </h3>
-                      {getStatusBadge(doc.status)}
+                  <Link
+                    href={`/documents/${doc.id}?collection=${effectiveCollection}`}
+                    className="flex items-start sm:items-center gap-3 md:gap-4 flex-1 min-w-0 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-surface-secondary flex items-center justify-center flex-shrink-0">
+                      <FileText className="w-5 h-5 text-text-secondary" />
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1.5 text-[12px] md:text-[13px] text-text-secondary">
-                      <span>{formatFileSize(doc.file_size)}</span>
-                      <span>{doc.chunk_count} chunks</span>
-                      <span className="hidden sm:inline">{formatRelativeTime(doc.created_at)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-[14px] md:text-[15px] font-medium text-foreground truncate">
+                          {doc.filename}
+                        </h3>
+                        {getStatusBadge(doc.status)}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-1.5 text-[12px] md:text-[13px] text-text-secondary">
+                        <span>{formatFileSize(doc.file_size)}</span>
+                        <span>{doc.chunk_count} chunks</span>
+                        <span className="hidden sm:inline">{formatRelativeTime(doc.created_at)}</span>
+                      </div>
+                      {doc.error_message && (
+                        <p className="text-[12px] md:text-[13px] text-error mt-1.5 break-words">{doc.error_message}</p>
+                      )}
                     </div>
-                    {doc.error_message && (
-                      <p className="text-[12px] md:text-[13px] text-error mt-1.5 break-words">{doc.error_message}</p>
-                    )}
-                  </div>
+                  </Link>
                   <Menu as="div" className="relative flex-shrink-0">
                     <MenuButton className="p-2 text-text-secondary hover:text-foreground rounded-lg hover:bg-surface-hover transition-all duration-150">
                       <MoreVertical className="w-4 h-4" />
@@ -240,7 +252,7 @@ export default function DocumentsPage() {
                         <MenuItem>
                           {({ focus }) => (
                             <Link
-                              href={`/documents/${doc.id}?collection=${selectedCollection}`}
+                              href={`/documents/${doc.id}?collection=${effectiveCollection}`}
                               className={cn(
                                 'w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] md:text-[15px] text-foreground transition-colors',
                                 focus ? 'bg-surface-hover' : ''
@@ -293,7 +305,8 @@ export default function DocumentsPage() {
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        defaultCollection={selectedCollection}
+        defaultCollection={effectiveCollection}
+        onUploadComplete={(collection) => setSelectedCollection(collection)}
       />
 
       <ConfirmModal

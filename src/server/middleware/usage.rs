@@ -1,0 +1,98 @@
+use axum::{
+    body::Body,
+    extract::State,
+    http::{header, Request, Response},
+    middleware::Next,
+};
+use std::sync::Arc;
+use std::time::Instant;
+
+use crate::server::AppState;
+
+/// Middleware to log API usage to sys_usage_logs table.
+/// Only logs requests authenticated via API key (not session/cookie auth).
+pub async fn log_usage(
+    State(state): State<Arc<AppState>>,
+    request: Request<Body>,
+    next: Next,
+) -> Response<Body> {
+    let start = Instant::now();
+    let method = request.method().to_string();
+    let path = request.uri().path().to_string();
+
+    // Check if request is using API key authentication
+    let has_api_key = has_api_key_auth(&request);
+
+    // Skip logging if not using API key or if it's a system endpoint
+    if !has_api_key || should_skip_logging(&path) {
+        return next.run(request).await;
+    }
+
+    // Run the request
+    let response = next.run(request).await;
+
+    let latency_ms = start.elapsed().as_millis() as i32;
+    let status_code = response.status().as_u16() as i16;
+
+    // Log asynchronously to not block the response
+    let pool = state.pool.clone();
+    tokio::spawn(async move {
+        let _ = sqlx::query(
+            r#"
+            INSERT INTO sys_usage_logs (endpoint, method, status_code, latency_ms)
+            VALUES ($1, $2, $3, $4)
+            "#,
+        )
+        .bind(&path)
+        .bind(&method)
+        .bind(status_code)
+        .bind(latency_ms)
+        .execute(pool.inner())
+        .await;
+    });
+
+    response
+}
+
+/// Check if the request is authenticated via API key (not session cookie)
+fn has_api_key_auth(request: &Request<Body>) -> bool {
+    // Check X-API-Key header
+    if request.headers().contains_key("x-api-key") {
+        return true;
+    }
+
+    // Check Authorization header for Bearer token that looks like an API key
+    // API keys typically start with "deva_" or similar prefix
+    // Session tokens are JWTs which start with "eyJ"
+    if let Some(auth) = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+    {
+        if let Some(token) = auth.strip_prefix("Bearer ") {
+            // If it doesn't look like a JWT, it's probably an API key
+            return !token.starts_with("eyJ");
+        }
+    }
+
+    false
+}
+
+/// Determine if we should skip logging for this path
+fn should_skip_logging(path: &str) -> bool {
+    // Skip health checks and static files
+    path == "/health"
+        || path == "/v1/health"
+        || path == "/ready"
+        || path == "/v1/ready"
+        || path == "/metrics"
+        || path.starts_with("/static/")
+        || path.starts_with("/assets/")
+        || path == "/favicon.ico"
+        // Skip admin/analytics endpoints
+        || path.contains("/admin/")
+        || path.contains("/usage")
+        // Skip WebSocket connections
+        || path.contains("/ws")
+        || path.contains("/realtime")
+}

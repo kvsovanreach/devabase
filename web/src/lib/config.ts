@@ -11,6 +11,7 @@ export const API_CONFIG = {
   wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080',
   timeout: 60000, // 60 seconds for regular requests
   uploadTimeout: 300000, // 5 minutes for file uploads
+  longRunningTimeout: 300000, // 5 minutes for long-running operations (knowledge extraction, etc.)
   retryAttempts: 3,
 } as const;
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::auth::AuthContext;
 use crate::db::models::Project;
-use crate::rag::{self, get_project_embedding_provider, ContextQuery, ContextResult, MultiCollectionQuery, MultiCollectionResponse, RetrievalQuery, RetrievalResult};
+use crate::rag::{self, get_project_embedding_provider, get_project_reranker, ContextQuery, ContextResult, MultiCollectionQuery, MultiCollectionResponse, RetrievalQuery, RetrievalResult};
 use crate::server::AppState;
 use crate::{Error, Result};
 
@@ -33,6 +33,9 @@ pub struct SearchRequest {
     pub filter: Option<serde_json::Value>,
     /// For unified search: which collections to search
     pub collections: Option<Vec<String>>,
+    /// Enable reranking of results (requires reranking provider configured)
+    #[serde(default)]
+    pub rerank: bool,
 }
 
 fn default_top_k() -> i32 { 10 }
@@ -44,6 +47,8 @@ pub struct SearchResult {
     pub id: String,
     pub content: String,
     pub score: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rerank_score: Option<f64>,
     pub document_id: String,
     pub document_name: Option<String>,
     pub collection: String,
@@ -77,17 +82,31 @@ pub async fn collection_search(
     let settings = project.settings.unwrap_or_default();
     let embedding_provider = get_project_embedding_provider(&settings)?;
 
+    // Get reranker if reranking is requested
+    let reranker = if req.rerank {
+        get_project_reranker(&settings).ok()
+    } else {
+        None
+    };
+
     // Build retrieval query
     let query = RetrievalQuery {
         collection: collection_name.clone(),
         query: req.query.clone(),
         top_k: Some(req.top_k),
         filter: req.filter,
-        rerank: None,
+        rerank: Some(req.rerank),
         include_content: Some(true),
     };
 
-    let results = rag::retrieve_with_provider(&state.pool, embedding_provider.as_ref(), query, Some(project_id)).await?;
+    // Use reranking retrieval if reranker is available
+    let results = rag::retrieve_with_reranking(
+        &state.pool,
+        embedding_provider.as_ref(),
+        reranker.as_deref(),
+        query,
+        Some(project_id),
+    ).await?;
 
     // Convert to search response
     let search_results: Vec<SearchResult> = results
@@ -104,6 +123,7 @@ pub async fn collection_search(
                 id: r.id.to_string(),
                 content: r.content,
                 score: r.score,
+                rerank_score: r.rerank_score,
                 document_id: r.document_id.to_string(),
                 document_name: doc_name,
                 collection: collection_name.clone(),
@@ -170,6 +190,7 @@ pub async fn unified_search(
                 id: r.id.to_string(),
                 content: r.content,
                 score: r.score,
+                rerank_score: None, // Multi-collection search doesn't support reranking yet
                 document_id: r.document_id.to_string(),
                 document_name: doc_name,
                 collection: r.collection_name,
