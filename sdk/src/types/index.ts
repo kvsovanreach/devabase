@@ -197,6 +197,12 @@ export interface PaginationMeta {
 }
 
 export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+/** For table rows responses specifically */
+export interface PaginatedRowsResponse<T> {
   rows: T[];
   pagination: PaginationMeta;
 }
@@ -218,6 +224,8 @@ export interface QueryOptions {
   filter?: string;
   /** Columns to select (e.g., "id,name,email") */
   select?: string;
+  /** Index signature for http client compatibility */
+  [key: string]: string | number | boolean | undefined;
 }
 
 // ============================================================================
@@ -347,6 +355,106 @@ export interface ExtractKnowledgeOptions {
   document_id?: string;
   /** Collection name to extract from all documents */
   collection?: string;
+}
+
+// ============================================================================
+// Conversation Types
+// ============================================================================
+
+export interface Conversation {
+  id: string;
+  project_id: string;
+  collection_id: string;
+  user_id: string | null;
+  title: string | null;
+  summary: string | null;
+  message_count: number;
+  total_tokens: number;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationWithCollection extends Conversation {
+  collection_name: string;
+}
+
+// ============================================================================
+// Project Member & Invitation Types
+// ============================================================================
+
+export interface ProjectMember {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  role: ProjectRole;
+  joined_at: string;
+}
+
+export interface ProjectInvitation {
+  id: string;
+  email: string;
+  role: ProjectRole;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  created_at: string;
+  expires_at: string;
+}
+
+export interface CreateInvitationInput {
+  email: string;
+  role?: ProjectRole;
+}
+
+// ============================================================================
+// Prompt Types
+// ============================================================================
+
+export interface Prompt {
+  name: string;
+  description: string | null;
+  content: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePromptInput {
+  name: string;
+  content: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdatePromptInput {
+  content?: string;
+  description?: string;
+}
+
+// ============================================================================
+// Evaluation Types
+// ============================================================================
+
+export interface EvaluationDataset {
+  id: string;
+  collection_name: string;
+  name: string;
+  description: string | null;
+  case_count: number;
+  run_count: number;
+  last_run: string | null;
+  created_at: string;
+}
+
+export interface EvaluationRun {
+  id: string;
+  dataset_id: string;
+  search_mode: string;
+  config: Record<string, unknown> | null;
+  metrics: Record<string, unknown>;
+  case_results: Record<string, unknown> | null;
+  created_at: string;
 }
 
 // ============================================================================

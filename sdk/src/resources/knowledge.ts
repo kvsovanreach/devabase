@@ -3,14 +3,20 @@ import {
   Entity,
   Relationship,
   EntityGraph,
+  PaginatedResponse,
+  QueryOptions,
   RequestOptions,
 } from '../types';
 
-export interface EntitySearchOptions {
-  query?: string;
+export interface EntitySearchOptions extends QueryOptions {
   entity_type?: string;
-  limit?: number;
-  offset?: number;
+  collection_id?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface RelationshipSearchOptions extends QueryOptions {
+  entity_id?: string;
+  relationship_type?: string;
   [key: string]: string | number | boolean | undefined;
 }
 
@@ -27,16 +33,18 @@ export class KnowledgeResource {
   // =========================================================================
 
   /**
-   * List all entities
+   * List all entities with pagination
    * @example
-   * const entities = await client.knowledge.entities.list();
+   * const result = await client.knowledge.entities.list({ limit: 10 });
+   * console.log(result.data); // Array of entities
+   * console.log(result.pagination.total); // Total count
    */
   readonly entities = {
     list: async (
       options?: EntitySearchOptions,
       requestOptions?: RequestOptions
-    ): Promise<Entity[]> => {
-      return this.http.get<Entity[]>('/v1/knowledge/entities', options, requestOptions);
+    ): Promise<PaginatedResponse<Entity>> => {
+      return this.http.get<PaginatedResponse<Entity>>('/v1/knowledge/entities', options, requestOptions);
     },
 
     /**
@@ -127,15 +135,17 @@ export class KnowledgeResource {
 
   readonly relationships = {
     /**
-     * List relationships
+     * List relationships with pagination
      * @example
-     * const relationships = await client.knowledge.relationships.list();
+     * const result = await client.knowledge.relationships.list({ limit: 10 });
+     * console.log(result.data); // Array of relationships
+     * console.log(result.pagination.total); // Total count
      */
     list: async (
-      options?: { entity_id?: string; type?: string; limit?: number },
+      options?: RelationshipSearchOptions,
       requestOptions?: RequestOptions
-    ): Promise<Relationship[]> => {
-      return this.http.get<Relationship[]>('/v1/knowledge/relationships', options, requestOptions);
+    ): Promise<PaginatedResponse<Relationship>> => {
+      return this.http.get<PaginatedResponse<Relationship>>('/v1/knowledge/relationships', options, requestOptions);
     },
 
     /**

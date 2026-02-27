@@ -3,6 +3,8 @@ import {
   Collection,
   CreateCollectionInput,
   CollectionStats,
+  PaginatedResponse,
+  QueryOptions,
   RequestOptions,
 } from '../types';
 
@@ -10,12 +12,14 @@ export class CollectionsResource {
   constructor(private http: HttpClient) {}
 
   /**
-   * List all collections
+   * List collections with pagination
    * @example
-   * const collections = await client.collections.list();
+   * const result = await client.collections.list({ limit: 10, page: 1 });
+   * console.log(result.data); // Array of collections
+   * console.log(result.pagination.total); // Total count
    */
-  async list(options?: RequestOptions): Promise<Collection[]> {
-    return this.http.get<Collection[]>('/v1/collections', undefined, options);
+  async list(query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<Collection>> {
+    return this.http.get<PaginatedResponse<Collection>>('/v1/collections', query, options);
   }
 
   /**

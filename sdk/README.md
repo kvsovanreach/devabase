@@ -69,8 +69,10 @@ await client.auth.logout();
 ## Projects
 
 ```typescript
-// List projects
-const projects = await client.projects.list();
+// List projects (paginated)
+const result = await client.projects.list({ limit: 10 });
+console.log(result.data);       // Array of projects
+console.log(result.pagination); // Pagination info
 
 // Create project
 const project = await client.projects.create({
@@ -81,14 +83,24 @@ const project = await client.projects.create({
 // Set active project
 client.useProject(project.id);
 
-// API Keys
+// API Keys (paginated)
+const keysResult = await client.projects.apiKeys.list(undefined, { limit: 10 });
+console.log(keysResult.data); // Array of API keys
+
 const { key } = await client.projects.apiKeys.create({
   name: 'Production Key',
   scopes: ['read', 'write']
 });
 
+// Members (paginated)
+const membersResult = await client.projects.members.list(undefined, { limit: 10 });
+console.log(membersResult.data); // Array of members
+
 // Invite members
 await client.projects.members.invite('colleague@example.com', 'member');
+
+// Invitations (paginated)
+const invitations = await client.projects.invitations.list(undefined, { limit: 10 });
 ```
 
 ## Collections
@@ -102,8 +114,10 @@ const collection = await client.collections.create({
   metric: 'cosine'
 });
 
-// List collections
-const collections = await client.collections.list();
+// List collections (paginated)
+const result = await client.collections.list({ limit: 10 });
+console.log(result.data);       // Array of collections
+console.log(result.pagination); // Pagination info
 
 // Get stats
 const stats = await client.collections.stats('my-docs');
@@ -129,11 +143,13 @@ const doc = await client.documents.upload('my-docs', {
   extract_knowledge: true
 });
 
-// List documents
-const docs = await client.documents.list('my-docs', {
+// List documents (paginated)
+const result = await client.documents.list('my-docs', {
   status: 'processed',
   limit: 50
 });
+console.log(result.data);       // Array of documents
+console.log(result.pagination); // Pagination info
 
 // Get document chunks
 const chunks = await client.documents.chunks(doc.id);
@@ -142,6 +158,11 @@ const chunks = await client.documents.chunks(doc.id);
 ## Tables (with Pagination)
 
 ```typescript
+// List tables (paginated)
+const tablesResult = await client.tables.list({ limit: 10 });
+console.log(tablesResult.data);       // Array of tables
+console.log(tablesResult.pagination); // Pagination info
+
 // Create table
 const table = await client.tables.create({
   name: 'users',
@@ -274,8 +295,17 @@ const knowledge = await client.knowledge.extractFromDocument('document-id');
 console.log(knowledge.entities);
 console.log(knowledge.relationships);
 
+// List entities (paginated)
+const entitiesResult = await client.knowledge.entities.list({ limit: 20 });
+console.log(entitiesResult.data);       // Array of entities
+console.log(entitiesResult.pagination); // Pagination info
+
 // Search entities
 const entities = await client.knowledge.entities.search('John');
+
+// List relationships (paginated)
+const relationshipsResult = await client.knowledge.relationships.list({ limit: 20 });
+console.log(relationshipsResult.data); // Array of relationships
 
 // Get entity graph
 const graph = await client.knowledge.getGraph('entity-id', { depth: 2 });

@@ -2,34 +2,34 @@ import { HttpClient } from '../utils/http';
 import {
   Document,
   UploadDocumentInput,
+  PaginatedResponse,
+  QueryOptions,
   RequestOptions,
 } from '../types';
 
-export interface ListDocumentsOptions {
+export interface ListDocumentsOptions extends QueryOptions {
   /** Filter by status */
   status?: 'pending' | 'processing' | 'processed' | 'failed';
-  /** Maximum number of documents to return */
-  limit?: number;
-  /** Offset for pagination */
-  offset?: number;
 }
 
 export class DocumentsResource {
   constructor(private http: HttpClient) {}
 
   /**
-   * List documents in a collection
+   * List documents in a collection with pagination
    * @example
-   * const docs = await client.documents.list('my-collection');
+   * const result = await client.documents.list('my-collection', { limit: 10 });
+   * console.log(result.data); // Array of documents
+   * console.log(result.pagination.total); // Total count
    */
   async list(
     collection: string,
     options?: ListDocumentsOptions & RequestOptions
-  ): Promise<Document[]> {
-    const { status, limit, offset, ...reqOptions } = options ?? {};
-    return this.http.get<Document[]>(
+  ): Promise<PaginatedResponse<Document>> {
+    const { status, limit, offset, page, per_page, cursor, ...reqOptions } = options ?? {};
+    return this.http.get<PaginatedResponse<Document>>(
       `/v1/collections/${collection}/documents`,
-      { status, limit, offset },
+      { status, limit, offset, page, per_page, cursor },
       reqOptions
     );
   }

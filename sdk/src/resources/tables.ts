@@ -4,6 +4,7 @@ import {
   CreateTableInput,
   QueryOptions,
   PaginatedResponse,
+  PaginatedRowsResponse,
   RequestOptions,
 } from '../types';
 
@@ -11,12 +12,14 @@ export class TablesResource {
   constructor(private http: HttpClient) {}
 
   /**
-   * List all tables
+   * List all tables with pagination
    * @example
-   * const tables = await client.tables.list();
+   * const result = await client.tables.list({ limit: 10 });
+   * console.log(result.data); // Array of tables
+   * console.log(result.pagination.total); // Total count
    */
-  async list(options?: RequestOptions): Promise<Table[]> {
-    return this.http.get<Table[]>('/v1/tables', undefined, options);
+  async list(query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<Table>> {
+    return this.http.get<PaginatedResponse<Table>>('/v1/tables', query, options);
   }
 
   /**
@@ -145,8 +148,8 @@ export class TableRowsClient {
   async query<T = Record<string, unknown>>(
     queryOptions?: QueryOptions,
     options?: RequestOptions
-  ): Promise<PaginatedResponse<T>> {
-    return this.http.get<PaginatedResponse<T>>(
+  ): Promise<PaginatedRowsResponse<T>> {
+    return this.http.get<PaginatedRowsResponse<T>>(
       `/v1/tables/${this.tableName}/rows`,
       queryOptions as Record<string, string | number | boolean | undefined>,
       options

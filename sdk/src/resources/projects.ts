@@ -6,6 +6,10 @@ import {
   ApiKey,
   CreateApiKeyInput,
   CreateApiKeyResponse,
+  PaginatedResponse,
+  ProjectMember,
+  ProjectInvitation,
+  QueryOptions,
   RequestOptions,
 } from '../types';
 
@@ -32,12 +36,14 @@ export class ProjectsResource {
   }
 
   /**
-   * List all projects for the current user
+   * List all projects for the current user with pagination
    * @example
-   * const projects = await client.projects.list();
+   * const result = await client.projects.list({ limit: 10 });
+   * console.log(result.data); // Array of projects
+   * console.log(result.pagination.total); // Total count
    */
-  async list(options?: RequestOptions): Promise<Project[]> {
-    return this.http.get<Project[]>('/v1/projects', undefined, options);
+  async list(query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<Project>> {
+    return this.http.get<PaginatedResponse<Project>>('/v1/projects', query, options);
   }
 
   /**
@@ -91,15 +97,16 @@ export class ProjectsResource {
   // =========================================================================
 
   /**
-   * List API keys for a project
+   * List API keys for a project with pagination
    * @example
-   * const keys = await client.projects.apiKeys.list();
+   * const result = await client.projects.apiKeys.list(undefined, { limit: 10 });
+   * console.log(result.data); // Array of API keys
    */
   readonly apiKeys = {
-    list: async (projectId?: string, options?: RequestOptions): Promise<ApiKey[]> => {
+    list: async (projectId?: string, query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<ApiKey>> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.get<ApiKey[]>(`/v1/projects/${id}/api-keys`, undefined, options);
+      return this.http.get<PaginatedResponse<ApiKey>>(`/v1/keys`, query, options);
     },
 
     create: async (
@@ -109,13 +116,13 @@ export class ProjectsResource {
     ): Promise<CreateApiKeyResponse> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.post<CreateApiKeyResponse>(`/v1/projects/${id}/api-keys`, input, options);
+      return this.http.post<CreateApiKeyResponse>(`/v1/keys`, input, options);
     },
 
     revoke: async (keyId: string, projectId?: string, options?: RequestOptions): Promise<void> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      await this.http.delete<void>(`/v1/projects/${id}/api-keys/${keyId}`, options);
+      await this.http.delete<void>(`/v1/keys/${keyId}`, options);
     },
   };
 
@@ -124,20 +131,13 @@ export class ProjectsResource {
   // =========================================================================
 
   /**
-   * Project member management
+   * Project member management with pagination
    */
   readonly members = {
-    list: async (projectId?: string, options?: RequestOptions): Promise<Array<{
-      id: string;
-      user_id: string;
-      email: string;
-      name: string;
-      role: string;
-      joined_at: string;
-    }>> => {
+    list: async (projectId?: string, query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<ProjectMember>> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.get(`/v1/projects/${id}/members`, undefined, options);
+      return this.http.get<PaginatedResponse<ProjectMember>>(`/v1/projects/${id}/members`, query, options);
     },
 
     invite: async (
@@ -145,10 +145,10 @@ export class ProjectsResource {
       role: 'admin' | 'member' | 'viewer' = 'member',
       projectId?: string,
       options?: RequestOptions
-    ): Promise<{ id: string; email: string; role: string; expires_at: string }> => {
+    ): Promise<ProjectInvitation> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.post(`/v1/projects/${id}/invitations`, { email, role }, options);
+      return this.http.post<ProjectInvitation>(`/v1/projects/${id}/invitations`, { email, role }, options);
     },
 
     remove: async (memberId: string, projectId?: string, options?: RequestOptions): Promise<void> => {
@@ -166,6 +166,27 @@ export class ProjectsResource {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
       await this.http.patch(`/v1/projects/${id}/members/${memberId}`, { role }, options);
+    },
+  };
+
+  // =========================================================================
+  // Invitations
+  // =========================================================================
+
+  /**
+   * Project invitation management with pagination
+   */
+  readonly invitations = {
+    list: async (projectId?: string, query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<ProjectInvitation>> => {
+      const id = projectId ?? this.currentProjectId;
+      if (!id) throw new Error('No project ID provided');
+      return this.http.get<PaginatedResponse<ProjectInvitation>>(`/v1/projects/${id}/invitations`, query, options);
+    },
+
+    revoke: async (invitationId: string, projectId?: string, options?: RequestOptions): Promise<void> => {
+      const id = projectId ?? this.currentProjectId;
+      if (!id) throw new Error('No project ID provided');
+      await this.http.delete(`/v1/projects/${id}/invitations/${invitationId}`, options);
     },
   };
 }
