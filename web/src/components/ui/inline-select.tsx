@@ -61,7 +61,7 @@ export function InlineSelect({
             leaveFrom="opacity-100 scale-100 translate-y-0"
             leaveTo="opacity-0 scale-95 -translate-y-1"
           >
-            <ListboxOptions className="absolute z-50 w-full mt-1.5 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden focus:outline-none">
+            <ListboxOptions className="absolute z-50 w-full mt-1.5 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden focus:outline-none">
               <div className="py-1 max-h-48 overflow-y-auto">
                 {options.map((option) => (
                   <ListboxOption

@@ -26,6 +26,7 @@ import {
 import { useProjectStore } from '@/stores/project-store';
 import api from '@/lib/api';
 import { API_CONFIG } from '@/lib/config';
+import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -62,6 +63,7 @@ export default function PlaygroundPage() {
   } = usePlaygroundStore();
 
   const { currentProject } = useProjectStore();
+  const { isDark } = useTheme();
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
@@ -358,7 +360,7 @@ export default function PlaygroundPage() {
                   leaveFrom="opacity-100 scale-100 translate-y-0"
                   leaveTo="opacity-0 scale-95 -translate-y-1"
                 >
-                  <ListboxOptions className="absolute z-50 mt-2 w-28 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden focus:outline-none">
+                  <ListboxOptions className="absolute z-50 mt-2 w-28 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden focus:outline-none">
                     <div className="py-1.5">
                       {(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as HttpMethod[]).map((m) => (
                         <ListboxOption key={m} value={m} as={Fragment}>
@@ -456,7 +458,7 @@ export default function PlaygroundPage() {
                     language="json"
                     value={body}
                     onChange={(value) => setBody(value || '')}
-                    theme="vs-dark"
+                    theme={isDark ? 'vs-dark' : 'light'}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 13,
@@ -533,7 +535,7 @@ export default function PlaygroundPage() {
                     height="100%"
                     language="json"
                     value={response}
-                    theme="vs-dark"
+                    theme={isDark ? 'vs-dark' : 'light'}
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },

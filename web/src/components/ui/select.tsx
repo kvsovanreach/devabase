@@ -82,7 +82,7 @@ function Select({
           {options.length > 0 && (
             <ListboxOptions
               anchor="bottom start"
-              className="z-[100] w-[var(--button-width)] mt-2 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden focus:outline-none transition ease-out duration-150 data-[closed]:opacity-0 data-[closed]:scale-95"
+              className="z-[100] w-[var(--button-width)] mt-2 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden focus:outline-none transition ease-out duration-150 data-[closed]:opacity-0 data-[closed]:scale-95"
             >
               <div className="py-1.5 max-h-64 overflow-y-auto">
                 {options.map((option) => (

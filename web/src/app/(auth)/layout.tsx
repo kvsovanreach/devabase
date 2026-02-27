@@ -29,7 +29,7 @@ export default function AuthLayout({
           <h1 className="text-[28px] font-semibold text-foreground tracking-tight">Devabase</h1>
           <p className="text-[15px] text-text-secondary mt-2">Vector Database & RAG Platform</p>
         </div>
-        <div className="bg-surface border border-border-light rounded-2xl p-8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3)]">
+        <div className="bg-surface border border-border-light rounded-2xl p-8 shadow-lg">
           {children}
         </div>
       </div>

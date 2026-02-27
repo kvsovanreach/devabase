@@ -49,7 +49,7 @@ export function ProjectSwitcher() {
           leaveFrom="opacity-100 scale-100 translate-y-0"
           leaveTo="opacity-0 scale-95 -translate-y-1"
         >
-          <MenuItems className="absolute left-0 right-0 mt-2 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden z-50">
+          <MenuItems className="absolute left-0 right-0 mt-2 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50">
             <div className="py-1.5 max-h-64 overflow-y-auto">
               {projects.map((project) => (
                 <MenuItem key={project.id}>
