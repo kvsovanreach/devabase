@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import api, { api as apiClient } from '@/lib/api';
-import { SearchRequest } from '@/types';
+import { SearchRequest, HybridSearchRequest, HybridSearchResult } from '@/types';
 
 export function useSearch() {
   return useMutation({
@@ -38,5 +38,12 @@ export function useMultiCollectionSearch() {
       const response = await apiClient.post<MultiCollectionSearchResponse>('/retrieve/multi', data);
       return response.data;
     },
+  });
+}
+
+// Hybrid search (vector + keyword/BM25 with RRF fusion)
+export function useHybridSearch() {
+  return useMutation({
+    mutationFn: (data: HybridSearchRequest) => api.hybridSearch(data),
   });
 }

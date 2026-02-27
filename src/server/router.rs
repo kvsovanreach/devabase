@@ -1,10 +1,12 @@
 use super::middleware::deprecation::DeprecationLayer;
 use super::middleware::rate_limit::RateLimitLayer;
+use super::middleware::usage::log_usage;
 use super::AppState;
 use crate::api;
 use axum::{
     extract::DefaultBodyLimit,
     http::{header, Method},
+    middleware,
     routing::{delete, get, patch, post},
     Router,
 };
@@ -98,6 +100,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Collection vectors (LOW-LEVEL - for advanced users)
         .route("/collections/:name/vectors", post(api::vectors::collection_upsert))
         .route("/collections/:name/vectors/search", post(api::vectors::collection_search))
+        .route("/collections/:name/vectors/hybrid-search", post(api::vectors::collection_hybrid_search))
         .route("/collections/:name/vectors/:vid", delete(api::vectors::collection_delete_vector))
         // Collection documents
         .route("/collections/:name/documents", get(api::documents::collection_documents))
@@ -119,6 +122,60 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/documents/:id", delete(api::documents::delete_document))
         .route("/documents/:id/chunks", get(api::documents::get_document_chunks))
         .route("/documents/:id/reprocess", post(api::documents::reprocess_document))
+
+        // ─────────────────────────────────────────
+        // Chunks (Chunk Management)
+        // ─────────────────────────────────────────
+        .route("/chunks/:id", get(api::chunks::get_chunk))
+        .route("/chunks/:id", patch(api::chunks::update_chunk))
+        .route("/chunks/:id", delete(api::chunks::delete_chunk))
+        .route("/chunks/:id/split", post(api::chunks::split_chunk))
+        .route("/chunks/merge", post(api::chunks::merge_chunks))
+
+        // ─────────────────────────────────────────
+        // Evaluation (RAG Quality Metrics)
+        // ─────────────────────────────────────────
+        .route("/evaluation/datasets", get(api::evaluation::list_datasets))
+        .route("/evaluation/datasets", post(api::evaluation::create_dataset))
+        .route("/evaluation/datasets/:id", get(api::evaluation::get_dataset))
+        .route("/evaluation/datasets/:id", patch(api::evaluation::update_dataset))
+        .route("/evaluation/datasets/:id", delete(api::evaluation::delete_dataset))
+        .route("/evaluation/datasets/:id/cases", post(api::evaluation::create_case))
+        .route("/evaluation/datasets/:id/run", post(api::evaluation::run_evaluation))
+        .route("/evaluation/datasets/:id/runs", get(api::evaluation::list_runs))
+        .route("/evaluation/cases/:id", patch(api::evaluation::update_case))
+        .route("/evaluation/cases/:id", delete(api::evaluation::delete_case))
+        .route("/evaluation/runs/:id", get(api::evaluation::get_run))
+
+        // ─────────────────────────────────────────
+        // Knowledge Graph
+        // ─────────────────────────────────────────
+        .route("/knowledge/entities", get(api::knowledge_graph::list_entities))
+        .route("/knowledge/entities", post(api::knowledge_graph::create_entity))
+        .route("/knowledge/entities/search", post(api::knowledge_graph::search_entities))
+        .route("/knowledge/entities/merge", post(api::knowledge_graph::merge_entities))
+        .route("/knowledge/entities/:id", get(api::knowledge_graph::get_entity))
+        .route("/knowledge/entities/:id", patch(api::knowledge_graph::update_entity))
+        .route("/knowledge/entities/:id", delete(api::knowledge_graph::delete_entity))
+        .route("/knowledge/relationships", get(api::knowledge_graph::list_relationships))
+        .route("/knowledge/relationships", post(api::knowledge_graph::create_relationship))
+        .route("/knowledge/relationships/:id", delete(api::knowledge_graph::delete_relationship))
+        .route("/knowledge/graph/:entity_id", get(api::knowledge_graph::get_entity_graph))
+        .route("/knowledge/stats", get(api::knowledge_graph::get_stats))
+        .route("/knowledge/extract/:document_id", post(api::knowledge_graph::extract_from_document))
+
+        // ─────────────────────────────────────────
+        // Benchmarks (Academic Evaluation)
+        // ─────────────────────────────────────────
+        .route("/benchmarks/run", post(api::benchmarks::run_benchmark))
+        .route("/benchmarks", get(api::benchmarks::list_benchmarks))
+        .route("/benchmarks/datasets", get(api::benchmarks::list_datasets))
+        .route("/benchmarks/datasets/download", post(api::benchmarks::download_dataset))
+        .route("/benchmarks/configs", get(api::benchmarks::get_preset_configs))
+        .route("/benchmarks/compare", post(api::benchmarks::compare_benchmarks))
+        .route("/benchmarks/:id", get(api::benchmarks::get_benchmark))
+        .route("/benchmarks/:id", delete(api::benchmarks::delete_benchmark))
+        .route("/benchmarks/:id/export", get(api::benchmarks::export_benchmark))
 
         // ─────────────────────────────────────────
         // Conversations (Chat History)
@@ -200,6 +257,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Provider testing
         .route("/admin/providers/test-llm", post(api::providers::test_llm))
         .route("/admin/providers/test-embedding", post(api::providers::test_embedding))
+        .route("/admin/providers/test-rerank", post(api::providers::test_rerank))
 
         // ─────────────────────────────────────────
         // Real-time (WebSocket)
@@ -254,6 +312,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Legacy provider testing
         .route("/providers/test-llm", post(api::providers::test_llm))
         .route("/providers/test-embedding", post(api::providers::test_embedding))
+        .route("/providers/test-rerank", post(api::providers::test_rerank))
         // Legacy RAG config path
         .route("/collections/:name/rag", patch(api::collections::update_rag_config));
 
@@ -264,6 +323,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .nest("/v1", api_routes)
         .layer(DefaultBodyLimit::max(upload_limit))
         .layer(DeprecationLayer::new()) // Add deprecation headers for legacy endpoints
+        .layer(middleware::from_fn_with_state(state.clone(), log_usage)) // Log API usage
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 

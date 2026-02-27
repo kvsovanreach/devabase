@@ -26,6 +26,7 @@ import {
   Zap,
   CheckCircle2,
   XCircle,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
@@ -33,8 +34,10 @@ import toast from 'react-hot-toast';
 import {
   LLMProvider,
   EmbeddingProvider,
+  RerankProvider,
   LLMProviderType,
   EmbeddingProviderType,
+  RerankProviderType,
   ProjectSettings,
 } from '@/types';
 
@@ -51,6 +54,18 @@ const embeddingProviderOptions = [
   { value: 'voyage', label: 'Voyage AI' },
   { value: 'custom', label: 'Custom' },
 ];
+
+const rerankProviderOptions = [
+  { value: 'cohere', label: 'Cohere' },
+  { value: 'jina', label: 'Jina AI' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const defaultRerankModels: Record<RerankProviderType, string[]> = {
+  cohere: ['rerank-english-v3.0', 'rerank-multilingual-v3.0', 'rerank-english-v2.0'],
+  jina: ['jina-reranker-v2-base-multilingual', 'jina-reranker-v1-base-en'],
+  custom: [],
+};
 
 const defaultModels: Record<LLMProviderType, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
@@ -87,6 +102,7 @@ export default function ProvidersSettingsPage() {
   const [settings, setSettings] = useState<ProjectSettings>({
     llm_providers: [],
     embedding_providers: [],
+    reranking_providers: [],
   });
 
   // LLM Provider Modal
@@ -112,8 +128,18 @@ export default function ProvidersSettingsPage() {
   const [embeddingMaxTokens, setEmbeddingMaxTokens] = useState(512);
   const [showEmbeddingApiKey, setShowEmbeddingApiKey] = useState(false);
 
+  // Reranking Provider Modal
+  const [isRerankModalOpen, setIsRerankModalOpen] = useState(false);
+  const [editingRerank, setEditingRerank] = useState<RerankProvider | null>(null);
+  const [rerankName, setRerankName] = useState('');
+  const [rerankType, setRerankType] = useState<RerankProviderType>('cohere');
+  const [rerankApiKey, setRerankApiKey] = useState('');
+  const [rerankBaseUrl, setRerankBaseUrl] = useState('');
+  const [rerankModel, setRerankModel] = useState('');
+  const [showRerankApiKey, setShowRerankApiKey] = useState(false);
+
   // Delete confirmation
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'llm' | 'embedding'; id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'llm' | 'embedding' | 'rerank'; id: string; name: string } | null>(null);
 
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<{ type: 'llm' | 'embedding'; provider: LLMProvider | EmbeddingProvider } | null>(null);
@@ -127,8 +153,10 @@ export default function ProvidersSettingsPage() {
       setSettings({
         llm_providers: projectSettings.llm_providers || [],
         embedding_providers: projectSettings.embedding_providers || [],
+        reranking_providers: projectSettings.reranking_providers || [],
         default_llm_provider: projectSettings.default_llm_provider,
         default_embedding_provider: projectSettings.default_embedding_provider,
+        default_reranking_provider: projectSettings.default_reranking_provider,
       });
     }
   }, [currentProject]);
@@ -287,6 +315,70 @@ export default function ProvidersSettingsPage() {
     setIsEmbeddingModalOpen(false);
   };
 
+  // Reranking Provider handlers
+  const handleOpenRerankModal = (provider?: RerankProvider) => {
+    if (provider) {
+      setEditingRerank(provider);
+      setRerankName(provider.name);
+      setRerankType(provider.type);
+      setRerankApiKey(provider.api_key);
+      setRerankBaseUrl(provider.base_url || '');
+      setRerankModel(provider.model || '');
+    } else {
+      setEditingRerank(null);
+      setRerankName('');
+      setRerankType('cohere');
+      setRerankApiKey('');
+      setRerankBaseUrl('');
+      setRerankModel(defaultRerankModels.cohere[0]);
+    }
+    setShowRerankApiKey(false);
+    setIsRerankModalOpen(true);
+  };
+
+  const handleSaveRerank = async () => {
+    if (!rerankName.trim() || !rerankApiKey.trim()) {
+      toast.error('Name and API key are required');
+      return;
+    }
+
+    if (rerankType === 'custom' && !rerankBaseUrl.trim()) {
+      toast.error('Base URL is required for custom providers');
+      return;
+    }
+
+    const provider: RerankProvider = {
+      id: editingRerank?.id || generateId(),
+      name: rerankName.trim(),
+      type: rerankType,
+      api_key: rerankApiKey.trim(),
+      base_url: rerankBaseUrl.trim() || undefined,
+      model: rerankModel.trim() || undefined,
+      is_active: editingRerank?.is_active ?? true,
+    };
+
+    let newProviders: RerankProvider[];
+    if (editingRerank) {
+      newProviders = (settings.reranking_providers || []).map(p => p.id === editingRerank.id ? provider : p);
+    } else {
+      newProviders = [...(settings.reranking_providers || []), provider];
+    }
+
+    await saveSettings({
+      ...settings,
+      reranking_providers: newProviders,
+      default_reranking_provider: settings.default_reranking_provider || provider.id,
+    });
+
+    setIsRerankModalOpen(false);
+  };
+
+  const handleRerankTypeChange = (type: RerankProviderType) => {
+    setRerankType(type);
+    const models = defaultRerankModels[type];
+    setRerankModel(models[0] || '');
+  };
+
   // Delete handler
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -300,7 +392,7 @@ export default function ProvidersSettingsPage() {
           ? newProviders[0]?.id
           : settings.default_llm_provider,
       });
-    } else {
+    } else if (deleteTarget.type === 'embedding') {
       const newProviders = settings.embedding_providers.filter(p => p.id !== deleteTarget.id);
       await saveSettings({
         ...settings,
@@ -309,17 +401,28 @@ export default function ProvidersSettingsPage() {
           ? newProviders[0]?.id
           : settings.default_embedding_provider,
       });
+    } else if (deleteTarget.type === 'rerank') {
+      const newProviders = (settings.reranking_providers || []).filter(p => p.id !== deleteTarget.id);
+      await saveSettings({
+        ...settings,
+        reranking_providers: newProviders,
+        default_reranking_provider: settings.default_reranking_provider === deleteTarget.id
+          ? newProviders[0]?.id
+          : settings.default_reranking_provider,
+      });
     }
 
     setDeleteTarget(null);
   };
 
   // Set default provider
-  const setDefaultProvider = async (type: 'llm' | 'embedding', id: string) => {
+  const setDefaultProvider = async (type: 'llm' | 'embedding' | 'rerank', id: string) => {
     if (type === 'llm') {
       await saveSettings({ ...settings, default_llm_provider: id });
-    } else {
+    } else if (type === 'embedding') {
       await saveSettings({ ...settings, default_embedding_provider: id });
+    } else {
+      await saveSettings({ ...settings, default_reranking_provider: id });
     }
   };
 
@@ -617,6 +720,94 @@ export default function ProvidersSettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Reranking Providers */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                  <ArrowUpDown className="w-5 h-5 text-warning" />
+                </div>
+                <div>
+                  <CardTitle>Reranking Providers</CardTitle>
+                  <CardDescription>Cross-encoder models for result reranking</CardDescription>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => handleOpenRerankModal()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Provider
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {(settings.reranking_providers?.length || 0) > 0 ? (
+              <div className="space-y-3">
+                {settings.reranking_providers?.map((provider) => (
+                  <div
+                    key={provider.id}
+                    className="flex items-center justify-between p-4 bg-surface-secondary rounded-xl"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center">
+                        <ArrowUpDown className="w-5 h-5 text-text-secondary" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-medium text-foreground">{provider.name}</span>
+                          {settings.default_reranking_provider === provider.id && (
+                            <Badge variant="primary" size="sm">Default</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="default" size="sm">{provider.type}</Badge>
+                          {provider.model && (
+                            <span className="text-[12px] text-text-tertiary">
+                              {provider.model}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {settings.default_reranking_provider !== provider.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDefaultProvider('rerank', provider.id)}
+                          title="Set as default"
+                        >
+                          <Star className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenRerankModal(provider)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteTarget({ type: 'rerank', id: provider.id, name: provider.name })}
+                        className="text-error hover:text-error"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<ArrowUpDown className="w-6 h-6" />}
+                title="No reranking providers"
+                description="Add a reranking provider to improve search result relevance."
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* LLM Provider Modal */}
@@ -792,6 +983,85 @@ export default function ProvidersSettingsPage() {
           </Button>
           <Button onClick={handleSaveEmbedding} isLoading={isLoading}>
             {editingEmbedding ? 'Save Changes' : 'Add Provider'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Reranking Provider Modal */}
+      <Modal
+        isOpen={isRerankModalOpen}
+        onClose={() => setIsRerankModalOpen(false)}
+        title={editingRerank ? 'Edit Reranking Provider' : 'Add Reranking Provider'}
+        description="Configure a reranking provider to improve search relevance."
+        size="lg"
+      >
+        <div className="space-y-5">
+          <Input
+            label="Name"
+            placeholder="My Cohere Reranker"
+            value={rerankName}
+            onChange={(e) => setRerankName(e.target.value)}
+            required
+          />
+          <Select
+            label="Provider Type"
+            options={rerankProviderOptions}
+            value={rerankType}
+            onChange={(e) => handleRerankTypeChange(e.target.value as RerankProviderType)}
+          />
+          <div className="relative">
+            <Input
+              label="API Key"
+              type={showRerankApiKey ? 'text' : 'password'}
+              placeholder="Enter API key..."
+              value={rerankApiKey}
+              onChange={(e) => setRerankApiKey(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowRerankApiKey(!showRerankApiKey)}
+              className="absolute right-3 top-8 text-text-tertiary hover:text-foreground"
+            >
+              {showRerankApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          {rerankType === 'custom' && (
+            <Input
+              label="Base URL"
+              placeholder="https://api.example.com"
+              value={rerankBaseUrl}
+              onChange={(e) => setRerankBaseUrl(e.target.value)}
+              helperText="API endpoint (must support /rerank)"
+              required
+            />
+          )}
+          {rerankType !== 'custom' ? (
+            <Select
+              label="Model"
+              options={defaultRerankModels[rerankType].map(m => ({
+                value: m,
+                label: m,
+              }))}
+              value={rerankModel}
+              onChange={(e) => setRerankModel(e.target.value)}
+            />
+          ) : (
+            <Input
+              label="Model (optional)"
+              placeholder="rerank-model"
+              value={rerankModel}
+              onChange={(e) => setRerankModel(e.target.value)}
+              helperText="Model identifier if required by your endpoint"
+            />
+          )}
+        </div>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setIsRerankModalOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveRerank} isLoading={isLoading}>
+            {editingRerank ? 'Save Changes' : 'Add Provider'}
           </Button>
         </ModalFooter>
       </Modal>

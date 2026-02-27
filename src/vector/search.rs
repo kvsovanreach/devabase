@@ -5,6 +5,29 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Parameters for hybrid search combining vector and keyword search
+#[derive(Debug, Clone, Deserialize)]
+pub struct HybridSearchParams {
+    pub query: String,
+    pub embedding: Vec<f32>,
+    pub top_k: Option<i32>,
+    pub vector_weight: Option<f32>,  // 0.0-1.0, default 0.7
+    pub keyword_weight: Option<f32>, // 0.0-1.0, default 0.3
+    pub filter: Option<serde_json::Value>,
+}
+
+/// Result from hybrid search with individual scores
+#[derive(Debug, Clone, Serialize)]
+pub struct HybridSearchResult {
+    pub id: Uuid,
+    pub document_id: Uuid,
+    pub content: String,
+    pub score: f64,           // Combined RRF score
+    pub vector_score: f64,    // Vector similarity score
+    pub keyword_score: f64,   // BM25/keyword score
+    pub metadata: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct VectorUpsert {
     pub id: Option<String>,
@@ -212,6 +235,174 @@ pub async fn search_with_content(
         .collect();
 
     Ok(results)
+}
+
+/// Hybrid search combining vector similarity with keyword/BM25 search
+/// Uses Reciprocal Rank Fusion (RRF) to combine results: score = sum(1 / (k + rank))
+/// where k = 60 is the standard RRF constant
+pub async fn hybrid_search(
+    pool: &DbPool,
+    project_id: Uuid,
+    collection_name: &str,
+    params: HybridSearchParams,
+) -> Result<Vec<HybridSearchResult>> {
+    let table_name = get_vector_table_name(Some(project_id), collection_name);
+    let top_k = params.top_k.unwrap_or(10);
+    let vector_weight = params.vector_weight.unwrap_or(0.7).clamp(0.0, 1.0);
+    let keyword_weight = params.keyword_weight.unwrap_or(0.3).clamp(0.0, 1.0);
+
+    // RRF constant - standard value
+    let rrf_k: i32 = 60;
+
+    let embedding_str = format!(
+        "[{}]",
+        params
+            .embedding
+            .iter()
+            .map(|f| f.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+
+    // Build optional metadata filter clause
+    let (filter_clause, _) = build_filter_clause(&params.filter);
+
+    // Escape the query for tsquery - remove special characters
+    let sanitized_query = sanitize_tsquery(&params.query);
+
+    // Hybrid search query using RRF (Reciprocal Rank Fusion)
+    // CTEs: vector_results ranks by vector similarity, keyword_results ranks by BM25
+    // Final query combines using: weighted_score = (vector_weight * vector_rrf) + (keyword_weight * keyword_rrf)
+    let search_query = format!(
+        r#"
+        WITH vector_results AS (
+            SELECT
+                v.id,
+                v.chunk_id,
+                c.document_id,
+                c.content,
+                1 - (v.embedding <=> $1::vector) as vector_score,
+                ROW_NUMBER() OVER (ORDER BY v.embedding <=> $1::vector) as vector_rank,
+                COALESCE(
+                    jsonb_set(
+                        COALESCE(c.metadata, '{{}}'::jsonb),
+                        '{{document_name}}',
+                        to_jsonb(COALESCE(d.filename, 'Unknown'))
+                    ),
+                    '{{}}'::jsonb
+                ) as metadata
+            FROM "{table}" v
+            JOIN sys_chunks c ON v.chunk_id = c.id
+            LEFT JOIN sys_documents d ON c.document_id = d.id
+            WHERE 1=1 {filter}
+            ORDER BY v.embedding <=> $1::vector
+            LIMIT $2 * 2
+        ),
+        keyword_results AS (
+            SELECT
+                v.id,
+                v.chunk_id,
+                c.document_id,
+                c.content,
+                CASE
+                    WHEN $4 = '' THEN 0
+                    ELSE ts_rank_cd(to_tsvector('english', c.content), plainto_tsquery('english', $4))
+                END as keyword_score,
+                ROW_NUMBER() OVER (
+                    ORDER BY CASE
+                        WHEN $4 = '' THEN 0
+                        ELSE ts_rank_cd(to_tsvector('english', c.content), plainto_tsquery('english', $4))
+                    END DESC
+                ) as keyword_rank,
+                COALESCE(
+                    jsonb_set(
+                        COALESCE(c.metadata, '{{}}'::jsonb),
+                        '{{document_name}}',
+                        to_jsonb(COALESCE(d.filename, 'Unknown'))
+                    ),
+                    '{{}}'::jsonb
+                ) as metadata
+            FROM "{table}" v
+            JOIN sys_chunks c ON v.chunk_id = c.id
+            LEFT JOIN sys_documents d ON c.document_id = d.id
+            WHERE 1=1 {filter}
+            AND (
+                $4 = ''
+                OR to_tsvector('english', c.content) @@ plainto_tsquery('english', $4)
+            )
+            ORDER BY keyword_score DESC
+            LIMIT $2 * 2
+        ),
+        combined AS (
+            SELECT
+                COALESCE(vr.id, kr.id) as id,
+                COALESCE(vr.document_id, kr.document_id) as document_id,
+                COALESCE(vr.content, kr.content) as content,
+                COALESCE(vr.vector_score, 0) as vector_score,
+                COALESCE(kr.keyword_score, 0) as keyword_score,
+                COALESCE(vr.metadata, kr.metadata) as metadata,
+                -- RRF scoring: score = weight * (1 / (k + rank))
+                (
+                    $5::float * COALESCE(1.0 / ($3 + vr.vector_rank), 0) +
+                    $6::float * COALESCE(1.0 / ($3 + kr.keyword_rank), 0)
+                ) as rrf_score
+            FROM vector_results vr
+            FULL OUTER JOIN keyword_results kr ON vr.id = kr.id
+        )
+        SELECT
+            id,
+            document_id,
+            content,
+            rrf_score as score,
+            vector_score,
+            keyword_score,
+            metadata
+        FROM combined
+        ORDER BY rrf_score DESC
+        LIMIT $2
+        "#,
+        table = table_name,
+        filter = filter_clause
+    );
+
+    let rows: Vec<(Uuid, Uuid, String, f64, f64, f64, Option<serde_json::Value>)> =
+        sqlx::query_as(&search_query)
+            .bind(&embedding_str)
+            .bind(top_k)
+            .bind(rrf_k)
+            .bind(&sanitized_query)
+            .bind(vector_weight)
+            .bind(keyword_weight)
+            .fetch_all(pool.inner())
+            .await?;
+
+    let results = rows
+        .into_iter()
+        .map(|(id, document_id, content, score, vector_score, keyword_score, metadata)| {
+            HybridSearchResult {
+                id,
+                document_id,
+                content,
+                score,
+                vector_score,
+                keyword_score,
+                metadata,
+            }
+        })
+        .collect();
+
+    Ok(results)
+}
+
+/// Sanitize query string for tsquery to prevent syntax errors
+fn sanitize_tsquery(query: &str) -> String {
+    // Remove special characters that could break tsquery
+    query
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 pub async fn delete_vector(pool: &DbPool, project_id: Uuid, collection_name: &str, id: Uuid) -> Result<()> {

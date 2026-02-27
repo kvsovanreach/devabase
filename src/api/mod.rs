@@ -1,11 +1,15 @@
 pub mod auth;
+pub mod benchmarks;
 pub mod cache;
+pub mod chunks;
 pub mod collections;
 pub mod conversations;
 pub mod documents;
+pub mod evaluation;
 pub mod files;
 pub mod health;
 pub mod keys;
+pub mod knowledge_graph;
 pub mod prompts;
 pub mod projects;
 pub mod providers;

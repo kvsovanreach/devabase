@@ -125,6 +125,8 @@ export interface SearchRequest {
   query: string;
   collection?: string;
   limit?: number;
+  filter?: Record<string, unknown>;
+  rerank?: boolean;
 }
 
 export interface SearchResult {
@@ -132,6 +134,29 @@ export interface SearchResult {
   document_id: string;
   content: string;
   score: number;
+  rerank_score?: number;
+  metadata: Record<string, unknown> | null;
+}
+
+// Hybrid search types
+export type SearchType = 'vector' | 'keyword' | 'hybrid';
+
+export interface HybridSearchRequest {
+  query: string;
+  collection: string;
+  limit?: number;
+  vector_weight?: number;  // 0.0-1.0, default 0.7
+  keyword_weight?: number; // 0.0-1.0, default 0.3
+  filter?: Record<string, unknown>;
+}
+
+export interface HybridSearchResult {
+  id: string;
+  document_id: string;
+  content: string;
+  score: number;           // Combined RRF score
+  vector_score: number;    // Vector similarity score
+  keyword_score: number;   // BM25/keyword score
   metadata: Record<string, unknown> | null;
 }
 
@@ -186,6 +211,7 @@ export interface CreatePromptRequest {
 // AI Provider types
 export type LLMProviderType = 'openai' | 'anthropic' | 'google' | 'custom';
 export type EmbeddingProviderType = 'openai' | 'cohere' | 'voyage' | 'custom';
+export type RerankProviderType = 'cohere' | 'jina' | 'custom';
 
 export interface LLMProvider {
   id: string;
@@ -210,11 +236,23 @@ export interface EmbeddingProvider {
   is_active: boolean;
 }
 
+export interface RerankProvider {
+  id: string;
+  name: string;
+  type: RerankProviderType;
+  api_key: string;
+  base_url?: string;
+  model?: string;
+  is_active: boolean;
+}
+
 export interface ProjectSettings {
   llm_providers: LLMProvider[];
   embedding_providers: EmbeddingProvider[];
+  reranking_providers?: RerankProvider[];
   default_llm_provider?: string;
   default_embedding_provider?: string;
+  default_reranking_provider?: string;
 }
 
 // Invitation types
@@ -270,6 +308,173 @@ export interface ChatResponse {
   sources: ChatSource[];
   conversation_id: string;
   tokens_used: number;
+}
+
+// Evaluation types
+export interface EvaluationDataset {
+  id: string;
+  project_id: string;
+  collection_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvaluationDatasetWithStats extends EvaluationDataset {
+  case_count: number;
+  run_count: number;
+  last_run: string | null;
+  collection_name: string;
+}
+
+export interface EvaluationCase {
+  id: string;
+  dataset_id: string;
+  query: string;
+  expected_chunk_ids: string[];
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvaluationDatasetDetail extends EvaluationDataset {
+  collection_name: string;
+  cases: EvaluationCase[];
+}
+
+export interface EvaluationMetrics {
+  precision_at_k: number;
+  recall_at_k: number;
+  mrr: number;
+  ndcg: number;
+  cases_evaluated: number;
+  k: number;
+}
+
+export interface CaseResult {
+  case_id: string;
+  query: string;
+  expected_count: number;
+  retrieved_ids: string[];
+  relevant_retrieved: number;
+  precision: number;
+  recall: number;
+  reciprocal_rank: number;
+  ndcg: number;
+}
+
+export interface EvaluationRun {
+  id: string;
+  dataset_id: string;
+  search_mode: string;
+  config: {
+    top_k?: number;
+    vector_weight?: number;
+    keyword_weight?: number;
+  } | null;
+  metrics: EvaluationMetrics;
+  case_results: CaseResult[] | null;
+  created_at: string;
+}
+
+export interface CreateDatasetRequest {
+  collection_name: string;
+  name: string;
+  description?: string;
+}
+
+export interface CreateCaseRequest {
+  query: string;
+  expected_chunk_ids: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface RunEvaluationRequest {
+  search_mode?: 'vector' | 'hybrid';
+  top_k?: number;
+  vector_weight?: number;
+  keyword_weight?: number;
+}
+
+export interface RunResult {
+  run: EvaluationRun;
+  metrics: EvaluationMetrics;
+}
+
+// Knowledge Graph types
+export interface Entity {
+  id: string;
+  project_id: string;
+  collection_id: string | null;
+  document_id: string | null;
+  chunk_id: string | null;
+  name: string;
+  entity_type: string;
+  description: string | null;
+  aliases: string[];
+  confidence: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Relationship {
+  id: string;
+  project_id: string;
+  source_entity_id: string;
+  target_entity_id: string;
+  relationship_type: string;
+  description: string | null;
+  confidence: number;
+  metadata: Record<string, unknown>;
+  document_id: string | null;
+  chunk_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EntitySummary {
+  id: string;
+  name: string;
+  entity_type: string;
+}
+
+export interface RelationshipWithEntity {
+  relationship: Relationship;
+  related_entity: EntitySummary;
+}
+
+export interface EntityWithRelationships extends Entity {
+  outgoing_relationships: RelationshipWithEntity[];
+  incoming_relationships: RelationshipWithEntity[];
+}
+
+export interface GraphNode {
+  id: string;
+  name: string;
+  entity_type: string;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  relationship_type: string;
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface KnowledgeStats {
+  total_entities: number;
+  total_relationships: number;
+  entities_by_type: Array<{
+    entity_type: string;
+    count: number;
+  }>;
 }
 
 // API response types

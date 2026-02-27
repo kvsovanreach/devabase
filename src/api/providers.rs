@@ -26,6 +26,22 @@ pub enum EmbeddingProviderType {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RerankProviderType {
+    Cohere,
+    Jina,
+    Custom,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TestRerankRequest {
+    pub provider_type: RerankProviderType,
+    pub api_key: String,
+    pub base_url: Option<String>,
+    pub model: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct TestLLMRequest {
     pub provider_type: LLMProviderType,
     pub api_key: String,
@@ -111,6 +127,43 @@ pub async fn test_embedding(
                 Error::BadRequest("Base URL is required for custom providers".to_string())
             })?;
             test_custom_embedding(&client, &input.api_key, &base_url, &input.model).await
+        }
+    };
+
+    match result {
+        Ok(response) => Ok(Json(TestResponse {
+            success: true,
+            message: "Connection successful!".to_string(),
+            response: Some(response),
+        })),
+        Err(e) => Ok(Json(TestResponse {
+            success: false,
+            message: e.to_string(),
+            response: None,
+        })),
+    }
+}
+
+/// POST /v1/providers/test-rerank - Test reranker provider connection
+pub async fn test_rerank(
+    State(_state): State<Arc<AppState>>,
+    _auth: AuthContext,
+    Json(input): Json<TestRerankRequest>,
+) -> Result<Json<TestResponse>> {
+    let client = Client::new();
+
+    let result = match input.provider_type {
+        RerankProviderType::Cohere => {
+            test_cohere_rerank(&client, &input.api_key, &input.model).await
+        }
+        RerankProviderType::Jina => {
+            test_jina_rerank(&client, &input.api_key, &input.model).await
+        }
+        RerankProviderType::Custom => {
+            let base_url = input.base_url.ok_or_else(|| {
+                Error::BadRequest("Base URL is required for custom providers".to_string())
+            })?;
+            test_custom_rerank(&client, &input.api_key, &base_url, &input.model).await
         }
     };
 
@@ -413,5 +466,148 @@ async fn test_custom_embedding(
         Ok(format!("Response received: {}", data.to_string().chars().take(200).collect::<String>()))
     } else {
         Ok(format!("Embedding generated with {} dimensions", dimensions))
+    }
+}
+
+// ============================================================================
+// RERANK TEST IMPLEMENTATIONS
+// ============================================================================
+
+async fn test_cohere_rerank(client: &Client, api_key: &str, model: &str) -> anyhow::Result<String> {
+    let response = client
+        .post("https://api.cohere.ai/v1/rerank")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "model": model,
+            "query": "What is the capital of France?",
+            "documents": [
+                "Paris is the capital of France.",
+                "Berlin is the capital of Germany.",
+                "London is the capital of England."
+            ],
+            "top_n": 3
+        }))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let error: serde_json::Value = response.json().await?;
+        let message = error["message"]
+            .as_str()
+            .unwrap_or("Unknown error");
+        anyhow::bail!("{}", message);
+    }
+
+    let data: serde_json::Value = response.json().await?;
+    let results = data["results"]
+        .as_array()
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    let top_score = data["results"][0]["relevance_score"]
+        .as_f64()
+        .unwrap_or(0.0);
+
+    Ok(format!("Reranked {} documents. Top score: {:.4}", results, top_score))
+}
+
+async fn test_jina_rerank(client: &Client, api_key: &str, model: &str) -> anyhow::Result<String> {
+    let response = client
+        .post("https://api.jina.ai/v1/rerank")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "model": model,
+            "query": "What is the capital of France?",
+            "documents": [
+                "Paris is the capital of France.",
+                "Berlin is the capital of Germany.",
+                "London is the capital of England."
+            ],
+            "top_n": 3
+        }))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let error: serde_json::Value = response.json().await?;
+        let message = error["detail"]
+            .as_str()
+            .or_else(|| error["message"].as_str())
+            .unwrap_or("Unknown error");
+        anyhow::bail!("{}", message);
+    }
+
+    let data: serde_json::Value = response.json().await?;
+    let results = data["results"]
+        .as_array()
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    let top_score = data["results"][0]["relevance_score"]
+        .as_f64()
+        .or_else(|| data["results"][0]["score"].as_f64())
+        .unwrap_or(0.0);
+
+    Ok(format!("Reranked {} documents. Top score: {:.4}", results, top_score))
+}
+
+async fn test_custom_rerank(
+    client: &Client,
+    api_key: &str,
+    base_url: &str,
+    model: &str,
+) -> anyhow::Result<String> {
+    let url = base_url.trim_end_matches('/');
+
+    let mut body = serde_json::json!({
+        "query": "What is the capital of France?",
+        "documents": [
+            "Paris is the capital of France.",
+            "Berlin is the capital of Germany.",
+            "London is the capital of England."
+        ],
+        "top_n": 3
+    });
+
+    if !model.is_empty() {
+        body["model"] = serde_json::json!(model);
+    }
+
+    let response = client
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("X-API-Key", api_key)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .json(&body)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        anyhow::bail!("HTTP {}: {}", status, error_text);
+    }
+
+    let data: serde_json::Value = response.json().await?;
+
+    // Try different response formats
+    let results = data["results"]
+        .as_array()
+        .or_else(|| data["data"].as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+
+    if results == 0 {
+        Ok(format!("Response received: {}", data.to_string().chars().take(200).collect::<String>()))
+    } else {
+        let top_score = data["results"][0]["relevance_score"]
+            .as_f64()
+            .or_else(|| data["results"][0]["score"].as_f64())
+            .or_else(|| data["data"][0]["score"].as_f64())
+            .unwrap_or(0.0);
+
+        Ok(format!("Reranked {} documents. Top score: {:.4}", results, top_score))
     }
 }

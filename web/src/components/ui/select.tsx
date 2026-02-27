@@ -59,7 +59,7 @@ function Select({
           <ListboxButton
             id={inputId}
             className={cn(
-              'w-full flex items-center justify-between px-4 py-2.5 bg-surface-secondary border rounded-xl text-[15px] text-left',
+              'w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-surface-secondary border rounded-xl text-[15px] text-left',
               'transition-all duration-150',
               'hover:bg-surface-hover hover:border-border',
               'focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20',

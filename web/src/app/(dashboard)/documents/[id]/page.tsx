@@ -10,6 +10,9 @@ import { Input } from '@/components/ui/input';
 import { PageSpinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useDocument, useDocumentChunks } from '@/hooks/use-documents';
+import { useExtractKnowledge } from '@/hooks/use-knowledge';
+import { ChunkEditorModal, ChunkSplitModal, ChunkMergeModal } from '@/components/chunks';
+import { Chunk } from '@/types';
 import {
   ChevronLeft,
   FileText,
@@ -21,6 +24,10 @@ import {
   Check,
   Zap,
   AlignLeft,
+  Pencil,
+  Scissors,
+  Combine,
+  Share2,
 } from 'lucide-react';
 import { cn, formatFileSize, formatRelativeTime } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -34,10 +41,17 @@ export default function DocumentViewerPage() {
 
   const { data: document, isLoading: documentLoading } = useDocument(collectionName, documentId);
   const { data: chunks, isLoading: chunksLoading } = useDocumentChunks(documentId);
+  const extractMutation = useExtractKnowledge();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Chunk editing state
+  const [editingChunk, setEditingChunk] = useState<Chunk | null>(null);
+  const [splittingChunk, setSplittingChunk] = useState<Chunk | null>(null);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
 
   // Filter chunks based on search query
   const filteredChunks = useMemo(() => {
@@ -82,6 +96,15 @@ export default function DocumentViewerPage() {
       failed: 'error',
     };
     return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+  };
+
+  const handleExtractKnowledge = async () => {
+    try {
+      const result = await extractMutation.mutateAsync(documentId);
+      toast.success(result.message);
+    } catch (error) {
+      toast.error('Failed to extract knowledge');
+    }
   };
 
   const isLoading = documentLoading || chunksLoading;
@@ -139,11 +162,24 @@ export default function DocumentViewerPage() {
               <FileText className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h1 className="text-[20px] md:text-[24px] font-semibold text-foreground truncate">
-                  {document.filename}
-                </h1>
-                {getStatusBadge(document.status)}
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-[20px] md:text-[24px] font-semibold text-foreground truncate">
+                    {document.filename}
+                  </h1>
+                  {getStatusBadge(document.status)}
+                </div>
+                {document.status === 'processed' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleExtractKnowledge}
+                    isLoading={extractMutation.isPending}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Extract Knowledge
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-[13px] text-text-secondary">
                 <div className="flex items-center gap-1.5">
@@ -182,15 +218,27 @@ export default function DocumentViewerPage() {
                 {chunks?.length || 0} chunks extracted from this document
               </p>
             </div>
-            <div className="w-full sm:w-[280px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-                <Input
-                  placeholder="Search in chunks..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
+            <div className="flex items-center gap-3">
+              {selectedForMerge.length >= 2 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowMergeModal(true)}
+                >
+                  <Combine className="w-4 h-4 mr-2" />
+                  Merge {selectedForMerge.length} Chunks
+                </Button>
+              )}
+              <div className="w-full sm:w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+                  <Input
+                    placeholder="Search chunks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -250,71 +298,147 @@ export default function DocumentViewerPage() {
             />
           ) : (
             <div className="space-y-3">
-              {filteredChunks.map((chunk) => (
-                <Card
-                  key={chunk.id}
-                  className={cn(
-                    'p-4 cursor-pointer transition-all',
-                    selectedChunkId === chunk.id
-                      ? 'ring-2 ring-primary shadow-lg'
-                      : 'hover:shadow-md'
-                  )}
-                  onClick={() => setSelectedChunkId(selectedChunkId === chunk.id ? null : chunk.id)}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Chunk Index */}
-                    <div className="w-8 h-8 rounded-lg bg-surface-secondary flex items-center justify-center flex-shrink-0">
-                      <span className="text-[12px] font-semibold text-text-secondary">
-                        {chunk.chunk_index + 1}
-                      </span>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 text-[11px] text-text-tertiary">
-                          <span>Offset: {chunk.start_offset} - {chunk.end_offset}</span>
-                          <span>·</span>
-                          <span>{chunk.token_count} tokens</span>
-                          <span>·</span>
-                          <span>{chunk.content.length} chars</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyChunkContent(chunk.id, chunk.content);
-                          }}
-                          className="p-1.5 text-text-tertiary hover:text-foreground rounded transition-colors"
-                          title="Copy chunk content"
-                        >
-                          {copiedId === chunk.id ? (
-                            <Check className="w-4 h-4 text-success" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                      <p
+              {filteredChunks.map((chunk) => {
+                const isSelectedForMerge = selectedForMerge.includes(chunk.id);
+                return (
+                  <Card
+                    key={chunk.id}
+                    className={cn(
+                      'p-4 transition-all',
+                      selectedChunkId === chunk.id
+                        ? 'ring-2 ring-primary shadow-lg'
+                        : 'hover:shadow-md',
+                      isSelectedForMerge && 'ring-2 ring-info'
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Merge Checkbox */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedForMerge((prev) =>
+                            prev.includes(chunk.id)
+                              ? prev.filter((id) => id !== chunk.id)
+                              : [...prev, chunk.id]
+                          );
+                        }}
                         className={cn(
-                          'text-[14px] text-foreground leading-relaxed whitespace-pre-wrap',
-                          selectedChunkId !== chunk.id && 'line-clamp-3'
+                          'w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-1 transition-colors',
+                          isSelectedForMerge
+                            ? 'bg-info border-info'
+                            : 'border-border-light hover:border-info'
                         )}
+                        title="Select for merge"
                       >
-                        {highlightContent(chunk.content)}
-                      </p>
-                      {selectedChunkId !== chunk.id && chunk.content.length > 300 && (
-                        <span className="text-[12px] text-primary mt-1 inline-block">
-                          Click to expand...
+                        {isSelectedForMerge && <Check className="w-3 h-3 text-white" />}
+                      </button>
+
+                      {/* Chunk Index */}
+                      <button
+                        onClick={() => setSelectedChunkId(selectedChunkId === chunk.id ? null : chunk.id)}
+                        className="w-8 h-8 rounded-lg bg-surface-secondary flex items-center justify-center flex-shrink-0 hover:bg-surface-hover transition-colors"
+                      >
+                        <span className="text-[12px] font-semibold text-text-secondary">
+                          {chunk.chunk_index + 1}
                         </span>
-                      )}
+                      </button>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 text-[11px] text-text-tertiary">
+                            <span>{chunk.token_count} tokens</span>
+                            <span>·</span>
+                            <span>{chunk.content.length} chars</span>
+                          </div>
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingChunk(chunk);
+                              }}
+                              className="p-1.5 text-text-tertiary hover:text-primary hover:bg-primary/5 rounded transition-colors"
+                              title="Edit chunk"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSplittingChunk(chunk);
+                              }}
+                              className="p-1.5 text-text-tertiary hover:text-warning hover:bg-warning/5 rounded transition-colors"
+                              title="Split chunk"
+                            >
+                              <Scissors className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyChunkContent(chunk.id, chunk.content);
+                              }}
+                              className="p-1.5 text-text-tertiary hover:text-foreground rounded transition-colors"
+                              title="Copy chunk content"
+                            >
+                              {copiedId === chunk.id ? (
+                                <Check className="w-4 h-4 text-success" />
+                              ) : (
+                                <Copy className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <p
+                          onClick={() => setSelectedChunkId(selectedChunkId === chunk.id ? null : chunk.id)}
+                          className={cn(
+                            'text-[14px] text-foreground leading-relaxed whitespace-pre-wrap cursor-pointer',
+                            selectedChunkId !== chunk.id && 'line-clamp-3'
+                          )}
+                        >
+                          {highlightContent(chunk.content)}
+                        </p>
+                        {selectedChunkId !== chunk.id && chunk.content.length > 300 && (
+                          <span
+                            onClick={() => setSelectedChunkId(chunk.id)}
+                            className="text-[12px] text-primary mt-1 inline-block cursor-pointer hover:underline"
+                          >
+                            Click to expand...
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Chunk Editing Modals */}
+      <ChunkEditorModal
+        isOpen={!!editingChunk}
+        onClose={() => setEditingChunk(null)}
+        chunk={editingChunk}
+        documentId={documentId}
+      />
+
+      <ChunkSplitModal
+        isOpen={!!splittingChunk}
+        onClose={() => setSplittingChunk(null)}
+        chunk={splittingChunk}
+        documentId={documentId}
+      />
+
+      <ChunkMergeModal
+        isOpen={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
+        chunks={chunks || []}
+        selectedChunkIds={selectedForMerge}
+        documentId={documentId}
+        onSelectionChange={setSelectedForMerge}
+      />
     </div>
   );
 }

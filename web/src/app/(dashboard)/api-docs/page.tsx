@@ -20,6 +20,7 @@ import {
   Database,
   Key,
   Zap,
+  Share2,
 } from 'lucide-react';
 import { API_CONFIG } from '@/lib/config';
 
@@ -392,17 +393,18 @@ export default function ApiDocsPage() {
       {
         name: 'RAG Retrieval',
         icon: <Zap className="w-5 h-5" />,
-        description: 'Semantic search with automatic embedding generation',
+        description: 'Semantic search with automatic embedding generation and optional reranking',
         endpoints: [
           {
             method: 'POST',
             path: '/retrieve',
             name: 'Retrieve',
-            description: 'Search using natural language. Automatically generates embeddings from your query.',
+            description: 'Search using natural language. Automatically generates embeddings. Enable reranking for better relevance.',
             requestBody: {
               collection: exampleCollection,
               query: 'What is the return policy?',
               top_k: 5,
+              rerank: true,
               filter: {},
             },
             responseExample: {
@@ -411,10 +413,14 @@ export default function ApiDocsPage() {
                   id: 'chunk_id',
                   content: 'Our return policy allows...',
                   score: 0.92,
+                  rerank_score: 0.97,
                   metadata: { document_name: 'policy.pdf' },
                 },
               ],
             },
+            queryParams: [
+              { name: 'rerank', description: 'Enable cross-encoder reranking (requires reranking provider)' },
+            ],
           },
           {
             method: 'POST',
@@ -487,6 +493,168 @@ export default function ApiDocsPage() {
             name: 'Get Conversation Messages',
             description: 'Retrieve all messages in a conversation',
             pathParams: [{ name: 'id', description: 'Conversation UUID' }],
+          },
+        ],
+      },
+      {
+        name: 'Knowledge Graph',
+        icon: <Share2 className="w-5 h-5" />,
+        description: 'Extract and manage entities and relationships from documents',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/knowledge/entities',
+            name: 'List Entities',
+            description: 'List all entities in the knowledge graph',
+            queryParams: [
+              { name: 'entity_type', description: 'Filter by type (person, organization, location, etc.)' },
+              { name: 'collection_id', description: 'Filter by collection UUID' },
+              { name: 'limit', description: 'Number of results (default: 50)' },
+              { name: 'offset', description: 'Pagination offset' },
+            ],
+            responseExample: [
+              {
+                id: 'uuid',
+                name: 'Acme Corp',
+                entity_type: 'organization',
+                description: 'A technology company',
+                aliases: ['Acme', 'Acme Corporation'],
+              },
+            ],
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/entities',
+            name: 'Create Entity',
+            description: 'Manually create an entity',
+            requestBody: {
+              name: 'John Doe',
+              entity_type: 'person',
+              description: 'Software engineer',
+              aliases: ['JD'],
+            },
+          },
+          {
+            method: 'GET',
+            path: '/knowledge/entities/:id',
+            name: 'Get Entity',
+            description: 'Get entity details with all relationships',
+            pathParams: [{ name: 'id', description: 'Entity UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/knowledge/entities/:id',
+            name: 'Update Entity',
+            description: 'Update entity name, description, or aliases',
+            pathParams: [{ name: 'id', description: 'Entity UUID' }],
+            requestBody: {
+              name: 'John Smith',
+              description: 'Senior software engineer',
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/knowledge/entities/:id',
+            name: 'Delete Entity',
+            description: 'Delete an entity and its relationships',
+            pathParams: [{ name: 'id', description: 'Entity UUID' }],
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/entities/search',
+            name: 'Search Entities',
+            description: 'Search entities by name (fuzzy match)',
+            requestBody: {
+              query: 'acme',
+              entity_type: 'organization',
+              limit: 10,
+            },
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/entities/merge',
+            name: 'Merge Entities',
+            description: 'Merge two duplicate entities into one',
+            requestBody: {
+              source_id: 'uuid-to-merge',
+              target_id: 'uuid-to-keep',
+            },
+          },
+          {
+            method: 'GET',
+            path: '/knowledge/relationships',
+            name: 'List Relationships',
+            description: 'List all relationships between entities',
+            queryParams: [
+              { name: 'entity_id', description: 'Filter by entity UUID' },
+              { name: 'relationship_type', description: 'Filter by type (works_at, located_in, etc.)' },
+              { name: 'limit', description: 'Number of results (default: 50)' },
+            ],
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/relationships',
+            name: 'Create Relationship',
+            description: 'Create a relationship between two entities',
+            requestBody: {
+              source_entity_id: 'uuid',
+              target_entity_id: 'uuid',
+              relationship_type: 'works_at',
+              description: 'John works at Acme Corp',
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/knowledge/relationships/:id',
+            name: 'Delete Relationship',
+            description: 'Delete a relationship',
+            pathParams: [{ name: 'id', description: 'Relationship UUID' }],
+          },
+          {
+            method: 'GET',
+            path: '/knowledge/graph/:entity_id',
+            name: 'Get Entity Graph',
+            description: 'Get an entity with connected nodes for visualization',
+            pathParams: [{ name: 'entity_id', description: 'Entity UUID' }],
+            queryParams: [
+              { name: 'depth', description: 'Graph traversal depth (default: 1, max: 3)' },
+            ],
+            responseExample: {
+              nodes: [
+                { id: 'uuid', name: 'John', entity_type: 'person' },
+                { id: 'uuid', name: 'Acme Corp', entity_type: 'organization' },
+              ],
+              edges: [
+                { id: 'uuid', source: 'uuid', target: 'uuid', relationship_type: 'works_at' },
+              ],
+            },
+          },
+          {
+            method: 'GET',
+            path: '/knowledge/stats',
+            name: 'Get Statistics',
+            description: 'Get knowledge graph statistics',
+            responseExample: {
+              total_entities: 150,
+              total_relationships: 320,
+              entities_by_type: [
+                { entity_type: 'person', count: 45 },
+                { entity_type: 'organization', count: 30 },
+              ],
+            },
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/extract/:document_id',
+            name: 'Extract from Document',
+            description: 'Extract entities and relationships from a processed document using LLM',
+            pathParams: [{ name: 'document_id', description: 'Document UUID' }],
+            responseExample: {
+              document_id: 'uuid',
+              entities_extracted: 12,
+              relationships_extracted: 8,
+              message: 'Extracted 12 entities and 8 relationships',
+            },
           },
         ],
       },
