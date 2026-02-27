@@ -4,6 +4,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() {
+    // Load .env file
+    dotenvy::dotenv().ok();
+
     // Initialize logging
     tracing_subscriber::registry()
         .with(
