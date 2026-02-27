@@ -5,10 +5,15 @@ edition = "2021"
 description = "Lightweight backend for RAG/LLM applications"
 license = "MIT"
 repository = "https://github.com/devabase/devabase"
+default-run = "devabase"
 
 [[bin]]
 name = "devabase"
 path = "src/main.rs"
+
+[[bin]]
+name = "deva"
+path = "src/bin/deva/main.rs"
 
 [lib]
 name = "devabase"
@@ -76,6 +81,9 @@ rust-bert = { version = "0.21", optional = true }
 mime_guess = "2"
 tokio-util = { version = "0.7", features = ["io"] }
 pdf-extract = "0.7"
+
+# CLI home directory
+dirs = "5"
 
 # UI templates
 askama = "0.12"
