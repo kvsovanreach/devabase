@@ -5,6 +5,7 @@ pub mod cli;
 pub mod config;
 pub mod db;
 pub mod error;
+pub mod evaluation;
 pub mod events;
 pub mod rag;
 pub mod rest_gen;

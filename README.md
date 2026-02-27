@@ -15,7 +15,7 @@
 
 <br />
 
-<img src="docs/assets/dashboard.png" alt="Devabase Dashboard" width="800" />
+[Download Demo Video](docs/assets/system_demo.mp4)
 
 </div>
 
@@ -138,12 +138,14 @@ Building AI-powered applications in 2024+ typically requires:
 - **Scoped API keys** — Create keys with specific permissions
 - **JWT auth** — Secure token-based authentication
 
-### 🎯 Evaluation & Testing
+### 🎯 Evaluation & Benchmarking
 
-- **Evaluation datasets** — Create test cases for search quality
-- **Retrieval metrics** — Precision@K, Recall@K, MRR, NDCG
-- **A/B testing** — Compare vector vs hybrid search
-- **Per-case results** — Detailed breakdown of each test case
+- **Standard IR benchmarks** — BEIR, MS MARCO, Natural Questions support
+- **Retrieval metrics** — Precision@K, Recall@K, MRR, NDCG, MAP with confidence intervals
+- **Ablation studies** — Compare search methods, chunk sizes, reranking
+- **Statistical significance** — Paired t-tests with effect sizes (Cohen's d)
+- **Publication-ready exports** — LaTeX tables, CSV, Markdown reports
+- **Custom datasets** — Create your own test cases
 
 ### 🛠️ Developer Experience
 
@@ -441,6 +443,29 @@ DELETE /v1/evaluation/cases/:id            # Delete case
 
 POST   /v1/evaluation/datasets/:id/run     # Run evaluation
 GET    /v1/evaluation/datasets/:id/runs    # Get run history
+```
+
+### Benchmarks (Academic)
+
+```http
+# Run benchmarks
+POST   /v1/benchmarks/run                  # Run benchmark evaluation
+GET    /v1/benchmarks                      # List benchmark results
+GET    /v1/benchmarks/:id                  # Get benchmark details
+DELETE /v1/benchmarks/:id                  # Delete benchmark result
+
+# Export (LaTeX, CSV, Markdown, JSON)
+GET    /v1/benchmarks/:id/export?format=latex     # LaTeX table
+GET    /v1/benchmarks/:id/export?format=csv       # CSV data
+GET    /v1/benchmarks/:id/export?format=markdown  # Markdown report
+
+# Datasets (BEIR, MS MARCO, etc.)
+GET    /v1/benchmarks/datasets             # List available datasets
+POST   /v1/benchmarks/datasets/download    # Download dataset
+
+# Configurations
+GET    /v1/benchmarks/configs              # Get preset configs
+POST   /v1/benchmarks/compare              # Compare two runs
 ```
 
 ### Tables (Auto-API)

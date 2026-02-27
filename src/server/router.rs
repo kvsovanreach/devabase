@@ -165,6 +165,19 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/knowledge/extract/:document_id", post(api::knowledge_graph::extract_from_document))
 
         // ─────────────────────────────────────────
+        // Benchmarks (Academic Evaluation)
+        // ─────────────────────────────────────────
+        .route("/benchmarks/run", post(api::benchmarks::run_benchmark))
+        .route("/benchmarks", get(api::benchmarks::list_benchmarks))
+        .route("/benchmarks/datasets", get(api::benchmarks::list_datasets))
+        .route("/benchmarks/datasets/download", post(api::benchmarks::download_dataset))
+        .route("/benchmarks/configs", get(api::benchmarks::get_preset_configs))
+        .route("/benchmarks/compare", post(api::benchmarks::compare_benchmarks))
+        .route("/benchmarks/:id", get(api::benchmarks::get_benchmark))
+        .route("/benchmarks/:id", delete(api::benchmarks::delete_benchmark))
+        .route("/benchmarks/:id/export", get(api::benchmarks::export_benchmark))
+
+        // ─────────────────────────────────────────
         // Conversations (Chat History)
         // ─────────────────────────────────────────
         .route("/conversations", get(api::conversations::list_conversations))
