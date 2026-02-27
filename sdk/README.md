@@ -34,6 +34,7 @@ client.useProject('your-project-id');
 ## Features
 
 - **Authentication** - Login, register, token management
+- **App Authentication** - Complete auth for your app's end-users (register, login, password reset, email verification)
 - **Projects** - Multi-tenant project management
 - **Collections** - Vector collection management
 - **Documents** - Upload, process, and manage documents
@@ -64,6 +65,94 @@ const user = await client.auth.me();
 
 // Logout
 await client.auth.logout();
+```
+
+## App Authentication (End-User Auth)
+
+Devabase provides a complete authentication system for your application's end-users.
+Just import the SDK and your app gets user authentication immediately.
+
+```typescript
+// Initialize client with project API key
+const client = createClient({
+  baseUrl: 'http://localhost:8080',
+  apiKey: 'dvb_your_project_api_key'
+});
+client.useProject('your-project-id');
+
+// Register a new user for your app
+const auth = await client.appAuth.register({
+  email: 'user@example.com',
+  password: 'securePassword123',
+  name: 'John Doe',
+  metadata: { plan: 'free' }
+});
+console.log(auth.access_token);  // JWT access token
+console.log(auth.refresh_token); // Refresh token
+console.log(auth.user);          // User profile
+
+// Login existing user
+const auth = await client.appAuth.login({
+  email: 'user@example.com',
+  password: 'securePassword123'
+});
+
+// Token is stored automatically, or set it manually
+client.appAuth.setToken(auth.access_token);
+
+// Get current user profile
+const user = await client.appAuth.me();
+
+// Update profile
+const updated = await client.appAuth.updateProfile({
+  name: 'Jane Doe',
+  metadata: { plan: 'pro' }
+});
+
+// Change password
+await client.appAuth.changePassword({
+  current_password: 'oldPassword',
+  new_password: 'newSecurePassword123'
+});
+
+// Password reset flow
+await client.appAuth.forgotPassword('user@example.com');
+// User receives email with token
+await client.appAuth.resetPassword(token, 'newPassword');
+
+// Email verification
+await client.appAuth.verifyEmail(token);
+await client.appAuth.resendVerification();
+
+// Refresh token
+const newAuth = await client.appAuth.refresh(refreshToken);
+
+// Logout
+await client.appAuth.logout();
+
+// Delete account
+await client.appAuth.deleteAccount();
+```
+
+### Admin Operations (Managing App Users)
+
+```typescript
+// List all app users (paginated)
+const result = await client.appAuth.users.list({ limit: 20 });
+console.log(result.data);       // Array of AppUser
+console.log(result.pagination); // Pagination info
+
+// Get specific user
+const user = await client.appAuth.users.get('user-id');
+
+// Update user (admin)
+const updated = await client.appAuth.users.update('user-id', {
+  status: 'suspended',
+  email_verified: true
+});
+
+// Delete user
+await client.appAuth.users.delete('user-id');
 ```
 
 ## Projects

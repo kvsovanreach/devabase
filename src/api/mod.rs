@@ -1,3 +1,4 @@
+pub mod app_auth;
 pub mod auth;
 pub mod benchmarks;
 pub mod cache;

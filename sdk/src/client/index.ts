@@ -1,5 +1,6 @@
 import { HttpClient } from '../utils/http';
 import { AuthResource } from '../resources/auth';
+import { AppAuthResource } from '../resources/app-auth';
 import { ProjectsResource } from '../resources/projects';
 import { CollectionsResource } from '../resources/collections';
 import { DocumentsResource } from '../resources/documents';
@@ -12,8 +13,10 @@ import { DevabaseConfig } from '../types';
 export class DevabaseClient {
   private http: HttpClient;
 
-  /** Authentication operations */
+  /** Authentication operations (for admin/developer users) */
   public readonly auth: AuthResource;
+  /** Application user authentication (for end-users of your app) */
+  public readonly appAuth: AppAuthResource;
   /** Project management */
   public readonly projects: ProjectsResource;
   /** Collection management */
@@ -63,6 +66,7 @@ export class DevabaseClient {
 
     // Initialize resources
     this.auth = new AuthResource(this.http);
+    this.appAuth = new AppAuthResource(this.http);
     this.projects = new ProjectsResource(this.http);
     this.collections = new CollectionsResource(this.http);
     this.documents = new DocumentsResource(this.http);

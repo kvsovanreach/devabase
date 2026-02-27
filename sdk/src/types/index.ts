@@ -54,6 +54,74 @@ export interface RegisterCredentials {
 }
 
 // ============================================================================
+// Application User Authentication Types
+// ============================================================================
+
+/**
+ * Application user - end-user of apps built with Devabase
+ */
+export interface AppUser {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  status: 'pending' | 'active' | 'suspended' | 'deleted';
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AppAuthTokens {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface AppAuthResponse {
+  user: AppUser;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+export interface AppUserRegisterInput {
+  email: string;
+  password: string;
+  name?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AppUserLoginInput {
+  email: string;
+  password: string;
+}
+
+export interface AppUserUpdateInput {
+  name?: string;
+  avatar_url?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AppUserChangePasswordInput {
+  current_password: string;
+  new_password: string;
+}
+
+export interface AppUserAdminUpdateInput {
+  name?: string;
+  avatar_url?: string;
+  phone?: string;
+  status?: 'pending' | 'active' | 'suspended';
+  email_verified?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
 // Project Types
 // ============================================================================
 

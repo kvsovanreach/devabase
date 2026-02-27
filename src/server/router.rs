@@ -55,7 +55,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/ready", get(api::health::ready_check))
 
         // ─────────────────────────────────────────
-        // Authentication
+        // Authentication (Admin/Developer)
         // ─────────────────────────────────────────
         .route("/auth/register", post(api::auth::register))
         .route("/auth/login", post(api::auth::login))
@@ -63,6 +63,28 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/auth/refresh", post(api::auth::refresh))
         .route("/auth/me", get(api::auth::me))
         .route("/auth/me", patch(api::auth::update_me))
+
+        // ─────────────────────────────────────────
+        // App Authentication (End-users of apps built with Devabase)
+        // SDK users can use this to add auth to their own applications
+        // ─────────────────────────────────────────
+        .route("/auth/app/register", post(api::app_auth::register))
+        .route("/auth/app/login", post(api::app_auth::login))
+        .route("/auth/app/refresh", post(api::app_auth::refresh_token))
+        .route("/auth/app/logout", post(api::app_auth::logout))
+        .route("/auth/app/me", get(api::app_auth::get_me))
+        .route("/auth/app/me", patch(api::app_auth::update_me))
+        .route("/auth/app/me", delete(api::app_auth::delete_account))
+        .route("/auth/app/password", post(api::app_auth::change_password))
+        .route("/auth/app/forgot-password", post(api::app_auth::forgot_password))
+        .route("/auth/app/reset-password", post(api::app_auth::reset_password))
+        .route("/auth/app/verify-email", post(api::app_auth::verify_email))
+        .route("/auth/app/resend-verification", post(api::app_auth::resend_verification))
+        // Admin endpoints for managing app users
+        .route("/auth/app/users", get(api::app_auth::list_users))
+        .route("/auth/app/users/:id", get(api::app_auth::get_user))
+        .route("/auth/app/users/:id", patch(api::app_auth::update_user))
+        .route("/auth/app/users/:id", delete(api::app_auth::delete_user))
 
         // ─────────────────────────────────────────
         // Projects (Multi-tenancy)

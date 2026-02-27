@@ -1,4 +1,5 @@
 export { AuthResource } from './auth';
+export { AppAuthResource } from './app-auth';
 export { ProjectsResource } from './projects';
 export { CollectionsResource } from './collections';
 export { DocumentsResource } from './documents';

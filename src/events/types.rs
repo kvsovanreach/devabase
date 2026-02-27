@@ -27,6 +27,12 @@ pub enum EventType {
     TableRowCreated,
     TableRowUpdated,
     TableRowDeleted,
+
+    // App user auth events
+    AppUserRegistered,
+    AppUserLoggedIn,
+    AppPasswordResetRequested,
+    AppEmailVerificationRequested,
 }
 
 impl EventType {
@@ -47,6 +53,10 @@ impl EventType {
             EventType::TableRowCreated => "table.row.created",
             EventType::TableRowUpdated => "table.row.updated",
             EventType::TableRowDeleted => "table.row.deleted",
+            EventType::AppUserRegistered => "app.user.registered",
+            EventType::AppUserLoggedIn => "app.user.logged_in",
+            EventType::AppPasswordResetRequested => "app.password.reset_requested",
+            EventType::AppEmailVerificationRequested => "app.email.verification_requested",
         }
     }
 
@@ -67,6 +77,10 @@ impl EventType {
             "table.row.created" => Some(EventType::TableRowCreated),
             "table.row.updated" => Some(EventType::TableRowUpdated),
             "table.row.deleted" => Some(EventType::TableRowDeleted),
+            "app.user.registered" => Some(EventType::AppUserRegistered),
+            "app.user.logged_in" => Some(EventType::AppUserLoggedIn),
+            "app.password.reset_requested" => Some(EventType::AppPasswordResetRequested),
+            "app.email.verification_requested" => Some(EventType::AppEmailVerificationRequested),
             _ => None,
         }
     }
@@ -85,6 +99,10 @@ impl EventType {
             EventType::TableRowCreated | EventType::TableRowUpdated | EventType::TableRowDeleted => {
                 "table"
             }
+            EventType::AppUserRegistered
+            | EventType::AppUserLoggedIn
+            | EventType::AppPasswordResetRequested
+            | EventType::AppEmailVerificationRequested => "app",
         }
     }
 }
