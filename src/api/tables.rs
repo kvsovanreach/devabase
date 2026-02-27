@@ -1,3 +1,4 @@
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::user_table::{
     CreateTableRequest, PaginationMeta, RowQuery, RowResponse, RowsResponse, TableInfo,
@@ -18,16 +19,18 @@ use serde_json::Value;
 use sqlx::{Row, ValueRef};
 use std::sync::Arc;
 
-/// List all user tables for the current project
+/// List all user tables for the current project with pagination
 pub async fn list_tables(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<TableInfo>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<TableInfo>>> {
     let project_id = auth.require_project()?;
     auth.require_read()?;
 
-    let tables = rest_gen::get_user_tables(state.pool.inner(), project_id).await?;
-    Ok(Json(tables))
+    let (limit, offset) = query.get_pagination();
+    let (tables, total) = rest_gen::get_user_tables_paginated(state.pool.inner(), project_id, limit, offset).await?;
+    Ok(Json(PaginatedResponse::new(tables, total, limit, offset)))
 }
 
 /// Get a single table by name
@@ -526,7 +529,11 @@ fn bind_json_value<'q>(
                 query.bind(s.as_str())
             }
         }
-        Value::Array(_) | Value::Object(_) => query.bind(value.clone()),
+        // For JSON objects and arrays, serialize to string for ::jsonb casting
+        Value::Array(_) | Value::Object(_) => {
+            let json_str = serde_json::to_string(value).unwrap_or_default();
+            query.bind(json_str)
+        }
     }
 }
 

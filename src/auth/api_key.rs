@@ -128,6 +128,28 @@ pub async fn list_keys(pool: &DbPool, project_id: Uuid) -> Result<Vec<ApiKeyResp
     Ok(keys.into_iter().map(ApiKeyResponse::from).collect())
 }
 
+pub async fn list_keys_paginated(pool: &DbPool, project_id: Uuid, limit: i64, offset: i64) -> Result<(Vec<ApiKeyResponse>, i64)> {
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_api_keys WHERE project_id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(pool.inner())
+    .await?;
+
+    // Get paginated keys
+    let keys: Vec<ApiKey> = sqlx::query_as(
+        "SELECT * FROM sys_api_keys WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+    )
+    .bind(project_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.inner())
+    .await?;
+
+    Ok((keys.into_iter().map(ApiKeyResponse::from).collect(), total.0))
+}
+
 pub async fn get_key(pool: &DbPool, project_id: Uuid, id: Uuid) -> Result<ApiKeyResponse> {
     let key: ApiKey = sqlx::query_as("SELECT * FROM sys_api_keys WHERE id = $1 AND project_id = $2")
         .bind(id)

@@ -1,26 +1,29 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::{self, AuthContext};
 use crate::db::models::{ApiKeyCreated, ApiKeyResponse, CreateApiKey};
 use crate::server::AppState;
 use crate::Result;
 
-/// List API keys for the current project
+/// List API keys for the current project with pagination
 pub async fn list_keys(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<ApiKeyResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<ApiKeyResponse>>> {
     let project_id = auth.require_project()?;
     auth.require_read()?;
 
-    let keys = auth::list_keys(&state.pool, project_id).await?;
-    Ok(Json(keys))
+    let (limit, offset) = query.get_pagination();
+    let (keys, total) = auth::list_keys_paginated(&state.pool, project_id, limit, offset).await?;
+    Ok(Json(PaginatedResponse::new(keys, total, limit, offset)))
 }
 
 /// Create a new API key for the current project

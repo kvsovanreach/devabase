@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::PaginatedResponse;
 use crate::auth::AuthContext;
 use crate::server::AppState;
 use crate::{Error, Result};
@@ -51,8 +52,34 @@ pub struct Message {
 #[derive(Debug, Deserialize)]
 pub struct ListConversationsQuery {
     pub collection_id: Option<Uuid>,
-    pub limit: Option<i32>,
-    pub offset: Option<i32>,
+    // Pagination fields (supports standard PaginationQuery fields)
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+    pub cursor: Option<String>,
+}
+
+fn default_limit() -> i64 {
+    50
+}
+
+impl ListConversationsQuery {
+    pub fn get_pagination(&self) -> (i64, i64) {
+        // If page/per_page are provided, use them
+        if let (Some(page), Some(per_page)) = (self.page, self.per_page) {
+            let page = page.max(1);
+            let per_page = per_page.min(1000).max(1);
+            let offset = (page - 1) * per_page;
+            return (per_page, offset);
+        }
+
+        // Otherwise use limit/offset
+        let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+        (limit, self.offset.max(0))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,16 +98,33 @@ pub struct UpdateConversationRequest {
 // Conversation Handlers
 // ============================================================================
 
-/// List all conversations
+/// List all conversations with pagination
 pub async fn list_conversations(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Query(query): Query<ListConversationsQuery>,
-) -> Result<Json<Vec<ConversationWithCollection>>> {
+) -> Result<Json<PaginatedResponse<ConversationWithCollection>>> {
     let project_id = auth.require_project()?;
 
-    let limit = query.limit.unwrap_or(50).min(100);
-    let offset = query.offset.unwrap_or(0);
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = if let Some(collection_id) = query.collection_id {
+        sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_conversations WHERE project_id = $1 AND collection_id = $2"
+        )
+        .bind(project_id)
+        .bind(collection_id)
+        .fetch_one(state.pool.inner())
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_conversations WHERE project_id = $1"
+        )
+        .bind(project_id)
+        .fetch_one(state.pool.inner())
+        .await?
+    };
 
     let rows: Vec<(Uuid, Uuid, Uuid, Option<Uuid>, Option<String>, Option<String>, i32, i32, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>, String)> = if let Some(collection_id) = query.collection_id {
         sqlx::query_as(
@@ -143,7 +187,7 @@ pub async fn list_conversations(
         })
         .collect();
 
-    Ok(Json(conversations))
+    Ok(Json(PaginatedResponse::new(conversations, total.0, limit, offset)))
 }
 
 /// Get a single conversation with its messages

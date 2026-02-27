@@ -1,11 +1,12 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::Project;
 use crate::db::DbPool;
@@ -129,12 +130,23 @@ pub struct RunResult {
 // Dataset Endpoints
 // ─────────────────────────────────────────
 
-/// GET /evaluation/datasets - List all datasets
+/// GET /evaluation/datasets - List all datasets with pagination
 pub async fn list_datasets(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<DatasetWithStats>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<DatasetWithStats>>> {
     let project_id = auth.require_project()?;
+
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_evaluation_datasets WHERE project_id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await?;
 
     let datasets: Vec<DatasetWithStats> = sqlx::query_as::<_, (
         Uuid, Uuid, Uuid, String, Option<String>,
@@ -153,9 +165,12 @@ pub async fn list_datasets(
         JOIN sys_collections c ON d.collection_id = c.id
         WHERE d.project_id = $1
         ORDER BY d.updated_at DESC
+        LIMIT $2 OFFSET $3
         "#
     )
     .bind(project_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?
     .into_iter()
@@ -178,7 +193,7 @@ pub async fn list_datasets(
     })
     .collect();
 
-    Ok(Json(datasets))
+    Ok(Json(PaginatedResponse::new(datasets, total.0, limit, offset)))
 }
 
 /// POST /evaluation/datasets - Create a dataset
@@ -568,30 +583,43 @@ pub async fn run_evaluation(
     Ok(Json(RunResult { run, metrics }))
 }
 
-/// GET /evaluation/datasets/:id/runs - Get run history
+/// GET /evaluation/datasets/:id/runs - Get run history with pagination
 pub async fn list_runs(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Path(dataset_id): Path<Uuid>,
-) -> Result<Json<Vec<EvaluationRun>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<EvaluationRun>>> {
     let project_id = auth.require_project()?;
 
     // Verify dataset belongs to project
     verify_dataset_ownership(&state.pool, dataset_id, project_id).await?;
+
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_evaluation_runs WHERE dataset_id = $1"
+    )
+    .bind(dataset_id)
+    .fetch_one(state.pool.inner())
+    .await?;
 
     let runs: Vec<EvaluationRun> = sqlx::query_as(
         r#"
         SELECT * FROM sys_evaluation_runs
         WHERE dataset_id = $1
         ORDER BY created_at DESC
-        LIMIT 50
+        LIMIT $2 OFFSET $3
         "#
     )
     .bind(dataset_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?;
 
-    Ok(Json(runs))
+    Ok(Json(PaginatedResponse::new(runs, total.0, limit, offset)))
 }
 
 /// GET /evaluation/runs/:id - Get run details

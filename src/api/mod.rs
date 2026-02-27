@@ -10,6 +10,7 @@ pub mod files;
 pub mod health;
 pub mod keys;
 pub mod knowledge_graph;
+pub mod pagination;
 pub mod prompts;
 pub mod projects;
 pub mod providers;

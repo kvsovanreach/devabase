@@ -177,7 +177,13 @@ pub fn build_insert_query(
     for (key, value) in obj {
         validate_identifier(key)?;
         columns.push(format!("\"{}\"", key));
-        placeholders.push(format!("${}", params.len() + 1));
+        // Cast JSON objects and arrays to JSONB
+        let placeholder = if value.is_object() || value.is_array() {
+            format!("${}::jsonb", params.len() + 1)
+        } else {
+            format!("${}", params.len() + 1)
+        };
+        placeholders.push(placeholder);
         params.push(value.clone());
     }
 
@@ -216,7 +222,13 @@ pub fn build_update_query(
 
     for (key, value) in obj {
         validate_identifier(key)?;
-        set_clauses.push(format!("\"{}\" = ${}", key, params.len() + 1));
+        // Cast JSON objects and arrays to JSONB
+        let placeholder = if value.is_object() || value.is_array() {
+            format!("${}::jsonb", params.len() + 1)
+        } else {
+            format!("${}", params.len() + 1)
+        };
+        set_clauses.push(format!("\"{}\" = {}", key, placeholder));
         params.push(value.clone());
     }
 

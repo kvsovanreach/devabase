@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::PaginatedResponse;
 use crate::auth::AuthContext;
 use crate::db::models::{Chunk, ChunkResponse, Document, DocumentResponse, Project};
 use crate::rag::{Chunker, EmbeddingProvider, get_project_embedding_provider};
@@ -20,26 +21,86 @@ use crate::{Error, Result};
 #[derive(Debug, Deserialize)]
 pub struct CollectionDocumentsQuery {
     pub status: Option<String>,
+    /// Number of items to return (default: 50, max: 1000)
     #[serde(default = "default_limit")]
     pub limit: i64,
+    /// Offset for pagination
     #[serde(default)]
     pub offset: i64,
+    /// Page number (1-indexed)
+    pub page: Option<i64>,
+    /// Items per page
+    pub per_page: Option<i64>,
+    /// Cursor for cursor-based pagination
+    pub cursor: Option<String>,
 }
 
-fn default_limit() -> i64 { 100 }
+fn default_limit() -> i64 { 50 }
 
-/// GET /collections/:name/documents - List documents in a collection
+impl CollectionDocumentsQuery {
+    fn get_pagination(&self) -> (i64, i64) {
+        // If cursor is provided, decode it
+        if let Some(ref cursor) = self.cursor {
+            if let Some(offset) = crate::api::pagination::decode_cursor(cursor) {
+                let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+                return (limit, offset);
+            }
+        }
+
+        // If page/per_page are provided, use them
+        if let (Some(page), Some(per_page)) = (self.page, self.per_page) {
+            let page = page.max(1);
+            let per_page = per_page.min(1000).max(1);
+            let offset = (page - 1) * per_page;
+            return (per_page, offset);
+        }
+
+        // Otherwise use limit/offset
+        let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+        (limit, self.offset.max(0))
+    }
+}
+
+/// GET /collections/:name/documents - List documents in a collection with pagination
+///
+/// Query parameters:
+/// - `status`: Filter by status (pending, processing, processed, failed)
+/// - `limit` / `per_page`: Number of items per page (default: 50, max: 1000)
+/// - `offset`: Starting position (0-indexed)
+/// - `page`: Page number (1-indexed, alternative to offset)
+/// - `cursor`: Base64 cursor from previous response
 pub async fn collection_documents(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Path(collection_name): Path<String>,
     Query(query): Query<CollectionDocumentsQuery>,
-) -> Result<Json<Vec<DocumentResponse>>> {
+) -> Result<Json<PaginatedResponse<DocumentResponse>>> {
     let project_id = auth.require_project()?;
 
     // Get collection
     let collection = vector::get_collection(&state.pool, &collection_name, Some(project_id)).await?;
 
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = if let Some(status) = &query.status {
+        sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_documents WHERE collection_id = $1 AND status = $2"
+        )
+        .bind(collection.id)
+        .bind(status)
+        .fetch_one(state.pool.inner())
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_documents WHERE collection_id = $1"
+        )
+        .bind(collection.id)
+        .fetch_one(state.pool.inner())
+        .await?
+    };
+
+    // Get paginated documents
     let documents: Vec<Document> = if let Some(status) = &query.status {
         sqlx::query_as(
             r#"
@@ -51,8 +112,8 @@ pub async fn collection_documents(
         )
         .bind(collection.id)
         .bind(status)
-        .bind(query.limit)
-        .bind(query.offset)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(state.pool.inner())
         .await?
     } else {
@@ -65,13 +126,14 @@ pub async fn collection_documents(
             "#,
         )
         .bind(collection.id)
-        .bind(query.limit)
-        .bind(query.offset)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(state.pool.inner())
         .await?
     };
 
-    Ok(Json(documents.into_iter().map(Into::into).collect()))
+    let responses: Vec<DocumentResponse> = documents.into_iter().map(Into::into).collect();
+    Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
 
 /// POST /collections/:name/documents - Upload document to a specific collection
@@ -95,61 +157,187 @@ pub async fn collection_upload(
 }
 
 // ─────────────────────────────────────────
-// Legacy Document Endpoints
+// Legacy Document Endpoints (with pagination)
 // ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct ListDocumentsQuery {
     pub collection: Option<String>,
     pub status: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
+    /// Number of items to return (default: 50, max: 1000)
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    /// Offset for pagination
+    #[serde(default)]
+    pub offset: i64,
+    /// Page number (1-indexed)
+    pub page: Option<i64>,
+    /// Items per page
+    pub per_page: Option<i64>,
+    /// Cursor for cursor-based pagination
+    pub cursor: Option<String>,
 }
 
+impl ListDocumentsQuery {
+    fn get_pagination(&self) -> (i64, i64) {
+        // If cursor is provided, decode it
+        if let Some(ref cursor) = self.cursor {
+            if let Some(offset) = crate::api::pagination::decode_cursor(cursor) {
+                let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+                return (limit, offset);
+            }
+        }
+
+        // If page/per_page are provided, use them
+        if let (Some(page), Some(per_page)) = (self.page, self.per_page) {
+            let page = page.max(1);
+            let per_page = per_page.min(1000).max(1);
+            let offset = (page - 1) * per_page;
+            return (per_page, offset);
+        }
+
+        // Otherwise use limit/offset
+        let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+        (limit, self.offset.max(0))
+    }
+}
+
+/// List all documents with pagination
+///
+/// Query parameters:
+/// - `collection`: Filter by collection name
+/// - `status`: Filter by status (pending, processing, processed, failed)
+/// - `limit` / `per_page`: Number of items per page (default: 50, max: 1000)
+/// - `offset`: Starting position (0-indexed)
+/// - `page`: Page number (1-indexed, alternative to offset)
+/// - `cursor`: Base64 cursor from previous response
 pub async fn list_documents(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Query(query): Query<ListDocumentsQuery>,
-) -> Result<Json<Vec<DocumentResponse>>> {
+) -> Result<Json<PaginatedResponse<DocumentResponse>>> {
     let project_id = auth.require_project()?;
 
-    let limit = query.limit.unwrap_or(100);
-    let offset = query.offset.unwrap_or(0);
+    let (limit, offset) = query.get_pagination();
 
-    let documents: Vec<Document> = if let Some(collection_name) = &query.collection {
+    // Get total count and documents based on collection filter
+    let (total, documents): (i64, Vec<Document>) = if let Some(collection_name) = &query.collection {
         let collection = vector::get_collection(&state.pool, collection_name, Some(project_id)).await?;
-        sqlx::query_as(
-            r#"
-            SELECT * FROM sys_documents
-            WHERE collection_id = $1
-            ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3
-            "#,
-        )
-        .bind(collection.id)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(state.pool.inner())
-        .await?
+
+        let count: (i64,) = if let Some(status) = &query.status {
+            sqlx::query_as(
+                "SELECT COUNT(*) FROM sys_documents WHERE collection_id = $1 AND status = $2"
+            )
+            .bind(collection.id)
+            .bind(status)
+            .fetch_one(state.pool.inner())
+            .await?
+        } else {
+            sqlx::query_as(
+                "SELECT COUNT(*) FROM sys_documents WHERE collection_id = $1"
+            )
+            .bind(collection.id)
+            .fetch_one(state.pool.inner())
+            .await?
+        };
+
+        let docs: Vec<Document> = if let Some(status) = &query.status {
+            sqlx::query_as(
+                r#"
+                SELECT * FROM sys_documents
+                WHERE collection_id = $1 AND status = $2
+                ORDER BY created_at DESC
+                LIMIT $3 OFFSET $4
+                "#,
+            )
+            .bind(collection.id)
+            .bind(status)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(state.pool.inner())
+            .await?
+        } else {
+            sqlx::query_as(
+                r#"
+                SELECT * FROM sys_documents
+                WHERE collection_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(collection.id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(state.pool.inner())
+            .await?
+        };
+
+        (count.0, docs)
     } else {
         // List all documents from collections in this project
-        sqlx::query_as(
-            r#"
-            SELECT d.* FROM sys_documents d
-            JOIN sys_collections c ON d.collection_id = c.id
-            WHERE c.project_id = $1
-            ORDER BY d.created_at DESC
-            LIMIT $2 OFFSET $3
-            "#,
-        )
-        .bind(project_id)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(state.pool.inner())
-        .await?
+        let count: (i64,) = if let Some(status) = &query.status {
+            sqlx::query_as(
+                r#"
+                SELECT COUNT(*) FROM sys_documents d
+                JOIN sys_collections c ON d.collection_id = c.id
+                WHERE c.project_id = $1 AND d.status = $2
+                "#
+            )
+            .bind(project_id)
+            .bind(status)
+            .fetch_one(state.pool.inner())
+            .await?
+        } else {
+            sqlx::query_as(
+                r#"
+                SELECT COUNT(*) FROM sys_documents d
+                JOIN sys_collections c ON d.collection_id = c.id
+                WHERE c.project_id = $1
+                "#
+            )
+            .bind(project_id)
+            .fetch_one(state.pool.inner())
+            .await?
+        };
+
+        let docs: Vec<Document> = if let Some(status) = &query.status {
+            sqlx::query_as(
+                r#"
+                SELECT d.* FROM sys_documents d
+                JOIN sys_collections c ON d.collection_id = c.id
+                WHERE c.project_id = $1 AND d.status = $2
+                ORDER BY d.created_at DESC
+                LIMIT $3 OFFSET $4
+                "#,
+            )
+            .bind(project_id)
+            .bind(status)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(state.pool.inner())
+            .await?
+        } else {
+            sqlx::query_as(
+                r#"
+                SELECT d.* FROM sys_documents d
+                JOIN sys_collections c ON d.collection_id = c.id
+                WHERE c.project_id = $1
+                ORDER BY d.created_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(project_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(state.pool.inner())
+            .await?
+        };
+
+        (count.0, docs)
     };
 
-    Ok(Json(documents.into_iter().map(DocumentResponse::from).collect()))
+    let responses: Vec<DocumentResponse> = documents.into_iter().map(DocumentResponse::from).collect();
+    Ok(Json(PaginatedResponse::new(responses, total, limit, offset)))
 }
 
 /// Legacy upload endpoint - requires collection name in multipart form

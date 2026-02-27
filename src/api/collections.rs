@@ -1,24 +1,57 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use std::sync::Arc;
 
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::{Collection, CollectionStats, CreateCollection, UpdateRagConfig};
 use crate::server::AppState;
 use crate::vector;
 use crate::{Error, Result};
 
+/// List collections with pagination
+///
+/// Query parameters:
+/// - `limit` / `per_page`: Number of items per page (default: 50, max: 1000)
+/// - `offset`: Starting position (0-indexed)
+/// - `page`: Page number (1-indexed, alternative to offset)
+/// - `cursor`: Base64 cursor from previous response
 pub async fn list_collections(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<Collection>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<Collection>>> {
     // Require project context for multi-tenant isolation
     let project_id = auth.require_project()?;
 
-    let collections = vector::list_collections(&state.pool, Some(project_id)).await?;
-    Ok(Json(collections))
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_collections WHERE project_id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await?;
+
+    // Get paginated collections
+    let collections: Vec<Collection> = sqlx::query_as(
+        r#"
+        SELECT * FROM sys_collections
+        WHERE project_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+        "#
+    )
+    .bind(project_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(state.pool.inner())
+    .await?;
+
+    Ok(Json(PaginatedResponse::new(collections, total.0, limit, offset)))
 }
 
 pub async fn create_collection(

@@ -40,6 +40,53 @@ pub async fn get_user_tables(pool: &PgPool, project_id: Uuid) -> Result<Vec<Tabl
     Ok(result)
 }
 
+/// Get all user tables for a project with pagination
+pub async fn get_user_tables_paginated(pool: &PgPool, project_id: Uuid, limit: i64, offset: i64) -> Result<(Vec<TableInfo>, i64)> {
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_user_tables WHERE project_id = $1 AND api_enabled = true"
+    )
+    .bind(project_id)
+    .fetch_one(pool)
+    .await?;
+
+    // Get tables from the registry
+    let tables: Vec<(String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+        r#"
+        SELECT table_name, created_at
+        FROM sys_user_tables
+        WHERE project_id = $1 AND api_enabled = true
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(project_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    let mut result = Vec::new();
+    for (table_name, created_at) in tables {
+        let full_table_name = format!("ut_{}_{}", project_id.to_string().replace("-", "_"), table_name);
+
+        // Get column info from information_schema
+        let columns = get_table_columns(pool, &full_table_name).await?;
+
+        // Get row count
+        let row_count = get_row_count(pool, &full_table_name, project_id).await?;
+
+        result.push(TableInfo {
+            name: table_name,
+            columns,
+            row_count,
+            created_at,
+        });
+    }
+
+    Ok((result, total.0))
+}
+
 /// Get a single user table by name
 pub async fn get_user_table(pool: &PgPool, project_id: Uuid, table_name: &str) -> Result<Option<TableInfo>> {
     let record: Option<(String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
