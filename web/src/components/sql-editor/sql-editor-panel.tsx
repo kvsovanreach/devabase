@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useSqlEditorStore } from '@/stores/sql-editor-store';
 import { useExecuteSql, useSqlHistory, useSqlSchema, ExecuteResult, QueryHistoryEntry, TableInfo as SqlTableInfo, SchemaColumnInfo } from '@/hooks/use-sql';
+import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/utils';
 
 export function SqlEditorPanel() {
   const { isOpen, width, query, setOpen, setWidth, setQuery, setLastQuery } = useSqlEditorStore();
+  const { isDark } = useTheme();
   const executeSql = useExecuteSql();
   const { data: history } = useSqlHistory();
   const { data: schema } = useSqlSchema();
@@ -195,7 +197,7 @@ export function SqlEditorPanel() {
             defaultLanguage="sql"
             value={query}
             onChange={(value) => setQuery(value || '')}
-            theme="vs-dark"
+            theme={isDark ? 'vs-dark' : 'light'}
             options={{
               minimap: { enabled: false },
               fontSize: 12,

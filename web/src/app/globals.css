@@ -156,8 +156,61 @@
   font-display: swap;
 }
 
-/* Dark Theme Design System - Primary: #91214E */
+/* ============================================
+   LIGHT MODE (Default)
+   ============================================ */
 :root {
+  /* Backgrounds */
+  --background: #ffffff;
+  --background-secondary: #f9fafb;
+  --surface: #ffffff;
+  --surface-secondary: #f3f4f6;
+  --surface-hover: #e5e7eb;
+  --surface-active: #d1d5db;
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-light: #f3f4f6;
+  --border-focus: #91214E;
+
+  /* Text */
+  --foreground: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  /* Primary (Magenta/Burgundy) */
+  --primary: #91214E;
+  --primary-hover: #a62859;
+  --primary-active: #7d1c43;
+  --primary-muted: rgba(145, 33, 78, 0.1);
+
+  /* Status colors */
+  --success: #16a34a;
+  --success-muted: rgba(22, 163, 74, 0.1);
+  --warning: #d97706;
+  --warning-muted: rgba(217, 119, 6, 0.1);
+  --error: #dc2626;
+  --error-muted: rgba(220, 38, 38, 0.1);
+  --info: #2563eb;
+  --info-muted: rgba(37, 99, 235, 0.1);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.35);
+
+  color-scheme: light;
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+.dark {
   /* Backgrounds */
   --background: #0a0a0b;
   --background-secondary: #111113;
@@ -197,6 +250,12 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -244,10 +303,6 @@
   --radius-xl: 16px;
 }
 
-html {
-  color-scheme: dark;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -259,7 +314,7 @@ body {
   font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
 }
 
-/* Dark mode scrollbar */
+/* Scrollbar - Theme aware */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -270,12 +325,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Focus ring */
@@ -319,19 +374,19 @@ select:focus {
   box-shadow: 0 0 0 4px var(--primary-muted);
 }
 
-/* Placeholder styles for dark mode */
+/* Placeholder styles */
 input::placeholder,
 textarea::placeholder {
   color: var(--text-tertiary);
 }
 
-/* Select option styles for dark mode */
+/* Select option styles */
 select option {
   background: var(--surface);
   color: var(--foreground);
 }
 
-/* React Flow dark theme overrides */
+/* React Flow theme overrides */
 .react-flow__node {
   cursor: grab;
 }
@@ -373,6 +428,14 @@ select option {
   fill: rgba(0, 0, 0, 0.6) !important;
 }
 
+.dark .react-flow__minimap-mask {
+  fill: rgba(0, 0, 0, 0.6) !important;
+}
+
+:root .react-flow__minimap-mask {
+  fill: rgba(0, 0, 0, 0.1) !important;
+}
+
 .react-flow__edge-path {
   stroke: var(--primary) !important;
   stroke-width: 2 !important;
@@ -387,4 +450,38 @@ select option {
   0% {
     stroke-dashoffset: 10;
   }
+}
+
+/* Code blocks - theme aware */
+pre, code {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.dark pre, .dark code {
+  background: var(--surface);
+}
+
+/* Table styles */
+table {
+  border-color: var(--border);
+}
+
+th {
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+}
+
+.dark th {
+  background: var(--surface);
+}
+
+tr:hover {
+  background: var(--surface-hover);
+}
+
+/* Dropdown/Menu styles */
+[data-headlessui-state="open"] {
+  background: var(--surface);
+  border-color: var(--border);
 }

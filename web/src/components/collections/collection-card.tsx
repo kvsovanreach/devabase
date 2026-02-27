@@ -94,7 +94,7 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <MenuItems className="absolute right-0 mt-1 w-44 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] overflow-hidden z-50">
+              <MenuItems className="absolute right-0 mt-1 w-44 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50">
                 <MenuItem>
                   {({ focus }) => (
                     <Link

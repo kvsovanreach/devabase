@@ -31,7 +31,7 @@ interface Endpoint {
   name: string;
   description: string;
   requestBody?: Record<string, unknown>;
-  responseExample?: Record<string, unknown>;
+  responseExample?: Record<string, unknown> | Record<string, unknown>[];
   pathParams?: { name: string; description: string }[];
   queryParams?: { name: string; description: string; required?: boolean }[];
 }
@@ -223,8 +223,8 @@ export default function ApiDocsPage() {
   const baseUrl = `${API_CONFIG.baseUrl}/v1`;
   const exampleCollection = collections?.[0]?.name || 'my_collection';
   const exampleTable = tables?.[0]?.name || 'my_table';
-  const apiKeyExample = apiKeys?.[0]?.key_prefix
-    ? `${apiKeys[0].key_prefix}...`
+  const apiKeyExample = apiKeys?.[0]?.prefix
+    ? `${apiKeys[0].prefix}...`
     : 'deva_xxxxxxxxxxxx';
 
   // Define all endpoint categories with dynamic examples
@@ -669,7 +669,7 @@ export default function ApiDocsPage() {
               id: 'uuid',
               name: 'Production Key',
               key: 'deva_xxxxxxxxxxxxxxxxxxxx',
-              key_prefix: 'deva_xxxx',
+              prefix: 'deva_xxxx',
               scopes: ['read', 'write'],
             },
           },

@@ -47,7 +47,7 @@ export function UserMenu() {
         leaveFrom="opacity-100 scale-100 translate-y-0"
         leaveTo="opacity-0 scale-95 -translate-y-1"
       >
-        <MenuItems className="absolute right-0 mt-2 w-60 bg-surface border border-border-light rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden z-50">
+        <MenuItems className="absolute right-0 mt-2 w-60 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-border-light bg-surface-secondary">
             <p className="text-[15px] font-medium text-foreground truncate">{user.name}</p>
             <p className="text-[13px] text-text-secondary truncate mt-0.5">{user.email}</p>

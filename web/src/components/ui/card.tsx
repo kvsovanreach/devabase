@@ -22,8 +22,8 @@ export function Card({ children, className, hover, onClick, padding = 'none' }: 
   return (
     <div
       className={cn(
-        'bg-surface rounded-xl border border-border-light shadow-[0_2px_8px_rgba(0,0,0,0.04)]',
-        hover && 'hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-border transition-all duration-200 cursor-pointer',
+        'bg-surface rounded-xl border border-border-light shadow-sm',
+        hover && 'hover:shadow-md hover:border-border transition-all duration-200 cursor-pointer',
         paddingStyles[padding],
         className
       )}

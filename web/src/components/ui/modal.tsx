@@ -42,7 +42,7 @@ export function Modal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm" />
         </TransitionChild>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -59,7 +59,7 @@ export function Modal({
               <DialogPanel
                 className={cn(
                   'w-full transform bg-surface border-t sm:border border-border-light',
-                  'shadow-[0_-24px_80px_-12px_rgba(0,0,0,0.5)] sm:shadow-[0_24px_80px_-12px_rgba(0,0,0,0.5)]',
+                  'shadow-lg',
                   'transition-all',
                   'rounded-t-2xl sm:rounded-2xl',
                   sizes[size]

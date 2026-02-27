@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Home, Menu } from 'lucide-react';
 import { UserMenu } from './user-menu';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useProjectStore } from '@/stores/project-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
@@ -126,6 +127,7 @@ export function Header() {
         ))}
       </nav>
       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        <ThemeToggle variant="dropdown" />
         <UserMenu />
       </div>
     </header>
