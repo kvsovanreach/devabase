@@ -483,7 +483,37 @@ export interface ApiError {
   message?: string;
 }
 
+// Pagination types for table API endpoints
+export interface PaginationMeta {
+  /** Total number of rows matching the filter */
+  total: number;
+  /** Number of rows returned in this response */
+  count: number;
+  /** Current limit (rows per page) */
+  limit: number;
+  /** Current offset */
+  offset: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Total number of pages */
+  total_pages: number;
+  /** Whether there is a next page */
+  has_next: boolean;
+  /** Whether there is a previous page */
+  has_previous: boolean;
+  /** Cursor for next page (if available) */
+  next_cursor?: string;
+  /** Cursor for previous page (if available) */
+  prev_cursor?: string;
+}
+
 export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+/** @deprecated Use PaginatedResponse with pagination metadata instead */
+export interface LegacyPaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;

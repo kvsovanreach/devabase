@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Lightweight backend for RAG/LLM applications"
 license = "MIT"
-repository = "https://github.com/devabase/devabase"
+repository = "https://github.com/kvsovanreach/devabase"
 default-run = "devabase"
 
 [[bin]]

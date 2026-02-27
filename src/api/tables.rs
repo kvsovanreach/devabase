@@ -1,6 +1,7 @@
 use crate::auth::AuthContext;
 use crate::db::models::user_table::{
-    CreateTableRequest, RowQuery, RowResponse, RowsResponse, TableInfo,
+    CreateTableRequest, PaginationMeta, RowQuery, RowResponse, RowsResponse, TableInfo,
+    decode_cursor,
 };
 use crate::rest_gen;
 use crate::server::AppState;
@@ -180,7 +181,21 @@ pub async fn delete_table(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// List rows from a table
+/// List rows from a table with automatic pagination
+///
+/// Supports multiple pagination styles:
+/// - Offset-based: `?limit=50&offset=100`
+/// - Page-based: `?page=3&per_page=50`
+/// - Cursor-based: `?cursor=<base64_cursor>`
+///
+/// Query parameters:
+/// - `limit` / `per_page`: Number of rows per page (default: 50, max: 1000)
+/// - `offset`: Starting position (0-indexed)
+/// - `page`: Page number (1-indexed, alternative to offset)
+/// - `cursor`: Base64 cursor from previous response
+/// - `order`: Sort order (e.g., "created_at:desc,name:asc")
+/// - `filter`: Filter conditions (e.g., "status.eq=active&age.gte=18")
+/// - `select`: Columns to return (e.g., "id,name,email")
 pub async fn list_rows(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
@@ -192,7 +207,7 @@ pub async fn list_rows(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists
+    // Verify table exists and API is enabled
     let exists: Option<(i32,)> = sqlx::query_as(
         "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
     )
@@ -203,6 +218,16 @@ pub async fn list_rows(
 
     if exists.is_none() {
         return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
+    }
+
+    // Resolve pagination parameters
+    let (limit, mut offset) = query.get_pagination();
+
+    // Handle cursor-based pagination (overrides offset if present)
+    if let Some(ref cursor) = query.cursor {
+        if let Some(cursor_offset) = decode_cursor(cursor) {
+            offset = cursor_offset;
+        }
     }
 
     // Build and execute count query
@@ -221,17 +246,16 @@ pub async fn list_rows(
         query.select.as_deref(),
         query.filter.as_deref(),
         query.order.as_deref(),
-        query.limit,
-        query.offset,
+        limit,
+        offset,
     )?;
 
     let rows = execute_select_query(state.pool.inner(), &select_sql, &select_params).await?;
+    let count = rows.len() as i32;
 
     Ok(Json(RowsResponse {
         rows,
-        total,
-        limit: query.limit.min(1000),
-        offset: query.offset,
+        pagination: PaginationMeta::new(total, limit, offset, count),
     }))
 }
 
