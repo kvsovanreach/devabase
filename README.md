@@ -15,7 +15,7 @@
 
 <br />
 
-[Download Demo Video](docs/assets/system_demo.mp4)
+<img src="docs/assets/system-demo.gif" alt="Devabase System" width="100" />
 
 </div>
 
