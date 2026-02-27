@@ -128,6 +128,11 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
         parts: &mut Parts,
         state: &Arc<crate::server::AppState>,
     ) -> Result<Self, Self::Rejection> {
+        // Track if credentials were provided (to give better error messages)
+        let mut credentials_provided = false;
+        let mut is_jwt_attempt = false;
+        let mut is_api_key_attempt = false;
+
         // Try to get Authorization header
         let auth_header = parts
             .headers
@@ -137,7 +142,15 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
         // Try Bearer token (JWT or API key)
         if let Some(header) = auth_header {
             if header.starts_with("Bearer ") {
+                credentials_provided = true;
                 let token = &header[7..];
+
+                // Detect token type by prefix
+                if token.starts_with("dvb_") || token.starts_with("deva_") {
+                    is_api_key_attempt = true;
+                } else {
+                    is_jwt_attempt = true;
+                }
 
                 // Try JWT first
                 if let Some(jwt_secret) = &state.config.auth.jwt_secret {
@@ -170,12 +183,25 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
 
         // Try X-API-Key header
         if let Some(api_key) = parts.headers.get("X-API-Key").and_then(|h| h.to_str().ok()) {
+            credentials_provided = true;
+            is_api_key_attempt = true;
             if let Ok(ctx) = validate_api_key(&state.pool, api_key).await {
                 return Ok(ctx);
             }
         }
 
-        Err((StatusCode::UNAUTHORIZED, "Authentication required"))
+        // Return appropriate error message
+        if credentials_provided {
+            if is_api_key_attempt {
+                Err((StatusCode::UNAUTHORIZED, "Invalid API key"))
+            } else if is_jwt_attempt {
+                Err((StatusCode::UNAUTHORIZED, "Invalid or expired token"))
+            } else {
+                Err((StatusCode::UNAUTHORIZED, "Invalid credentials"))
+            }
+        } else {
+            Err((StatusCode::UNAUTHORIZED, "Authentication required"))
+        }
     }
 }
 

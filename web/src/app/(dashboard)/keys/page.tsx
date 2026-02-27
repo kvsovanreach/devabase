@@ -29,7 +29,6 @@ export default function ApiKeysPage() {
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Show message if no project selected
   if (!currentProject) {
@@ -75,13 +74,9 @@ export default function ApiKeysPage() {
     }
   };
 
-  const copyToClipboard = (text: string, id?: string) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
-    if (id) {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    }
   };
 
   const handleCloseModal = () => {
@@ -233,20 +228,11 @@ export default function ApiKeysPage() {
                       </div>
                     </div>
 
-                    {/* Key */}
+                    {/* Key Prefix */}
                     <div className="hidden md:flex items-center">
-                      <button
-                        onClick={() => copyToClipboard(apiKey.prefix + '...', apiKey.id)}
-                        className={cn(
-                          "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[13px] font-mono transition-all",
-                          copiedId === apiKey.id
-                            ? "bg-success/10 text-success"
-                            : "bg-surface-secondary hover:bg-surface-hover text-text-secondary"
-                        )}
-                      >
-                        <span>{apiKey.prefix}...</span>
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
+                      <span className="px-2.5 py-1.5 rounded-lg text-[13px] font-mono bg-surface-secondary text-text-secondary">
+                        {apiKey.prefix}...
+                      </span>
                     </div>
 
                     {/* Created */}
@@ -265,13 +251,6 @@ export default function ApiKeysPage() {
 
                     {/* Actions */}
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => copyToClipboard(apiKey.prefix + '...')}
-                        className="md:hidden p-2 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-hover transition-colors"
-                        title="Copy key prefix"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
                       <button
                         onClick={() => setDeleteTarget({ id: apiKey.id, name: apiKey.name })}
                         className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors"

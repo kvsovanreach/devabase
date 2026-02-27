@@ -162,10 +162,12 @@ export default function SqlPage() {
                 fontSize: 13,
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
+                scrollBeyondLastColumn: 0,
                 wordWrap: 'on',
                 automaticLayout: true,
                 padding: { top: 12, bottom: 12 },
-                fontFamily: "'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, monospace",
+                overviewRulerBorder: false,
+                overviewRulerLanes: 0,
               }}
             />
           </div>

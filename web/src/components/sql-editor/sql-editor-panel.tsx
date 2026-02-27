@@ -203,9 +203,12 @@ export function SqlEditorPanel() {
               fontSize: 12,
               lineNumbers: 'on',
               scrollBeyondLastLine: false,
+              scrollBeyondLastColumn: 0,
               wordWrap: 'on',
               automaticLayout: true,
               padding: { top: 8, bottom: 8 },
+              overviewRulerBorder: false,
+              overviewRulerLanes: 0,
             }}
           />
         </div>

@@ -546,11 +546,30 @@ fn row_to_json(row: &sqlx::postgres::PgRow) -> Result<Value> {
                         Value::String(v.to_string())
                     } else if let Ok(v) = row.try_get::<chrono::DateTime<chrono::Utc>, _>(name) {
                         Value::String(v.to_rfc3339())
+                    } else if let Ok(v) = row.try_get::<chrono::NaiveDate, _>(name) {
+                        Value::String(v.to_string())
+                    } else if let Ok(v) = row.try_get::<chrono::NaiveTime, _>(name) {
+                        Value::String(v.to_string())
+                    } else if let Ok(v) = row.try_get::<chrono::NaiveDateTime, _>(name) {
+                        Value::String(v.to_string())
+                    // Array types
+                    } else if let Ok(v) = row.try_get::<Vec<String>, _>(name) {
+                        Value::Array(v.into_iter().map(Value::String).collect())
+                    } else if let Ok(v) = row.try_get::<Vec<i32>, _>(name) {
+                        Value::Array(v.into_iter().map(|n| Value::Number(n.into())).collect())
+                    } else if let Ok(v) = row.try_get::<Vec<i64>, _>(name) {
+                        Value::Array(v.into_iter().map(|n| Value::Number(n.into())).collect())
+                    } else if let Ok(v) = row.try_get::<Vec<f64>, _>(name) {
+                        Value::Array(v.into_iter().filter_map(|n| serde_json::Number::from_f64(n).map(Value::Number)).collect())
+                    } else if let Ok(v) = row.try_get::<Vec<bool>, _>(name) {
+                        Value::Array(v.into_iter().map(Value::Bool).collect())
+                    } else if let Ok(v) = row.try_get::<Vec<uuid::Uuid>, _>(name) {
+                        Value::Array(v.into_iter().map(|u| Value::String(u.to_string())).collect())
                     } else if let Ok(v) = row.try_get::<Value, _>(name) {
                         v
                     } else {
-                        // Fallback to string representation
-                        Value::String(format!("<unsupported type>"))
+                        // Try to get raw bytes and convert to string as last resort
+                        Value::Null
                     }
                 }
             }

@@ -157,6 +157,150 @@
 }
 
 /* ============================================
+   Tailwind Theme Configuration
+   ============================================ */
+@theme inline {
+  /* Font family with SF Pro and system fallbacks */
+  --font-sans: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Cascadia Mono', 'Consolas', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ============================================
+   Dynamic Color Utilities (CSS Layer)
+   ============================================ */
+@layer utilities {
+  /* Background colors */
+  .bg-background { background-color: var(--background); }
+  .bg-background-secondary { background-color: var(--background-secondary); }
+  .bg-surface { background-color: var(--surface); }
+  .bg-surface-secondary { background-color: var(--surface-secondary); }
+  .bg-surface-hover { background-color: var(--surface-hover); }
+  .bg-surface-active { background-color: var(--surface-active); }
+  .bg-primary { background-color: var(--primary); }
+  .bg-primary-hover { background-color: var(--primary-hover); }
+  .bg-primary-active { background-color: var(--primary-active); }
+  .bg-primary-muted { background-color: var(--primary-muted); }
+  .bg-success { background-color: var(--success); }
+  .bg-success-muted { background-color: var(--success-muted); }
+  .bg-warning { background-color: var(--warning); }
+  .bg-warning-muted { background-color: var(--warning-muted); }
+  .bg-error { background-color: var(--error); }
+  .bg-error-muted { background-color: var(--error-muted); }
+  .bg-info { background-color: var(--info); }
+  .bg-info-muted { background-color: var(--info-muted); }
+
+  /* Text colors */
+  .text-foreground { color: var(--foreground); }
+  .text-text-secondary { color: var(--text-secondary); }
+  .text-text-tertiary { color: var(--text-tertiary); }
+  .text-text-muted { color: var(--text-secondary); }
+  .text-primary { color: var(--primary); }
+  .text-primary-hover { color: var(--primary-hover); }
+  .text-success { color: var(--success); }
+  .text-warning { color: var(--warning); }
+  .text-error { color: var(--error); }
+  .text-info { color: var(--info); }
+
+  /* Border colors */
+  .border-border { border-color: var(--border); }
+  .border-border-light { border-color: var(--border-light); }
+  .border-border-focus { border-color: var(--border-focus); }
+  .border-primary { border-color: var(--primary); }
+  .border-success { border-color: var(--success); }
+  .border-warning { border-color: var(--warning); }
+  .border-error { border-color: var(--error); }
+  .border-info { border-color: var(--info); }
+
+  /* Ring colors */
+  .ring-primary { --tw-ring-color: var(--primary); }
+  .ring-primary\/20 { --tw-ring-color: color-mix(in srgb, var(--primary) 20%, transparent); }
+  .ring-primary\/30 { --tw-ring-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+  .ring-error { --tw-ring-color: var(--error); }
+  .ring-error\/20 { --tw-ring-color: color-mix(in srgb, var(--error) 20%, transparent); }
+
+  /* Focus states */
+  .focus\:border-primary:focus { border-color: var(--primary); }
+  .focus\:border-error:focus { border-color: var(--error); }
+  .focus\:ring-primary:focus { --tw-ring-color: var(--primary); }
+  .focus\:ring-primary\/20:focus { --tw-ring-color: color-mix(in srgb, var(--primary) 20%, transparent); }
+  .focus\:ring-error\/20:focus { --tw-ring-color: color-mix(in srgb, var(--error) 20%, transparent); }
+
+  /* Hover states */
+  .hover\:bg-surface-hover:hover { background-color: var(--surface-hover); }
+  .hover\:bg-primary-hover:hover { background-color: var(--primary-hover); }
+  .hover\:bg-primary-active:hover { background-color: var(--primary-active); }
+  .hover\:text-foreground:hover { color: var(--foreground); }
+  .hover\:text-primary:hover { color: var(--primary); }
+  .hover\:border-border:hover { border-color: var(--border); }
+  .hover\:border-primary:hover { border-color: var(--primary); }
+
+  /* Divide colors */
+  .divide-border > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
+  .divide-border-light > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-light); }
+
+  /* Override default divide-y to use theme border color */
+  :where(.divide-y > :not(:last-child)) { border-bottom-color: var(--border-light); }
+  :where(.divide-x > :not(:last-child)) { border-right-color: var(--border-light); }
+
+  /* Shadow utilities */
+  .shadow-sm { box-shadow: var(--shadow-sm-value); }
+  .shadow-md { box-shadow: var(--shadow-md-value); }
+  .shadow-lg { box-shadow: var(--shadow-lg-value); }
+  .shadow-card { box-shadow: var(--shadow-card-value); }
+
+  /* Fill colors for SVG */
+  .fill-primary { fill: var(--primary); }
+  .fill-foreground { fill: var(--foreground); }
+  .fill-text-secondary { fill: var(--text-secondary); }
+
+  /* Stroke colors for SVG */
+  .stroke-primary { stroke: var(--primary); }
+  .stroke-border { stroke: var(--border); }
+
+  /* Background opacity variants */
+  .bg-primary\/5 { background-color: color-mix(in srgb, var(--primary) 5%, transparent); }
+  .bg-primary\/10 { background-color: color-mix(in srgb, var(--primary) 10%, transparent); }
+  .bg-primary\/20 { background-color: color-mix(in srgb, var(--primary) 20%, transparent); }
+  .bg-primary\/30 { background-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+  .bg-error\/5 { background-color: color-mix(in srgb, var(--error) 5%, transparent); }
+  .bg-error\/10 { background-color: color-mix(in srgb, var(--error) 10%, transparent); }
+  .bg-error\/20 { background-color: color-mix(in srgb, var(--error) 20%, transparent); }
+  .bg-success\/10 { background-color: color-mix(in srgb, var(--success) 10%, transparent); }
+  .bg-success\/20 { background-color: color-mix(in srgb, var(--success) 20%, transparent); }
+  .bg-warning\/10 { background-color: color-mix(in srgb, var(--warning) 10%, transparent); }
+  .bg-warning\/20 { background-color: color-mix(in srgb, var(--warning) 20%, transparent); }
+  .bg-info\/10 { background-color: color-mix(in srgb, var(--info) 10%, transparent); }
+  .bg-info\/20 { background-color: color-mix(in srgb, var(--info) 20%, transparent); }
+
+  /* Border opacity variants */
+  .border-primary\/20 { border-color: color-mix(in srgb, var(--primary) 20%, transparent); }
+  .border-primary\/30 { border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+  .border-primary\/50 { border-color: color-mix(in srgb, var(--primary) 50%, transparent); }
+  .border-error\/20 { border-color: color-mix(in srgb, var(--error) 20%, transparent); }
+  .border-error\/30 { border-color: color-mix(in srgb, var(--error) 30%, transparent); }
+  .border-success\/30 { border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+  .border-warning\/30 { border-color: color-mix(in srgb, var(--warning) 30%, transparent); }
+
+  /* Text opacity variants */
+  .text-error\/80 { color: color-mix(in srgb, var(--error) 80%, transparent); }
+
+  /* Hover with opacity */
+  .hover\:border-primary\/30:hover { border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+  .hover\:border-primary\/50:hover { border-color: color-mix(in srgb, var(--primary) 50%, transparent); }
+
+  /* Gradient from/to colors */
+  .from-primary\/5 { --tw-gradient-from: color-mix(in srgb, var(--primary) 5%, transparent); }
+  .from-primary\/10 { --tw-gradient-from: color-mix(in srgb, var(--primary) 10%, transparent); }
+  .to-primary\/5 { --tw-gradient-to: color-mix(in srgb, var(--primary) 5%, transparent); }
+  .to-transparent { --tw-gradient-to: transparent; }
+}
+
+/* ============================================
    LIGHT MODE (Default)
    ============================================ */
 :root {
@@ -195,10 +339,10 @@
   --info-muted: rgba(37, 99, 235, 0.1);
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-sm-value: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md-value: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg-value: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-card-value: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 
   /* Scrollbar */
   --scrollbar-thumb: rgba(0, 0, 0, 0.2);
@@ -210,7 +354,8 @@
 /* ============================================
    DARK MODE
    ============================================ */
-.dark {
+:root.dark,
+html.dark {
   /* Backgrounds */
   --background: #0a0a0b;
   --background-secondary: #111113;
@@ -246,61 +391,16 @@
   --info-muted: rgba(59, 130, 246, 0.15);
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-sm-value: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md-value: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg-value: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-card-value: 0 2px 8px rgba(0, 0, 0, 0.3);
 
   /* Scrollbar */
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 
   color-scheme: dark;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-background-secondary: var(--background-secondary);
-  --color-surface: var(--surface);
-  --color-surface-secondary: var(--surface-secondary);
-  --color-surface-hover: var(--surface-hover);
-  --color-surface-active: var(--surface-active);
-
-  --color-border: var(--border);
-  --color-border-light: var(--border-light);
-  --color-border-focus: var(--border-focus);
-
-  --color-foreground: var(--foreground);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-tertiary: var(--text-tertiary);
-
-  /* Keep old names for compatibility */
-  --color-text-muted: var(--text-secondary);
-  --color-text-dim: var(--text-tertiary);
-  --color-border-hover: var(--border);
-
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-active: var(--primary-active);
-  --color-primary-muted: var(--primary-muted);
-
-  --color-success: var(--success);
-  --color-success-muted: var(--success-muted);
-  --color-warning: var(--warning);
-  --color-warning-muted: var(--warning-muted);
-  --color-error: var(--error);
-  --color-error-muted: var(--error-muted);
-  --color-info: var(--info);
-  --color-info-muted: var(--info-muted);
-
-  /* Font family with SF Pro and system fallbacks */
-  --font-sans: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Monaco, 'Cascadia Mono', 'Consolas', monospace;
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
 }
 
 body {
@@ -312,6 +412,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Scrollbar - Theme aware */
@@ -335,7 +436,8 @@ body {
 
 /* Focus ring */
 .focus-ring {
-  @apply outline-none ring-4 ring-primary/30;
+  outline: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 /* Selection */
@@ -353,7 +455,7 @@ body {
 .card-apple {
   background: var(--surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card-value);
   border: 1px solid var(--border-light);
 }
 
@@ -399,7 +501,7 @@ select option {
   background: var(--surface) !important;
   border: 1px solid var(--border-light) !important;
   border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
+  box-shadow: var(--shadow-lg-value) !important;
 }
 
 .react-flow__controls-button {
@@ -421,19 +523,15 @@ select option {
   background: var(--surface) !important;
   border: 1px solid var(--border-light) !important;
   border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
+  box-shadow: var(--shadow-lg-value) !important;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(0, 0, 0, 0.6) !important;
+  fill: rgba(0, 0, 0, 0.1) !important;
 }
 
 .dark .react-flow__minimap-mask {
   fill: rgba(0, 0, 0, 0.6) !important;
-}
-
-:root .react-flow__minimap-mask {
-  fill: rgba(0, 0, 0, 0.1) !important;
 }
 
 .react-flow__edge-path {
