@@ -5,8 +5,18 @@
 # Completely resets the database to a fresh state
 #
 # Usage:
-#   ./scripts/reset-db.sh         # Full reset (drops everything)
-#   ./scripts/reset-db.sh --soft  # Soft reset (only user tables & data)
+#   ./scripts/reset-db.sh                # Full reset via Docker
+#   ./scripts/reset-db.sh --soft         # Soft reset (user data only)
+#   ./scripts/reset-db.sh --local        # Use direct psql instead of Docker
+#   ./scripts/reset-db.sh --soft --local # Combine flags
+#
+# Environment variables:
+#   POSTGRES_USER     - Database user (default: devabase)
+#   POSTGRES_DB       - Database name (default: devabase)
+#   POSTGRES_HOST     - Database host for --local (default: localhost)
+#   POSTGRES_PORT     - Database port for --local (default: 5432)
+#   POSTGRES_PASSWORD - Password for --local mode
+#   DB_CONTAINER      - Docker container name (default: DEVABASE_POSTGRES)
 # ==============================================================================
 
 set -e
@@ -20,9 +30,11 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 SOFT_RESET=false
-if [ "$1" == "--soft" ] || [ "$1" == "-s" ]; then
-    SOFT_RESET=true
-fi
+for arg in "$@"; do
+    if [ "$arg" == "--soft" ] || [ "$arg" == "-s" ]; then
+        SOFT_RESET=true
+    fi
+done
 
 # Load environment variables
 if [ -f .env ]; then
@@ -32,9 +44,19 @@ fi
 # Database credentials
 DB_USER="${POSTGRES_USER:-devabase}"
 DB_NAME="${POSTGRES_DB:-devabase}"
+DB_HOST="${POSTGRES_HOST:-localhost}"
+DB_PORT="${POSTGRES_PORT:-5432}"
 
 # Docker container name
 CONTAINER_NAME="${DB_CONTAINER:-DEVABASE_POSTGRES}"
+
+# Check for --local flag to use direct psql instead of docker
+USE_LOCAL=false
+for arg in "$@"; do
+    if [ "$arg" == "--local" ] || [ "$arg" == "-l" ]; then
+        USE_LOCAL=true
+    fi
+done
 
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════════════════════╗"
@@ -46,19 +68,27 @@ fi
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 echo -e "Database:  ${YELLOW}${DB_NAME}${NC}"
-echo -e "Container: ${YELLOW}${CONTAINER_NAME}${NC}"
-if [ "$SOFT_RESET" = true ]; then
-echo -e "Mode:      ${YELLOW}Soft Reset (user tables only)${NC}"
+if [ "$USE_LOCAL" = true ]; then
+echo -e "Host:      ${YELLOW}${DB_HOST}:${DB_PORT}${NC}"
+echo -e "Mode:      ${YELLOW}Local (direct psql)${NC}"
 else
-echo -e "Mode:      ${YELLOW}Full Reset (everything)${NC}"
+echo -e "Container: ${YELLOW}${CONTAINER_NAME}${NC}"
+fi
+if [ "$SOFT_RESET" = true ]; then
+echo -e "Reset:     ${YELLOW}Soft (user data only)${NC}"
+else
+echo -e "Reset:     ${YELLOW}Full (everything)${NC}"
 fi
 echo ""
 
-# Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo -e "${RED}Error: Container '${CONTAINER_NAME}' is not running.${NC}"
-    echo -e "Start it with: ${CYAN}docker compose up -d devabase-postgres${NC}"
-    exit 1
+if [ "$USE_LOCAL" = false ]; then
+    # Check if container is running
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        echo -e "${RED}Error: Container '${CONTAINER_NAME}' is not running.${NC}"
+        echo -e "Start it with: ${CYAN}docker compose up -d devabase-postgres${NC}"
+        echo -e "Or use --local flag to connect directly: ${CYAN}./scripts/reset-db.sh --local${NC}"
+        exit 1
+    fi
 fi
 
 # Confirm action
@@ -76,14 +106,18 @@ fi
 
 echo ""
 
-# Function to run SQL via docker
+# Function to run SQL (via docker or direct psql)
 run_sql() {
-    docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" "$@"
+    if [ "$USE_LOCAL" = true ]; then
+        PGPASSWORD="${POSTGRES_PASSWORD:-}" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" "$@"
+    else
+        docker exec -i "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" "$@"
+    fi
 }
 
 if [ "$SOFT_RESET" = true ]; then
     # Soft reset: Only drop user tables and clear user data
-    echo -e "${YELLOW}[1/2] Dropping user tables (ut_* and uv_*)...${NC}"
+    echo -e "${YELLOW}[1/2] Dropping user tables (ut_*, uv_*, vec_*)...${NC}"
     run_sql << 'EOF'
 -- Drop all user tables (ut_*) - dynamic tables created via API
 DO $$
@@ -99,17 +133,17 @@ BEGIN
     END LOOP;
 END $$;
 
--- Drop all vector tables (uv_*) - if any exist
+-- Drop all vector tables (uv_*, vec_*) - collection vector storage
 DO $$
 DECLARE
     tbl RECORD;
 BEGIN
     FOR tbl IN
         SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND tablename LIKE 'uv_%'
+        WHERE schemaname = 'public' AND (tablename LIKE 'uv_%' OR tablename LIKE 'vec_%')
     LOOP
         EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', tbl.tablename);
-        RAISE NOTICE 'Dropped table: %', tbl.tablename;
+        RAISE NOTICE 'Dropped vector table: %', tbl.tablename;
     END LOOP;
 END $$;
 
@@ -123,40 +157,93 @@ EOF
 -- Clear data from system tables (preserving schema)
 -- Order matters due to foreign key constraints
 
--- Clear documents and chunks (vectors are in collection tables)
+-- ============================================================
+-- App Authentication (end-user auth)
+-- ============================================================
+DELETE FROM sys_app_oauth_connections;
+DELETE FROM sys_app_sessions;
+DELETE FROM sys_app_users;
+DELETE FROM sys_app_auth_settings;
+
+-- ============================================================
+-- Knowledge Graph
+-- ============================================================
+DELETE FROM sys_relationships;
+DELETE FROM sys_entities;
+
+-- ============================================================
+-- Evaluation & Benchmarks
+-- ============================================================
+DELETE FROM sys_evaluation_runs;
+DELETE FROM sys_evaluation_cases;
+DELETE FROM sys_evaluation_datasets;
+DELETE FROM sys_benchmark_results;
+
+-- ============================================================
+-- Documents, Chunks, Collections
+-- ============================================================
 DELETE FROM sys_chunks;
 DELETE FROM sys_documents;
 
--- Clear conversations and messages
-DELETE FROM sys_conversation_messages;
+-- Drop all collection vector tables (vec_projectid_collectionname)
+DO $$
+DECLARE
+    tbl RECORD;
+BEGIN
+    FOR tbl IN
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public' AND tablename LIKE 'vec_%'
+    LOOP
+        EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', tbl.tablename);
+        RAISE NOTICE 'Dropped vector table: %', tbl.tablename;
+    END LOOP;
+END $$;
+
+DELETE FROM sys_collections;
+
+-- ============================================================
+-- Conversations & Messages
+-- ============================================================
+DELETE FROM sys_messages;
 DELETE FROM sys_conversations;
 
--- Clear API keys
-DELETE FROM sys_api_keys;
+-- ============================================================
+-- Prompts
+-- ============================================================
+DELETE FROM sys_prompt_history;
+DELETE FROM sys_prompts;
 
--- Clear webhooks
+-- ============================================================
+-- API Keys & Webhooks
+-- ============================================================
+DELETE FROM sys_api_keys;
 DELETE FROM sys_webhook_logs;
 DELETE FROM sys_webhooks;
 
--- Clear prompts
-DELETE FROM sys_prompts;
+-- ============================================================
+-- Files & Cache
+-- ============================================================
+DELETE FROM sys_files;
+DELETE FROM sys_cache;
 
--- Clear project members and projects
+-- ============================================================
+-- Project Members & Invitations
+-- ============================================================
 DELETE FROM sys_project_members;
+DELETE FROM sys_project_invitations;
 DELETE FROM sys_projects;
 
--- Clear sessions and users
+-- ============================================================
+-- Users & Sessions
+-- ============================================================
 DELETE FROM sys_sessions;
 DELETE FROM sys_users;
 
--- Clear collections (this also drops collection vector tables via trigger if exists)
-DELETE FROM sys_collections;
-
--- Clear query history
+-- ============================================================
+-- Query History & Usage
+-- ============================================================
 DELETE FROM sys_query_history;
-
--- Clear usage tracking
-DELETE FROM sys_usage_daily;
+DELETE FROM sys_usage_logs;
 EOF
     echo -e "${GREEN}      Done${NC}"
 
@@ -171,7 +258,7 @@ else
     # Drop and recreate schema (cleanest way to reset)
     echo -e "${YELLOW}[2/3] Dropping all database objects...${NC}"
     run_sql << 'EOF'
--- First, explicitly drop all user tables (ut_*) and vector tables (uv_*)
+-- First, explicitly drop all user tables (ut_*), vector tables (uv_*, vec_*)
 -- This ensures they are cleaned up even if schema drop has issues
 DO $$
 DECLARE
@@ -179,7 +266,8 @@ DECLARE
 BEGIN
     FOR tbl IN
         SELECT tablename FROM pg_tables
-        WHERE schemaname = 'public' AND (tablename LIKE 'ut_%' OR tablename LIKE 'uv_%')
+        WHERE schemaname = 'public'
+          AND (tablename LIKE 'ut_%' OR tablename LIKE 'uv_%' OR tablename LIKE 'vec_%')
     LOOP
         EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', tbl.tablename);
     END LOOP;
@@ -198,6 +286,7 @@ GRANT ALL ON SCHEMA public TO public;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 EOF
     echo -e "${GREEN}      Done${NC}"
 fi

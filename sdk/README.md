@@ -40,6 +40,7 @@ client.useProject('your-project-id');
 - **Documents** - Upload, process, and manage documents
 - **Tables** - PostgreSQL tables with automatic REST API
 - **Search** - Vector, keyword, and hybrid search
+- **Advanced Retrieval** - HyDE, Multi-Query, Self-Query, Parent-Child, Compression strategies
 - **RAG Chat** - Conversational AI with document context
 - **Knowledge Graph** - Entity and relationship extraction
 
@@ -339,6 +340,65 @@ const results = await client.search.global('authentication');
 
 // Create embeddings
 const embeddings = await client.search.embed(['Hello, World!']);
+```
+
+### Advanced Retrieval Strategies
+
+Devabase supports advanced retrieval strategies for improved RAG quality:
+
+```typescript
+// HyDE - Generate hypothetical answer, embed that, then search
+// Often retrieves more relevant results for question-type queries
+const results = await client.search.hyde({
+  collection: 'my-docs',
+  query: 'What causes memory leaks in JavaScript?',
+  strategy_options: { hyde_num_hypotheticals: 2 }
+});
+
+// Multi-Query - Expand query into variations for better recall
+const results = await client.search.multiQuery({
+  collection: 'my-docs',
+  query: 'auth best practices',
+  rerank: true,
+  strategy_options: { num_query_variations: 4 }
+});
+
+// Self-Query - Extract filters from natural language
+// "Python docs from 2023" → query: "Python docs", filter: {year: 2023}
+const results = await client.search.selfQuery({
+  collection: 'my-docs',
+  query: 'Python tutorials from 2023',
+  strategy_options: {
+    extractable_fields: [
+      { name: 'language', description: 'Programming language', type: 'string' },
+      { name: 'year', description: 'Publication year', type: 'number' }
+    ]
+  }
+});
+
+// Parent-Child - Search small chunks, return larger parent context
+// Requires hierarchical chunking enabled on collection
+const results = await client.search.parentChild({
+  collection: 'my-docs',
+  query: 'error handling patterns',
+  strategy_options: { parent_depth: 1 }
+});
+
+// Compressed - Compress chunks to only relevant portions
+// Reduces noise and context size
+const results = await client.search.compressed({
+  collection: 'my-docs',
+  query: 'How to reset password?',
+  strategy_options: { max_compressed_length: 300 }
+});
+
+// Or use strategy parameter directly
+const results = await client.search.query({
+  collection: 'my-docs',
+  query: 'How to implement OAuth?',
+  strategy: 'hyde',
+  rerank: true
+});
 ```
 
 ## RAG Chat

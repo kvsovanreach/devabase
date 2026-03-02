@@ -36,12 +36,21 @@ pub async fn list_collections(
     .fetch_one(state.pool.inner())
     .await?;
 
-    // Get paginated collections
+    // Get paginated collections with document counts
     let collections: Vec<Collection> = sqlx::query_as(
         r#"
-        SELECT * FROM sys_collections
-        WHERE project_id = $1
-        ORDER BY created_at DESC
+        SELECT
+            c.id, c.name, c.dimensions, c.metric, c.index_type, c.metadata,
+            c.vector_count, COALESCE(d.doc_count, 0) as document_count,
+            c.project_id, c.rag_enabled, c.rag_config, c.created_at, c.updated_at
+        FROM sys_collections c
+        LEFT JOIN (
+            SELECT collection_id, COUNT(*) as doc_count
+            FROM sys_documents
+            GROUP BY collection_id
+        ) d ON d.collection_id = c.id
+        WHERE c.project_id = $1
+        ORDER BY c.created_at DESC
         LIMIT $2 OFFSET $3
         "#
     )

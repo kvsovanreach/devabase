@@ -79,8 +79,9 @@ export function useWebhooks() {
   return useQuery({
     queryKey: ['webhooks'],
     queryFn: async () => {
-      const response = await api.get<Webhook[]>('/webhooks');
-      return response.data;
+      const response = await api.get<{ data: Webhook[]; pagination: unknown }>('/webhooks');
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }

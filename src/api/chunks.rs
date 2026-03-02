@@ -491,11 +491,25 @@ async fn create_chunk_embedding(
 ) -> Result<()> {
     let embedding_provider = get_embedding_provider_for_collection(state, project_id).await?;
 
-    // Get collection
-    let collection: Collection = sqlx::query_as("SELECT * FROM sys_collections WHERE id = $1")
-        .bind(collection_id)
-        .fetch_one(state.pool.inner())
-        .await?;
+    // Get collection with document count
+    let collection: Collection = sqlx::query_as(
+        r#"
+        SELECT
+            c.id, c.name, c.dimensions, c.metric, c.index_type, c.metadata,
+            c.vector_count, COALESCE(d.doc_count, 0) as document_count,
+            c.project_id, c.rag_enabled, c.rag_config, c.created_at, c.updated_at
+        FROM sys_collections c
+        LEFT JOIN (
+            SELECT collection_id, COUNT(*) as doc_count
+            FROM sys_documents
+            GROUP BY collection_id
+        ) d ON d.collection_id = c.id
+        WHERE c.id = $1
+        "#
+    )
+    .bind(collection_id)
+    .fetch_one(state.pool.inner())
+    .await?;
 
     // Generate embedding
     let embeddings = embedding_provider

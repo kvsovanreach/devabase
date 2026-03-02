@@ -178,8 +178,9 @@ class ApiClient {
 
   // Project endpoints
   async listProjects(): Promise<Project[]> {
-    const response = await this.client.get<Project[]>('/projects');
-    return response.data;
+    const response = await this.client.get<{ data: Project[]; pagination: unknown }>('/projects');
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {
@@ -203,8 +204,9 @@ class ApiClient {
 
   // Project members
   async listMembers(projectId: string): Promise<ProjectMember[]> {
-    const response = await this.client.get<ProjectMember[]>(`/projects/${projectId}/members`);
-    return response.data;
+    const response = await this.client.get<{ data: ProjectMember[]; pagination: unknown }>(`/projects/${projectId}/members`);
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async addMember(projectId: string, userId: string, role?: string): Promise<ProjectMember> {
@@ -229,8 +231,9 @@ class ApiClient {
 
   // Invitations
   async listInvitations(projectId: string): Promise<Invitation[]> {
-    const response = await this.client.get<Invitation[]>(`/projects/${projectId}/invitations`);
-    return response.data;
+    const response = await this.client.get<{ data: Invitation[]; pagination: unknown }>(`/projects/${projectId}/invitations`);
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async createInvitation(projectId: string, data: CreateInvitationRequest): Promise<Invitation> {
@@ -252,8 +255,9 @@ class ApiClient {
 
   // Collection endpoints
   async listCollections(): Promise<Collection[]> {
-    const response = await this.client.get<Collection[]>('/collections');
-    return response.data;
+    const response = await this.client.get<{ data: Collection[]; pagination: unknown }>('/collections');
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async createCollection(data: CreateCollectionRequest): Promise<Collection> {
@@ -288,10 +292,11 @@ class ApiClient {
 
   // Document endpoints
   async listDocuments(collection: string): Promise<Document[]> {
-    const response = await this.client.get<Document[]>('/documents', {
+    const response = await this.client.get<{ data: Document[]; pagination: unknown }>('/documents', {
       params: { collection },
     });
-    return response.data;
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async uploadDocument(
@@ -370,8 +375,9 @@ class ApiClient {
 
   // API Key endpoints
   async listApiKeys(): Promise<ApiKey[]> {
-    const response = await this.client.get<ApiKey[]>('/keys');
-    return response.data;
+    const response = await this.client.get<{ data: ApiKey[]; pagination: unknown }>('/keys');
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async createApiKey(data: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
@@ -385,8 +391,9 @@ class ApiClient {
 
   // Prompt endpoints
   async listPrompts(): Promise<Prompt[]> {
-    const response = await this.client.get<Prompt[]>('/prompts');
-    return response.data;
+    const response = await this.client.get<{ data: Prompt[]; pagination: unknown }>('/prompts');
+    // Backend returns paginated response, extract the data array
+    return response.data.data;
   }
 
   async createPrompt(data: CreatePromptRequest): Promise<Prompt> {

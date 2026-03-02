@@ -310,6 +310,58 @@ export interface SearchResult {
   rerank_score?: number;
 }
 
+/**
+ * Available retrieval strategies for advanced RAG
+ */
+export type RetrievalStrategy =
+  | 'standard'      // Basic vector similarity search (default)
+  | 'parent_child'  // Retrieve small chunks, return larger parent context
+  | 'hyde'          // Generate hypothetical answer, embed that, then search
+  | 'multi_query'   // Expand query into variations, search all, merge results
+  | 'self_query'    // Extract structured filters from natural language
+  | 'compression';  // Compress retrieved chunks to relevant parts only
+
+/**
+ * Schema for extractable filter fields in self-query strategy
+ */
+export interface FilterFieldSchema {
+  /** Field name in metadata */
+  name: string;
+  /** Description of what this field contains */
+  description: string;
+  /** Field type: string, number, boolean, date */
+  type: 'string' | 'number' | 'boolean' | 'date';
+  /** Example values (optional) */
+  examples?: string[];
+}
+
+/**
+ * Strategy-specific options for retrieval
+ */
+export interface StrategyOptions {
+  // Parent-child options
+  /** How many levels up to fetch parent chunks (default: 1) */
+  parent_depth?: number;
+
+  // HyDE options
+  /** Temperature for hypothetical generation (default: 0.7) */
+  hyde_temperature?: number;
+  /** Number of hypothetical documents to generate (default: 1) */
+  hyde_num_hypotheticals?: number;
+
+  // Multi-query options
+  /** Number of query variations to generate (default: 3) */
+  num_query_variations?: number;
+
+  // Self-query options
+  /** Fields that can be extracted as filters */
+  extractable_fields?: FilterFieldSchema[];
+
+  // Compression options
+  /** Maximum length of compressed content (default: 500) */
+  max_compressed_length?: number;
+}
+
 export interface SearchOptions {
   /** Collection to search in */
   collection: string;
@@ -323,6 +375,10 @@ export interface SearchOptions {
   rerank?: boolean;
   /** Include chunk content in results */
   include_content?: boolean;
+  /** Retrieval strategy to use (default: standard) */
+  strategy?: RetrievalStrategy;
+  /** Strategy-specific options */
+  strategy_options?: StrategyOptions;
 }
 
 export interface HybridSearchOptions extends SearchOptions {

@@ -1306,12 +1306,3 @@ async fn get_user_from_token(
 
     Ok(user)
 }
-
-// Allow the locked_until field to be unused in the struct
-#[derive(Debug, sqlx::FromRow)]
-struct AppUserWithLock {
-    #[sqlx(flatten)]
-    user: AppUser,
-    locked_until: Option<chrono::DateTime<chrono::Utc>>,
-    failed_login_attempts: i32,
-}

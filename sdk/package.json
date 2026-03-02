@@ -1,6 +1,6 @@
 {
   "name": "devabase-sdk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Official Node.js SDK for Devabase - Backend for RAG/LLM Applications",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -35,7 +35,11 @@
     "vector-database",
     "embeddings",
     "ai",
-    "sdk"
+    "sdk",
+    "hyde",
+    "retrieval",
+    "semantic-search",
+    "knowledge-graph"
   ],
   "author": "Devabase",
   "license": "MIT",
