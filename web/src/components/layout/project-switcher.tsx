@@ -9,7 +9,11 @@ import { useProjectStore } from '@/stores/project-store';
 import { cn } from '@/lib/utils';
 import { CreateProjectModal } from '@/components/collections/create-project-modal';
 
-export function ProjectSwitcher() {
+interface ProjectSwitcherProps {
+  variant?: 'default' | 'compact';
+}
+
+export function ProjectSwitcher({ variant = 'default' }: ProjectSwitcherProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { projects, currentProject, selectProject } = useProjectStore();
@@ -25,19 +29,26 @@ export function ProjectSwitcher() {
     }
   };
 
+  const isCompact = variant === 'compact';
+
   return (
     <>
       <Menu as="div" className="relative">
-        <MenuButton className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-surface-secondary border border-border-light rounded-xl hover:border-border hover:bg-surface-hover transition-all duration-150">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-surface-hover flex items-center justify-center flex-shrink-0">
-              <FolderKanban className="w-4 h-4 text-text-secondary" />
-            </div>
-            <span className="text-[15px] font-medium text-foreground truncate">
+        <MenuButton
+          className={cn(
+            'flex items-center justify-between gap-2 border border-border-light rounded-lg hover:border-border hover:bg-surface-hover transition-all duration-150',
+            isCompact
+              ? 'px-2.5 py-1.5 bg-transparent min-w-[140px] max-w-[200px]'
+              : 'w-full px-3 py-2.5 bg-surface-secondary rounded-xl'
+          )}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <FolderKanban className={cn('flex-shrink-0 text-text-secondary', isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
+            <span className={cn('font-medium text-foreground truncate', isCompact ? 'text-[13px]' : 'text-[15px]')}>
               {currentProject?.name || 'Select Project'}
             </span>
           </div>
-          <ChevronDown className="w-4 h-4 text-text-tertiary flex-shrink-0" />
+          <ChevronDown className={cn('text-text-tertiary flex-shrink-0', isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4')} />
         </MenuButton>
 
         <Transition
@@ -49,7 +60,12 @@ export function ProjectSwitcher() {
           leaveFrom="opacity-100 scale-100 translate-y-0"
           leaveTo="opacity-0 scale-95 -translate-y-1"
         >
-          <MenuItems className="absolute left-0 right-0 mt-2 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50">
+          <MenuItems
+            className={cn(
+              'absolute mt-2 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50',
+              isCompact ? 'right-0 min-w-[200px]' : 'left-0 right-0'
+            )}
+          >
             <div className="py-1.5 max-h-64 overflow-y-auto">
               {projects.map((project) => (
                 <MenuItem key={project.id}>

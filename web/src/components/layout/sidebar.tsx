@@ -31,7 +31,6 @@ import {
   Share2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ProjectSwitcher } from './project-switcher';
 import { useSidebarStore } from '@/stores/sidebar-store';
 
 interface NavItem {
@@ -168,11 +167,6 @@ export function Sidebar() {
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
-
-        {/* Project Switcher */}
-        <div className={cn('p-4 border-b border-border-light', isCollapsed && 'lg:hidden')}>
-          <ProjectSwitcher />
         </div>
 
         {/* Navigation */}
