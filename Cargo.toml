@@ -58,9 +58,11 @@ dotenvy = "0.15"
 async-trait = "0.1"
 futures = "0.3"
 bytes = "1"
+async-stream = "0.3"
+tokio-stream = "0.1"
 
 # HTTP client (for embedding providers)
-reqwest = { version = "0.11", features = ["json", "multipart"] }
+reqwest = { version = "0.11", features = ["json", "multipart", "stream"] }
 
 # URL parsing
 url = "2"

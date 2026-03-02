@@ -119,6 +119,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Collection search & chat (HIGH-LEVEL - recommended for most users)
         .route("/collections/:name/search", post(api::retrieve::collection_search))
         .route("/collections/:name/chat", post(api::rag::collection_chat))
+        .route("/collections/:name/chat/stream", post(api::rag::collection_chat_stream))
         // Collection vectors (LOW-LEVEL - for advanced users)
         .route("/collections/:name/vectors", post(api::vectors::collection_upsert))
         .route("/collections/:name/vectors/search", post(api::vectors::collection_search))
@@ -133,8 +134,11 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // ─────────────────────────────────────────
         // Unified search across multiple collections
         .route("/search", post(api::retrieve::unified_search))
-        // Unified chat across multiple collections
+        // Unified RAG endpoint (single or multi-collection, streaming or non-streaming)
+        .route("/rag", post(api::rag::rag_chat))
+        // Legacy chat endpoints (deprecated, use /rag instead)
         .route("/chat", post(api::rag::unified_chat))
+        .route("/chat/stream", post(api::rag::unified_chat_stream))
 
         // ─────────────────────────────────────────
         // Documents (All documents across collections)

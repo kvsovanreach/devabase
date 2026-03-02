@@ -839,12 +839,13 @@ export default function ProvidersSettingsPage() {
               placeholder="sk-..."
               value={llmApiKey}
               onChange={(e) => setLLMApiKey(e.target.value)}
+              className="pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowLLMApiKey(!showLLMApiKey)}
-              className="absolute right-3 top-8 text-text-tertiary hover:text-foreground"
+              className="absolute right-3 top-[40px] text-text-tertiary hover:text-foreground"
             >
               {showLLMApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -911,12 +912,13 @@ export default function ProvidersSettingsPage() {
               placeholder="sk-..."
               value={embeddingApiKey}
               onChange={(e) => setEmbeddingApiKey(e.target.value)}
+              className="pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowEmbeddingApiKey(!showEmbeddingApiKey)}
-              className="absolute right-3 top-8 text-text-tertiary hover:text-foreground"
+              className="absolute right-3 top-[40px] text-text-tertiary hover:text-foreground"
             >
               {showEmbeddingApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -1016,12 +1018,13 @@ export default function ProvidersSettingsPage() {
               placeholder="Enter API key..."
               value={rerankApiKey}
               onChange={(e) => setRerankApiKey(e.target.value)}
+              className="pr-10"
               required
             />
             <button
               type="button"
               onClick={() => setShowRerankApiKey(!showRerankApiKey)}
-              className="absolute right-3 top-8 text-text-tertiary hover:text-foreground"
+              className="absolute right-3 top-[40px] text-text-tertiary hover:text-foreground"
             >
               {showRerankApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
