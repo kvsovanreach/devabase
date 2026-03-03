@@ -275,6 +275,31 @@ impl IntoResponse for Error {
                                 Some("Use ISO 8601 format: YYYY-MM-DD for dates, YYYY-MM-DDTHH:MM:SSZ for timestamps.".to_string())
                             ),
 
+                            // Data type mismatch (e.g., text value for timestamp column)
+                            "42804" => {
+                                let column = extract_field(msg, "column \"", "\"").unwrap_or_else(|| "column".to_string());
+                                let expected_type = extract_field(msg, "is of type ", " but").unwrap_or_else(|| "expected type".to_string());
+                                let actual_type = extract_field(msg, "expression is of type ", "").unwrap_or_else(|| "provided type".to_string());
+                                let fix = if expected_type.contains("timestamp") {
+                                    format!("Column '{}' expects a timestamp. Use ISO 8601 format: '2024-01-15T10:30:00Z' or '2024-01-15 10:30:00+00'.", column)
+                                } else if expected_type.contains("integer") || expected_type.contains("numeric") {
+                                    format!("Column '{}' expects a number. Remove quotes and ensure the value is numeric.", column)
+                                } else if expected_type.contains("boolean") {
+                                    format!("Column '{}' expects a boolean. Use true/false (not strings).", column)
+                                } else if expected_type.contains("uuid") {
+                                    format!("Column '{}' expects a UUID. Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.", column)
+                                } else if expected_type.contains("json") {
+                                    format!("Column '{}' expects JSON. Ensure value is valid JSON object/array.", column)
+                                } else {
+                                    format!("Column '{}' expects type '{}', but received '{}'.", column, expected_type, actual_type)
+                                };
+                                (
+                                    format!("Type mismatch for '{}': expected {}, got {}", column, expected_type, actual_type),
+                                    "DATA_TYPE_MISMATCH",
+                                    Some(fix)
+                                )
+                            },
+
                             // ==================== SCHEMA/DDL ERRORS ====================
 
                             // Table not found

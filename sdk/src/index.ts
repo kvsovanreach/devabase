@@ -84,6 +84,9 @@ export {
   NotFoundError,
   ValidationError,
   RateLimitError,
+  DatabaseError,
+  ConfigurationError,
+  ExternalServiceError,
 } from './types';
 
 // Resource classes (for advanced usage)

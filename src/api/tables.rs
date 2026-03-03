@@ -522,6 +522,11 @@ fn bind_json_value<'q>(
             }
         }
         Value::String(s) => {
+            // Empty strings should be treated as NULL for most column types
+            // (especially timestamps, dates, uuids, numbers)
+            if s.is_empty() {
+                return query.bind(Option::<String>::None);
+            }
             // Try to parse as UUID first (for project_id and id columns)
             if let Ok(uuid) = uuid::Uuid::parse_str(s) {
                 query.bind(uuid)

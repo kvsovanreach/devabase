@@ -5,6 +5,9 @@ import {
   NotFoundError,
   ValidationError,
   RateLimitError,
+  DatabaseError,
+  ConfigurationError,
+  ExternalServiceError,
   RequestOptions,
 } from '../types';
 
@@ -55,34 +58,55 @@ export class HttpClient {
     const isJson = contentType?.includes('application/json');
 
     if (!response.ok) {
-      let errorData: { error?: string; message?: string; details?: Record<string, unknown> } = {};
+      let errorData: {
+        error?: string;
+        message?: string;
+        error_code?: string;
+        fix?: string;
+        details?: Record<string, unknown>;
+      } = {};
 
       if (isJson) {
         try {
-          const parsed = await response.json() as { error?: string; message?: string; details?: Record<string, unknown> };
-          errorData = parsed;
+          errorData = await response.json() as typeof errorData;
         } catch {
           // Ignore JSON parse errors
         }
       }
 
       const message = errorData.error || errorData.message || response.statusText;
+      const errorCode = errorData.error_code || 'UNKNOWN_ERROR';
+      const fix = errorData.fix;
 
       switch (response.status) {
         case 401:
-          throw new AuthenticationError(message);
+          throw new AuthenticationError(message, fix);
         case 403:
-          throw new AuthorizationError(message);
+          throw new AuthorizationError(message, fix);
         case 404:
-          throw new NotFoundError(message);
+          throw new NotFoundError(message, fix);
         case 400:
+          // Check error code to determine specific error type
+          if (this.isDatabaseError(errorCode)) {
+            throw new DatabaseError(message, errorCode, fix);
+          }
+          throw new ValidationError(message, errorCode, fix, errorData.details);
         case 422:
-          throw new ValidationError(message, errorData.details);
+          // Configuration errors (e.g., missing embedding provider)
+          if (errorCode.includes('CONFIG') || errorCode.includes('PROVIDER')) {
+            throw new ConfigurationError(message, errorCode, fix);
+          }
+          throw new ValidationError(message, errorCode, fix, errorData.details);
         case 429:
           const retryAfter = response.headers.get('retry-after');
-          throw new RateLimitError(message, retryAfter ? parseInt(retryAfter) : undefined);
+          throw new RateLimitError(message, retryAfter ? parseInt(retryAfter) : undefined, fix);
+        case 502:
+        case 503:
+        case 504:
+          // External service errors (LLM, embedding providers)
+          throw new ExternalServiceError(message, errorCode, fix);
         default:
-          throw new DevabaseError(message, 'API_ERROR', response.status, errorData.details);
+          throw new DevabaseError(message, errorCode, response.status, fix, errorData.details);
       }
     }
 
@@ -91,6 +115,36 @@ export class HttpClient {
     }
 
     return response.json() as Promise<T>;
+  }
+
+  /**
+   * Check if error code indicates a database operation error
+   */
+  private isDatabaseError(code: string): boolean {
+    const dbErrorCodes = [
+      'DUPLICATE_VALUE',
+      'FOREIGN_KEY_INVALID_REFERENCE',
+      'FOREIGN_KEY_REFERENCED',
+      'FOREIGN_KEY_VIOLATION',
+      'REQUIRED_FIELD_NULL',
+      'CHECK_CONSTRAINT_FAILED',
+      'DATA_TYPE_MISMATCH',
+      'INVALID_DATA_FORMAT',
+      'STRING_TOO_LONG',
+      'NUMERIC_OVERFLOW',
+      'INVALID_DATETIME',
+      'TABLE_NOT_FOUND',
+      'COLUMN_NOT_FOUND',
+      'TABLE_ALREADY_EXISTS',
+      'COLUMN_ALREADY_EXISTS',
+      'INDEX_ALREADY_EXISTS',
+      'RECORD_NOT_FOUND',
+      'PERMISSION_DENIED',
+      'DEADLOCK',
+      'QUERY_TIMEOUT',
+      'DATABASE_',  // prefix match for other database errors
+    ];
+    return dbErrorCodes.some(prefix => code.startsWith(prefix));
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
