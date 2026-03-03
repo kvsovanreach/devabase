@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Markdown } from '@/components/ui/markdown';
 import { ChatMessage, ChatSource } from '@/types';
-import { streamRagChat } from '@/hooks/use-rag';
+import { streamRag } from '@/hooks/use-rag';
 import { cn } from '@/lib/utils';
 
 interface RagChatPreviewProps {
@@ -58,9 +58,9 @@ export function RagChatPreview({ collectionName, isOpen, onClose }: RagChatPrevi
     thinkingRef.current = '';
 
     try {
-      await streamRagChat(
-        collectionName,
+      await streamRag(
         {
+          collection: collectionName,
           message: userMessage,
           conversation_id: conversationId,
           include_sources: true,

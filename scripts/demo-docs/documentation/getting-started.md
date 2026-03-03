@@ -33,7 +33,7 @@ cd web && npm install && npm run dev
 
 ## Quick Start
 
-1. **Register an account** at http://localhost:3000/register
+1. **Register an account** at http://localhost:9001/register
 2. **Create a project** - this isolates your data
 3. **Configure providers** - add your OpenAI/Anthropic API keys
 4. **Create a collection** - where your documents live

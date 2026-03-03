@@ -7,7 +7,7 @@ services:
     container_name: DEVABASE_POSTGRES
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-9003}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
@@ -30,17 +30,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BACKEND_PORT: ${BACKEND_PORT:-9002}
     image: devabase-backend:latest
     container_name: DEVABASE_BACKEND
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-9002}:${BACKEND_PORT:-9002}"
     environment:
       # Server
       DEVABASE_HOST: 0.0.0.0
-      DEVABASE_PORT: 8080
+      DEVABASE_PORT: ${BACKEND_PORT:-9002}
 
-      # Database
+      # Database (internal Docker network uses port 5432)
       DATABASE_URL: postgres://${POSTGRES_USER:-devabase}:${POSTGRES_PASSWORD:-devabase}@devabase-postgres:5432/${POSTGRES_DB:-devabase}
 
       # Auth
@@ -58,7 +60,7 @@ services:
       devabase-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT:-9002}/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,19 +76,21 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+        FRONTEND_PORT: ${FRONTEND_PORT:-9001}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-9002}}
     image: devabase-frontend:latest
     container_name: DEVABASE_FRONTEND
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-9001}:${FRONTEND_PORT:-9001}"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-9002}}
+      PORT: ${FRONTEND_PORT:-9001}
     depends_on:
       devabase-backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:${FRONTEND_PORT:-9001}"]
       interval: 30s
       timeout: 10s
       retries: 3

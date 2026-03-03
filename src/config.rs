@@ -244,7 +244,7 @@ fn default_host() -> String {
 }
 
 fn default_port() -> u16 {
-    8080
+    9002
 }
 
 fn default_true() -> bool {
@@ -435,7 +435,7 @@ impl Config {
 
 [server]
 host = "0.0.0.0"
-port = 8080
+port = 9002
 ui_enabled = true
 max_upload_size_mb = 50
 

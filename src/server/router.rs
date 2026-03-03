@@ -1,4 +1,3 @@
-use super::middleware::deprecation::DeprecationLayer;
 use super::middleware::rate_limit::RateLimitLayer;
 use super::middleware::usage::log_usage;
 use super::AppState;
@@ -29,7 +28,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     };
 
     // ===========================================
-    // NORMALIZED API ROUTES (v1)
+    // API ROUTES (v1)
     // ===========================================
     //
     // Endpoint Design Principles:
@@ -37,13 +36,12 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     // 2. Consistent path parameter naming (:name for business keys, :id for UUIDs)
     // 3. Nested resources under parent when tightly coupled
     // 4. PATCH for partial updates (not PUT)
-    // 5. Clear separation: search (retrieval) vs chat (LLM synthesis)
     //
     // Quick Reference:
-    // - /collections/:name/search  → Semantic search (text → embeddings → results)
-    // - /collections/:name/chat    → RAG chat (search + LLM answer)
+    // - /rag                       → Unified RAG chat (single or multi-collection)
     // - /search                    → Cross-collection search
-    // - /chat                      → Cross-collection chat
+    // - /collections/:name/search  → Single collection search
+    // - /collections/:name/chat    → Single collection RAG chat
     // - /collections/:name/vectors → Low-level vector operations
     // ===========================================
 
@@ -136,9 +134,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/search", post(api::retrieve::unified_search))
         // Unified RAG endpoint (single or multi-collection, streaming or non-streaming)
         .route("/rag", post(api::rag::rag_chat))
-        // Legacy chat endpoints (deprecated, use /rag instead)
-        .route("/chat", post(api::rag::unified_chat))
-        .route("/chat/stream", post(api::rag::unified_chat_stream))
 
         // ─────────────────────────────────────────
         // Documents (All documents across collections)
@@ -288,59 +283,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // ─────────────────────────────────────────
         // Real-time (WebSocket)
         // ─────────────────────────────────────────
-        .route("/realtime", get(api::realtime::ws_upgrade))
-
-        // ===========================================
-        // DEPRECATED ENDPOINTS (Backward Compatibility)
-        // ===========================================
-        // These endpoints will be removed in a future version.
-        // Please migrate to the new endpoints above.
-        //
-        // Old → New mapping:
-        // POST /retrieve              → POST /collections/:name/search
-        // POST /retrieve/with-context → POST /collections/:name/search
-        // POST /retrieve/multi        → POST /search
-        // POST /rag/:collection/chat  → POST /collections/:name/chat
-        // POST /rag/multi/chat        → POST /chat
-        // POST /vectors/upsert        → POST /collections/:name/vectors
-        // POST /vectors/search        → POST /collections/:name/vectors/search
-        // DELETE /vectors/:id         → DELETE /collections/:name/vectors/:id
-        // POST /files/upload          → POST /storage
-        // GET /files/:path            → GET /storage/:path
-        // GET /cache/stats            → GET /admin/cache
-        // GET /usage                  → GET /admin/usage
-        // PATCH /collections/:name/rag → PATCH /collections/:name/config
-        // ===========================================
-
-        // Legacy retrieval endpoints
-        .route("/retrieve", post(api::retrieve::retrieve))
-        .route("/retrieve/with-context", post(api::retrieve::retrieve_with_context))
-        .route("/retrieve/multi", post(api::retrieve::retrieve_multi))
-        // Legacy RAG chat endpoints
-        .route("/rag/:collection/chat", post(api::rag::chat))
-        .route("/rag/multi/chat", post(api::rag::chat_multi))
-        // Legacy vector endpoints
-        .route("/vectors/upsert", post(api::vectors::upsert_vectors))
-        .route("/vectors/search", post(api::vectors::search_vectors))
-        .route("/vectors/:id", delete(api::vectors::delete_vector))
-        // Legacy file endpoints
-        .route("/files/upload", post(api::files::upload_file))
-        .route("/files/:path", get(api::files::get_file))
-        .route("/files/:path", delete(api::files::delete_file))
-        // Legacy document upload
-        .route("/documents/upload", post(api::documents::upload_document))
-        // Legacy cache/usage endpoints (still accessible at old paths)
-        .route("/cache/stats", get(api::cache::get_stats))
-        .route("/cache", delete(api::cache::clear_cache))
-        .route("/cache/:key", delete(api::cache::delete_entry))
-        .route("/usage", get(api::usage::get_usage))
-        .route("/usage/export", get(api::usage::export_usage))
-        // Legacy provider testing
-        .route("/providers/test-llm", post(api::providers::test_llm))
-        .route("/providers/test-embedding", post(api::providers::test_embedding))
-        .route("/providers/test-rerank", post(api::providers::test_rerank))
-        // Legacy RAG config path
-        .route("/collections/:name/rag", patch(api::collections::update_rag_config));
+        .route("/realtime", get(api::realtime::ws_upgrade));
 
     // Calculate upload size limit from config (MB to bytes)
     let upload_limit = state.config.server.max_upload_size_mb * 1024 * 1024;
@@ -348,8 +291,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
     let mut router = Router::new()
         .nest("/v1", api_routes)
         .layer(DefaultBodyLimit::max(upload_limit))
-        .layer(DeprecationLayer::new()) // Add deprecation headers for legacy endpoints
-        .layer(middleware::from_fn_with_state(state.clone(), log_usage)) // Log API usage
+        .layer(middleware::from_fn_with_state(state.clone(), log_usage))
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 

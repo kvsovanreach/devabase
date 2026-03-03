@@ -179,7 +179,7 @@ cd devabase
 docker compose up -d
 
 # Open dashboard
-open http://localhost:3000
+open http://localhost:9001
 ```
 
 ### From Source
@@ -196,7 +196,7 @@ psql -d devabase -c "CREATE EXTENSION IF NOT EXISTS vector;"
 psql -d devabase -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
 # Configure environment
-export DATABASE_URL="postgres://user:pass@localhost:5432/devabase"
+export DATABASE_URL="postgres://user:pass@localhost:9003/devabase"
 export JWT_SECRET="your-secret-key-min-32-chars"
 
 # Run backend
@@ -208,12 +208,12 @@ npm install
 npm run dev
 
 # Open dashboard
-open http://localhost:3000
+open http://localhost:9001
 ```
 
 ### First Steps
 
-1. **Register an account** at `http://localhost:3000/register`
+1. **Register an account** at `http://localhost:9001/register`
 2. **Create a project** — This isolates your data
 3. **Configure providers** — Add your OpenAI/Anthropic API keys in Settings → Providers
 4. **Create a collection** — This is where your documents live
@@ -231,24 +231,24 @@ Build a ChatGPT-like interface for your internal documentation:
 
 ```bash
 # 1. Create a collection
-curl -X POST localhost:8080/v1/collections \
+curl -X POST localhost:9002/v1/collections \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Project-ID: $PROJECT_ID" \
   -d '{"name": "company-docs", "dimensions": 1536}'
 
 # 2. Upload documents
-curl -X POST localhost:8080/v1/documents/upload \
+curl -X POST localhost:9002/v1/documents/upload \
   -H "Authorization: Bearer $TOKEN" \
   -F "collection=company-docs" \
   -F "file=@employee-handbook.pdf"
 
 # 3. Enable RAG
-curl -X PATCH localhost:8080/v1/collections/company-docs \
+curl -X PATCH localhost:9002/v1/collections/company-docs \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"rag_enabled": true, "rag_config": {"llm_provider_id": "...", "model": "gpt-4o"}}'
 
 # 4. Chat!
-curl -X POST localhost:8080/v1/collections/company-docs/chat \
+curl -X POST localhost:9002/v1/collections/company-docs/chat \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"message": "What is our PTO policy?"}'
 ```
@@ -259,7 +259,7 @@ Add intelligent search to your application:
 
 ```bash
 # Vector search
-curl -X POST localhost:8080/v1/collections/products/search \
+curl -X POST localhost:9002/v1/collections/products/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "comfortable running shoes for marathon",
@@ -268,7 +268,7 @@ curl -X POST localhost:8080/v1/collections/products/search \
   }'
 
 # Hybrid search (vector + keyword)
-curl -X POST localhost:8080/v1/collections/products/search \
+curl -X POST localhost:9002/v1/collections/products/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "Nike running shoes",
@@ -279,7 +279,7 @@ curl -X POST localhost:8080/v1/collections/products/search \
   }'
 
 # HyDE strategy (generates hypothetical answer first)
-curl -X POST localhost:8080/v1/collections/docs/search \
+curl -X POST localhost:9002/v1/collections/docs/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "How do I implement OAuth2?",
@@ -288,7 +288,7 @@ curl -X POST localhost:8080/v1/collections/docs/search \
   }'
 
 # Multi-query strategy (expands query into variations)
-curl -X POST localhost:8080/v1/collections/docs/search \
+curl -X POST localhost:9002/v1/collections/docs/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "authentication best practices",
@@ -297,7 +297,7 @@ curl -X POST localhost:8080/v1/collections/docs/search \
   }'
 
 # Self-query strategy (extracts filters from natural language)
-curl -X POST localhost:8080/v1/collections/docs/search \
+curl -X POST localhost:9002/v1/collections/docs/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "Python tutorials from 2023",
@@ -311,17 +311,17 @@ Extract and explore entities from your documents:
 
 ```bash
 # Extract knowledge from a document
-curl -X POST localhost:8080/v1/knowledge/extract/$DOCUMENT_ID \
+curl -X POST localhost:9002/v1/knowledge/extract/$DOCUMENT_ID \
   -H "Authorization: Bearer $TOKEN"
 
 # Response: {"entities_extracted": 15, "relationships_extracted": 8}
 
 # Query entities
-curl localhost:8080/v1/knowledge/entities?entity_type=person \
+curl localhost:9002/v1/knowledge/entities?entity_type=person \
   -H "Authorization: Bearer $TOKEN"
 
 # Get entity graph (2-hop neighborhood)
-curl localhost:8080/v1/knowledge/graph/$ENTITY_ID?depth=2 \
+curl localhost:9002/v1/knowledge/graph/$ENTITY_ID?depth=2 \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -331,7 +331,7 @@ Auto-generate REST APIs for your application data:
 
 ```bash
 # Create a table
-curl -X POST localhost:8080/v1/tables \
+curl -X POST localhost:9002/v1/tables \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "name": "posts",
@@ -345,12 +345,12 @@ curl -X POST localhost:8080/v1/tables \
   }'
 
 # Insert data
-curl -X POST localhost:8080/v1/tables/posts/rows \
+curl -X POST localhost:9002/v1/tables/posts/rows \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"title": "Hello World", "content": "My first post!"}'
 
 # Query with filters
-curl "localhost:8080/v1/tables/posts/rows?published=true&order=created_at.desc" \
+curl "localhost:9002/v1/tables/posts/rows?published=true&order=created_at.desc" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -628,14 +628,34 @@ deva sql "SELECT * FROM customers LIMIT 10"
 
 ## ⚙️ Configuration
 
+### Port Configuration (Centralized)
+
+All service ports are configured in the `.env` file. Change these values to customize ports:
+
+```env
+# .env
+FRONTEND_PORT=9001    # Web dashboard
+BACKEND_PORT=9002     # API server
+POSTGRES_PORT=9003    # PostgreSQL database
+```
+
+After changing ports, update `NEXT_PUBLIC_API_URL` accordingly:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}
+```
+
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `FRONTEND_PORT` | Frontend web server port | `9001` |
+| `BACKEND_PORT` | Backend API server port | `9002` |
+| `POSTGRES_PORT` | PostgreSQL database port | `9003` |
 | `DATABASE_URL` | PostgreSQL connection string | Required |
 | `JWT_SECRET` | Secret for JWT signing (min 32 chars) | Required |
+| `NEXT_PUBLIC_API_URL` | Frontend API URL | `http://localhost:9002` |
 | `DEVABASE_HOST` | Server bind address | `0.0.0.0` |
-| `DEVABASE_PORT` | Server port | `8080` |
+| `DEVABASE_PORT` | Server port (same as BACKEND_PORT) | `9002` |
 | `STORAGE_PATH` | File storage directory | `./data/storage` |
 | `MAX_UPLOAD_SIZE_MB` | Maximum upload size | `50` |
 | `RUST_LOG` | Log level | `info` |
@@ -645,7 +665,7 @@ deva sql "SELECT * FROM customers LIMIT 10"
 ```toml
 [server]
 host = "0.0.0.0"
-port = 8080
+port = 9002
 max_upload_size_mb = 50
 
 [database]

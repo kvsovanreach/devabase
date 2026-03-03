@@ -22,7 +22,7 @@ import {
  * @example
  * // Initialize with project-scoped API key
  * const client = createClient({
- *   baseUrl: 'http://localhost:8080',
+ *   baseUrl: 'http://localhost:9002',
  *   apiKey: 'dvb_your_project_api_key'
  * });
  * client.useProject('your-project-id');

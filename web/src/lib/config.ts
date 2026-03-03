@@ -7,8 +7,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // API Configuration
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-  wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9002',
+  wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:9002',
   timeout: 60000, // 60 seconds for regular requests
   uploadTimeout: 300000, // 5 minutes for file uploads
   longRunningTimeout: 300000, // 5 minutes for long-running operations (knowledge extraction, etc.)

@@ -23,7 +23,7 @@ const table = await client.tables.create({
 ### Via API
 
 ```bash
-curl -X POST http://localhost:8080/v1/tables \
+curl -X POST http://localhost:9002/v1/tables \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Project-ID: $PROJECT_ID" \
   -H "Content-Type: application/json" \
@@ -166,7 +166,7 @@ const page2 = await client.tables.rows('customers').query({
 ### Import CSV
 
 ```bash
-curl -X POST http://localhost:8080/v1/tables/customers/import \
+curl -X POST http://localhost:9002/v1/tables/customers/import \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@customers.csv"
 ```
@@ -175,12 +175,12 @@ curl -X POST http://localhost:8080/v1/tables/customers/import \
 
 ```bash
 # CSV
-curl http://localhost:8080/v1/tables/customers/export?format=csv \
+curl http://localhost:9002/v1/tables/customers/export?format=csv \
   -H "Authorization: Bearer $TOKEN" \
   -o customers.csv
 
 # JSON
-curl http://localhost:8080/v1/tables/customers/export?format=json \
+curl http://localhost:9002/v1/tables/customers/export?format=json \
   -H "Authorization: Bearer $TOKEN" \
   -o customers.json
 ```
@@ -190,7 +190,7 @@ curl http://localhost:8080/v1/tables/customers/export?format=json \
 For complex queries, use the SQL Editor in the dashboard or the SQL API:
 
 ```bash
-curl -X POST http://localhost:8080/v1/sql \
+curl -X POST http://localhost:9002/v1/sql \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Project-ID: $PROJECT_ID" \
   -d '{

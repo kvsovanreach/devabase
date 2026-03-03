@@ -8,7 +8,7 @@
  */
 
 // Configuration
-const BASE_URL = process.env.DEVABASE_URL || "http://localhost:8080";
+const BASE_URL = process.env.DEVABASE_URL || "http://localhost:9002";
 const DEMO_EMAIL = process.env.DEMO_EMAIL || "demo@devabase.dev";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "demo123456";
 const DEMO_NAME = process.env.DEMO_NAME || "Demo User";
@@ -53,7 +53,7 @@ cd web && npm install && npm run dev
 
 ## Quick Start
 
-1. Register an account at http://localhost:3000/register
+1. Register an account at http://localhost:9001/register
 2. Create a project - this isolates your data
 3. Configure providers - add your OpenAI/Anthropic API keys
 4. Create a collection - where your documents live
@@ -318,7 +318,7 @@ Devabase uses JWT-based authentication for API access.
 
 ### Login
 \`\`\`bash
-curl -X POST http://localhost:8080/v1/auth/login \\
+curl -X POST http://localhost:9002/v1/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{"email": "user@example.com", "password": "secret"}'
 \`\`\`
@@ -338,7 +338,7 @@ Include the token in the Authorization header:
 \`\`\`bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \\
      -H "X-Project-ID: YOUR_PROJECT_ID" \\
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 \`\`\`
 
 ## API Keys
@@ -347,7 +347,7 @@ For production, use API keys instead of JWT tokens:
 \`\`\`bash
 curl -H "Authorization: Bearer dvb_your_api_key" \\
      -H "X-Project-ID: YOUR_PROJECT_ID" \\
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 \`\`\`
 
 Create API keys in the dashboard under Project Settings > API Keys.`,
@@ -685,7 +685,7 @@ async function main() {
   console.log(`  \x1b[32m✓\x1b[0m ${SAMPLE_CUSTOMERS.length + SAMPLE_PRODUCTS.length + SAMPLE_ORDERS.length} Sample records`);
 
   console.log("\nNext Steps:");
-  console.log("  1. Open \x1b[33mhttp://localhost:3000\x1b[0m in your browser");
+  console.log("  1. Open \x1b[33mhttp://localhost:9001\x1b[0m in your browser");
   console.log("  2. Login with the demo credentials");
   console.log("  3. Configure your AI providers in Settings > Providers");
   console.log("  4. Upload documents to collections");

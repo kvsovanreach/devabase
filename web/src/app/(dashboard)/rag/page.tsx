@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Markdown } from '@/components/ui/markdown';
 import { RagConfigModal } from '@/components/collections/rag-config-modal';
 import { useCollections } from '@/hooks/use-collections';
-import { useDisableRag, streamRagChat, streamMultiRagChat } from '@/hooks/use-rag';
+import { useDisableRag, streamRag } from '@/hooks/use-rag';
 import { useConversation } from '@/hooks/use-conversations';
 import { ChatMessage, ChatSource, ProjectSettings } from '@/types';
 import { useProjectStore } from '@/stores/project-store';
@@ -169,126 +169,73 @@ export default function RagPage() {
     thinkingRef.current = '';
 
     try {
-      if (chatMode === 'single') {
-        if (!selectedCollection) return;
+      // Determine collection(s) to use
+      const collection = chatMode === 'single' ? selectedCollection : selectedCollections;
+      if (chatMode === 'single' && !selectedCollection) return;
+      if (chatMode === 'multi' && selectedCollections.length === 0) return;
 
-        await streamRagChat(
-          selectedCollection,
-          {
-            message: userMessage,
-            conversation_id: conversationId,
-            include_sources: true,
-          },
-          {
-            onSources: (newSources) => {
-              // Map streaming source format to ExtendedSource format
-              const mappedSources: ExtendedSource[] = newSources.map((s) => ({
-                document_id: s.document_id,
-                document_name: s.document_name,
-                chunk_content: s.content,
-                relevance_score: s.score,
-                collection_name: s.collection,
-              }));
-              setSources(mappedSources);
-            },
-            onThinking: (thinking) => {
-              setIsThinkingPhase(true);
-              thinkingRef.current = thinking;
-              setStreamingThinking(thinking);
-            },
-            onContent: (content) => {
-              setIsThinkingPhase(false);
-              contentRef.current += content;
-              setStreamingContent(contentRef.current);
-            },
-            onDone: (newConversationId) => {
-              setConversationId(newConversationId || undefined);
-              const finalContent = contentRef.current;
-              const finalThinking = thinkingRef.current;
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: 'assistant',
-                  content: finalContent || '',
-                  thinking: finalThinking || undefined,
-                  isThinkingExpanded: false,
-                },
-              ]);
-              setStreamingContent('');
-              setStreamingThinking('');
-              setIsStreaming(false);
-              setCollectionsUsed([selectedCollection]);
-            },
-            onError: (error) => {
-              setMessages((prev) => [
-                ...prev,
-                { role: 'assistant', content: `Error: ${error}` },
-              ]);
-              setIsStreaming(false);
-            },
-          }
-        );
-      } else {
-        if (selectedCollections.length === 0) return;
-
-        await streamMultiRagChat(
-          {
-            collections: selectedCollections,
-            message: userMessage,
-            include_sources: true,
-            top_k: 10,
-          },
-          {
-            onSources: (newSources) => {
-              // Convert to extended format
-              const extendedSources: ExtendedSource[] = newSources.map((s) => ({
-                document_id: s.document_id,
-                document_name: s.document_name,
-                chunk_content: s.content,
-                relevance_score: s.score,
-                collection_name: s.collection,
-              }));
-              setSources(extendedSources);
-              // Extract unique collections from sources
+      await streamRag(
+        {
+          collection,
+          message: userMessage,
+          conversation_id: conversationId,
+          include_sources: true,
+          top_k: chatMode === 'multi' ? 10 : undefined,
+        },
+        {
+          onSources: (newSources) => {
+            const mappedSources: ExtendedSource[] = newSources.map((s) => ({
+              document_id: s.document_id,
+              document_name: s.document_name,
+              chunk_content: s.content,
+              relevance_score: s.score,
+              collection_name: s.collection,
+            }));
+            setSources(mappedSources);
+            if (chatMode === 'multi') {
               const usedCollections = [...new Set(newSources.map((s) => s.collection))];
               setCollectionsUsed(usedCollections);
-            },
-            onThinking: (thinking) => {
-              setIsThinkingPhase(true);
-              thinkingRef.current = thinking;
-              setStreamingThinking(thinking);
-            },
-            onContent: (content) => {
-              setIsThinkingPhase(false);
-              contentRef.current += content;
-              setStreamingContent(contentRef.current);
-            },
-            onDone: () => {
-              const finalContent = contentRef.current;
-              const finalThinking = thinkingRef.current;
-              setMessages((prev) => [
-                ...prev,
-                {
-                  role: 'assistant',
-                  content: finalContent || '',
-                  thinking: finalThinking || undefined,
-                  isThinkingExpanded: false,
-                },
-              ]);
-              setStreamingContent('');
-              setStreamingThinking('');
-              setIsStreaming(false);
-            },
-            onError: (error) => {
-              setMessages((prev) => [
-                ...prev,
-                { role: 'assistant', content: `Error: ${error}` },
-              ]);
-              setIsStreaming(false);
-            },
-          }
-        );
-      }
+            }
+          },
+          onThinking: (thinking) => {
+            setIsThinkingPhase(true);
+            thinkingRef.current = thinking;
+            setStreamingThinking(thinking);
+          },
+          onContent: (content) => {
+            setIsThinkingPhase(false);
+            contentRef.current += content;
+            setStreamingContent(contentRef.current);
+          },
+          onDone: (newConversationId) => {
+            setConversationId(newConversationId || undefined);
+            const finalContent = contentRef.current;
+            const finalThinking = thinkingRef.current;
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: 'assistant',
+                content: finalContent || '',
+                thinking: finalThinking || undefined,
+                isThinkingExpanded: false,
+              },
+            ]);
+            setStreamingContent('');
+            setStreamingThinking('');
+            setIsStreaming(false);
+            if (chatMode === 'single') {
+              setCollectionsUsed([selectedCollection]);
+            }
+          },
+          onError: (error) => {
+            setMessages((prev) => [
+              ...prev,
+              { role: 'assistant', content: `Error: ${error}` },
+            ]);
+            setIsStreaming(false);
+          },
+        }
+      );
     } catch {
       setMessages((prev) => [
         ...prev,

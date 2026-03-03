@@ -29,6 +29,10 @@ FROM debian:trixie-slim AS runtime
 
 WORKDIR /app
 
+# Build argument for port
+ARG BACKEND_PORT=9002
+ENV DEVABASE_PORT=${BACKEND_PORT}
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -50,12 +54,12 @@ RUN mkdir -p /app/data && chown -R 1000:1000 /app/data
 RUN useradd -r -u 1000 -s /bin/false devabase
 USER devabase
 
-# Expose port
-EXPOSE 8080
+# Expose port (uses build arg)
+EXPOSE ${BACKEND_PORT}
 
-# Health check
+# Health check (uses environment variable)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/v1/health || exit 1
+    CMD curl -f http://localhost:${DEVABASE_PORT}/v1/health || exit 1
 
 # Run the application
 CMD ["devabase", "serve"]

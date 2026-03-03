@@ -38,14 +38,14 @@ export class DevabaseClient {
    * @example
    * // With API key
    * const client = new DevabaseClient({
-   *   baseUrl: 'http://localhost:8080',
+   *   baseUrl: 'http://localhost:9002',
    *   apiKey: 'dvb_your_api_key'
    * });
    *
    * @example
    * // With login
    * const client = new DevabaseClient({
-   *   baseUrl: 'http://localhost:8080'
+   *   baseUrl: 'http://localhost:9002'
    * });
    * await client.auth.login({ email: 'user@example.com', password: 'secret' });
    */
@@ -103,7 +103,7 @@ export class DevabaseClient {
  * import { createClient } from '@devabase/sdk';
  *
  * const client = createClient({
- *   baseUrl: 'http://localhost:8080',
+ *   baseUrl: 'http://localhost:9002',
  *   apiKey: 'dvb_your_api_key'
  * });
  */

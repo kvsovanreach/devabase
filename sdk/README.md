@@ -19,12 +19,12 @@ import { createClient } from '@devabase/sdk';
 
 // Initialize with API key
 const client = createClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: 'http://localhost:9002',
   apiKey: 'dvb_your_api_key'
 });
 
 // Or authenticate with email/password
-const client = createClient({ baseUrl: 'http://localhost:8080' });
+const client = createClient({ baseUrl: 'http://localhost:9002' });
 await client.auth.login({ email: 'user@example.com', password: 'secret' });
 
 // Set the project to work with
@@ -76,7 +76,7 @@ Just import the SDK and your app gets user authentication immediately.
 ```typescript
 // Initialize client with project API key
 const client = createClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: 'http://localhost:9002',
   apiKey: 'dvb_your_project_api_key'
 });
 client.useProject('your-project-id');

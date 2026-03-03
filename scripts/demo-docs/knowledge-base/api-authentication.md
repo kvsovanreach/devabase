@@ -10,7 +10,7 @@ Best for: User-facing applications
 
 ```bash
 # Login
-curl -X POST http://localhost:8080/v1/auth/login \
+curl -X POST http://localhost:9002/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email": "user@example.com", "password": "secret"}'
 ```
@@ -32,7 +32,7 @@ Using the token:
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
      -H "X-Project-ID: YOUR_PROJECT_ID" \
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 ```
 
 ### 2. API Key Authentication
@@ -41,7 +41,7 @@ Best for: Server-to-server communication, CI/CD pipelines
 
 Create an API key in the dashboard or via API:
 ```bash
-curl -X POST http://localhost:8080/v1/keys \
+curl -X POST http://localhost:9002/v1/keys \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "X-Project-ID: YOUR_PROJECT_ID" \
   -d '{"name": "Production API Key", "scopes": ["read", "write"]}'
@@ -63,7 +63,7 @@ Using API key:
 ```bash
 curl -H "Authorization: Bearer dvb_live_a1b2c3d4e5f6..." \
      -H "X-Project-ID: YOUR_PROJECT_ID" \
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 ```
 
 ### 3. App User Authentication
@@ -93,7 +93,7 @@ client.appAuth.setToken(auth.access_token);
 JWT tokens expire. Use refresh tokens to get new access tokens:
 
 ```bash
-curl -X POST http://localhost:8080/v1/auth/refresh \
+curl -X POST http://localhost:9002/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "YOUR_REFRESH_TOKEN"}'
 ```

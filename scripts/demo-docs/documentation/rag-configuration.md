@@ -16,7 +16,7 @@ RAG (Retrieval-Augmented Generation) allows you to chat with your documents usin
 ### Via API
 
 ```bash
-curl -X PATCH http://localhost:8080/v1/collections/my-docs \
+curl -X PATCH http://localhost:9002/v1/collections/my-docs \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Project-ID: $PROJECT_ID" \
   -d '{
