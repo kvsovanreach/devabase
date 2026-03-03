@@ -10,7 +10,7 @@ services:
       - "${POSTGRES_PORT:-9003}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+      # Note: Migrations are handled by SQLx in the backend, not Postgres init scripts
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-devabase}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devabase}
