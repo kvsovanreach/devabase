@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use chrono::{Duration, Utc};
@@ -7,6 +7,7 @@ use rand::Rng;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::{
     AddProjectMember, CreateInvitation, CreateProject, InvitationResponse,
@@ -20,16 +21,32 @@ use crate::{Error, Result};
 // PROJECT CRUD
 // ============================================================================
 
-/// GET /v1/projects - List user's projects
+/// GET /v1/projects - List user's projects with pagination
 pub async fn list_projects(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<ProjectResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<ProjectResponse>>> {
     let user_id = auth
         .user_id
         .ok_or_else(|| Error::Auth("User authentication required".to_string()))?;
 
-    // First get projects
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*)
+        FROM sys_projects p
+        JOIN sys_project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = $1 AND p.is_active = true
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(state.pool.inner())
+    .await?;
+
+    // Get paginated projects
     let projects: Vec<Project> = sqlx::query_as(
         r#"
         SELECT p.*
@@ -37,9 +54,12 @@ pub async fn list_projects(
         JOIN sys_project_members pm ON pm.project_id = p.id
         WHERE pm.user_id = $1 AND p.is_active = true
         ORDER BY p.created_at DESC
+        LIMIT $2 OFFSET $3
         "#,
     )
     .bind(user_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?;
 
@@ -59,7 +79,7 @@ pub async fn list_projects(
         responses.push(resp);
     }
 
-    Ok(Json(responses))
+    Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
 
 /// POST /v1/projects - Create a new project
@@ -259,7 +279,8 @@ pub async fn list_members(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Path(project_id): Path<Uuid>,
-) -> Result<Json<Vec<ProjectMemberResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<ProjectMemberResponse>>> {
     let user_id = auth
         .user_id
         .ok_or_else(|| Error::Auth("User authentication required".to_string()))?;
@@ -267,16 +288,29 @@ pub async fn list_members(
     // Check access
     let _ = get_user_role(&state, user_id, project_id).await?;
 
-    // Get members
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_project_members WHERE project_id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await?;
+
+    // Get paginated members
     let members: Vec<ProjectMember> = sqlx::query_as(
         r#"
         SELECT *
         FROM sys_project_members
         WHERE project_id = $1
         ORDER BY role, joined_at
+        LIMIT $2 OFFSET $3
         "#,
     )
     .bind(project_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?;
 
@@ -299,7 +333,7 @@ pub async fn list_members(
         });
     }
 
-    Ok(Json(responses))
+    Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
 
 /// POST /v1/projects/:id/members - Add member directly (by user_id)
@@ -504,12 +538,13 @@ pub async fn create_invitation(
     Ok(Json(InvitationResponse::from(invitation)))
 }
 
-/// GET /v1/projects/:id/invitations - List pending invitations
+/// GET /v1/projects/:id/invitations - List pending invitations with pagination
 pub async fn list_invitations(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Path(project_id): Path<Uuid>,
-) -> Result<Json<Vec<InvitationResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<InvitationResponse>>> {
     let user_id = auth
         .user_id
         .ok_or_else(|| Error::Auth("User authentication required".to_string()))?;
@@ -520,20 +555,32 @@ pub async fn list_invitations(
         return Err(Error::Auth("Admin access required".to_string()));
     }
 
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_project_invitations WHERE project_id = $1 AND status = 'pending'"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await?;
+
     let invitations: Vec<ProjectInvitation> = sqlx::query_as(
         r#"
         SELECT * FROM sys_project_invitations
         WHERE project_id = $1 AND status = 'pending'
         ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
         "#,
     )
     .bind(project_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?;
 
-    Ok(Json(
-        invitations.into_iter().map(InvitationResponse::from).collect(),
-    ))
+    let responses: Vec<InvitationResponse> = invitations.into_iter().map(InvitationResponse::from).collect();
+    Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
 
 /// DELETE /v1/projects/:id/invitations/:iid - Revoke invitation

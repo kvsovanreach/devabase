@@ -315,6 +315,46 @@ pub async fn list_prompts(pool: &DbPool, project_id: Option<Uuid>) -> Result<Vec
     Ok(prompts)
 }
 
+pub async fn list_prompts_paginated(pool: &DbPool, project_id: Option<Uuid>, limit: i64, offset: i64) -> Result<(Vec<Prompt>, i64)> {
+    let (prompts, total): (Vec<Prompt>, i64) = if let Some(pid) = project_id {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_prompts WHERE project_id = $1 AND is_active = true"
+        )
+        .bind(pid)
+        .fetch_one(pool.inner())
+        .await?;
+
+        let prompts: Vec<Prompt> = sqlx::query_as(
+            "SELECT * FROM sys_prompts WHERE project_id = $1 AND is_active = true ORDER BY name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(pid)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.inner())
+        .await?;
+
+        (prompts, total.0)
+    } else {
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sys_prompts WHERE project_id IS NULL AND is_active = true"
+        )
+        .fetch_one(pool.inner())
+        .await?;
+
+        let prompts: Vec<Prompt> = sqlx::query_as(
+            "SELECT * FROM sys_prompts WHERE project_id IS NULL AND is_active = true ORDER BY name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.inner())
+        .await?;
+
+        (prompts, total.0)
+    };
+
+    Ok((prompts, total))
+}
+
 pub async fn delete_prompt(pool: &DbPool, name: &str, project_id: Option<Uuid>) -> Result<()> {
     let result = if let Some(pid) = project_id {
         sqlx::query("DELETE FROM sys_prompts WHERE name = $1 AND project_id = $2")

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::pagination::PaginatedResponse;
 use crate::auth::AuthContext;
 use crate::db::models::{Document, DocumentStatus, Project};
 use crate::rag::knowledge_graph::{self, LLMConfig};
@@ -21,8 +22,30 @@ use crate::{Error, Result};
 pub struct ListEntitiesQuery {
     pub entity_type: Option<String>,
     pub collection_id: Option<Uuid>,
-    pub limit: Option<i32>,
-    pub offset: Option<i32>,
+    // Pagination fields
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+fn default_limit() -> i64 {
+    50
+}
+
+impl ListEntitiesQuery {
+    pub fn get_pagination(&self) -> (i64, i64) {
+        if let (Some(page), Some(per_page)) = (self.page, self.per_page) {
+            let page = page.max(1);
+            let per_page = per_page.min(1000).max(1);
+            let offset = (page - 1) * per_page;
+            return (per_page, offset);
+        }
+        let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+        (limit, self.offset.max(0))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,8 +83,26 @@ pub struct MergeEntitiesRequest {
 pub struct ListRelationshipsQuery {
     pub entity_id: Option<Uuid>,
     pub relationship_type: Option<String>,
-    pub limit: Option<i32>,
-    pub offset: Option<i32>,
+    // Pagination fields
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+impl ListRelationshipsQuery {
+    pub fn get_pagination(&self) -> (i64, i64) {
+        if let (Some(page), Some(per_page)) = (self.page, self.per_page) {
+            let page = page.max(1);
+            let per_page = per_page.min(1000).max(1);
+            let offset = (page - 1) * per_page;
+            return (per_page, offset);
+        }
+        let limit = self.per_page.unwrap_or(self.limit).min(1000).max(1);
+        (limit, self.offset.max(0))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,25 +136,30 @@ pub struct EntityTypeCount {
 // ENTITY ENDPOINTS
 // ============================================================================
 
-/// GET /v1/knowledge/entities - List entities
+/// GET /v1/knowledge/entities - List entities with pagination
 pub async fn list_entities(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Query(query): Query<ListEntitiesQuery>,
-) -> Result<Json<Vec<knowledge_graph::Entity>>> {
+) -> Result<Json<PaginatedResponse<knowledge_graph::Entity>>> {
     let project_id = auth.require_project()?;
+
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total = knowledge_graph::count_entities(&state.pool, project_id, query.entity_type.as_deref()).await?;
 
     let entities = knowledge_graph::list_entities(
         &state.pool,
         project_id,
         query.entity_type.as_deref(),
         query.collection_id,
-        query.limit.unwrap_or(50),
-        query.offset.unwrap_or(0),
+        limit as i32,
+        offset as i32,
     )
     .await?;
 
-    Ok(Json(entities))
+    Ok(Json(PaginatedResponse::new(entities, total, limit, offset)))
 }
 
 /// POST /v1/knowledge/entities - Create entity
@@ -242,25 +288,30 @@ pub async fn merge_entities(
 // RELATIONSHIP ENDPOINTS
 // ============================================================================
 
-/// GET /v1/knowledge/relationships - List relationships
+/// GET /v1/knowledge/relationships - List relationships with pagination
 pub async fn list_relationships(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Query(query): Query<ListRelationshipsQuery>,
-) -> Result<Json<Vec<knowledge_graph::Relationship>>> {
+) -> Result<Json<PaginatedResponse<knowledge_graph::Relationship>>> {
     let project_id = auth.require_project()?;
+
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total = knowledge_graph::count_relationships(&state.pool, project_id, query.relationship_type.as_deref()).await?;
 
     let relationships = knowledge_graph::list_relationships(
         &state.pool,
         project_id,
         query.entity_id,
         query.relationship_type.as_deref(),
-        query.limit.unwrap_or(50),
-        query.offset.unwrap_or(0),
+        limit as i32,
+        offset as i32,
     )
     .await?;
 
-    Ok(Json(relationships))
+    Ok(Json(PaginatedResponse::new(relationships, total, limit, offset)))
 }
 
 /// POST /v1/knowledge/relationships - Create relationship

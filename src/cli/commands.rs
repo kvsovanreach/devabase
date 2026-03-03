@@ -13,6 +13,16 @@ use crate::Result;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+/// Load configuration from file or environment variables
+fn load_config(config_path: &str) -> Result<Config> {
+    if std::path::Path::new(config_path).exists() {
+        Config::from_file(config_path)
+    } else {
+        tracing::info!("Config file '{}' not found, using environment variables", config_path);
+        Config::from_env()
+    }
+}
+
 pub async fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Init => {
@@ -24,7 +34,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         Commands::Serve { host, port } => {
-            let mut config = Config::from_file(&cli.config)?;
+            let mut config = load_config(&cli.config)?;
 
             // Apply CLI overrides
             if let Some(h) = host {
@@ -79,7 +89,7 @@ async fn run_server(config: Config) -> Result<()> {
 }
 
 async fn handle_db_command(cmd: DbCommands, config_path: &str) -> Result<()> {
-    let config = Config::from_file(config_path)?;
+    let config = load_config(config_path)?;
 
     match cmd {
         DbCommands::Setup | DbCommands::Migrate => {
@@ -224,7 +234,7 @@ fn handle_document_command(cmd: DocumentCommands) -> Result<()> {
 fn handle_config_command(cmd: ConfigCommands, config_path: &str) -> Result<()> {
     match cmd {
         ConfigCommands::Show { section } => {
-            let config = Config::from_file(config_path)?;
+            let config = load_config(config_path)?;
             let toml_str = toml::to_string_pretty(&config)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
@@ -245,7 +255,7 @@ fn handle_config_command(cmd: ConfigCommands, config_path: &str) -> Result<()> {
             }
         }
         ConfigCommands::Validate => {
-            match Config::from_file(config_path) {
+            match load_config(config_path) {
                 Ok(_) => println!("✓ Configuration is valid."),
                 Err(e) => {
                     println!("✗ Configuration error: {}", e);

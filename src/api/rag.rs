@@ -1,8 +1,12 @@
 use axum::{
     extract::{Path, State},
+    response::{sse::{Event, Sse}, IntoResponse, Response},
     Json,
 };
+use futures::stream::Stream;
+use futures::StreamExt as FuturesStreamExt;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use std::sync::Arc;
 
 use crate::api::conversations;
@@ -17,11 +21,31 @@ use crate::{Error, Result};
 // Unified Chat Request/Response Types
 // ─────────────────────────────────────────
 
+/// Helper enum to accept either a single string or array of strings
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum StringOrVec {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl StringOrVec {
+    pub fn into_vec(self) -> Vec<String> {
+        match self {
+            StringOrVec::Single(s) => vec![s],
+            StringOrVec::Multiple(v) => v,
+        }
+    }
+}
+
 /// Chat request for both collection-scoped and unified chat
 #[derive(Debug, Deserialize)]
 pub struct UnifiedChatRequest {
     /// The user's message
     pub message: String,
+    /// Collection(s) to search - can be a single name or array of names
+    #[serde(alias = "collections")]
+    pub collection: Option<StringOrVec>,
     /// Continue an existing conversation
     pub conversation_id: Option<String>,
     /// Include source documents in response
@@ -30,8 +54,16 @@ pub struct UnifiedChatRequest {
     /// Number of context chunks to retrieve (default: 5)
     #[serde(default = "default_top_k")]
     pub top_k: Option<i32>,
-    /// For unified chat: collections to search across
-    pub collections: Option<Vec<String>>,
+    /// Enable streaming response
+    #[serde(default)]
+    pub stream: bool,
+}
+
+impl UnifiedChatRequest {
+    /// Get collections as a vector
+    pub fn get_collections(&self) -> Vec<String> {
+        self.collection.clone().map(|c| c.into_vec()).unwrap_or_default()
+    }
 }
 
 fn default_true() -> bool { true }
@@ -41,20 +73,479 @@ fn default_top_k() -> Option<i32> { Some(5) }
 #[derive(Debug, Serialize)]
 pub struct UnifiedChatResponse {
     pub answer: String,
+    pub thinking: Option<String>,
     pub sources: Vec<UnifiedChatSource>,
     pub conversation_id: Option<String>,
     pub tokens_used: i32,
     pub collections_used: Vec<String>,
 }
 
+/// Streaming event types
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum StreamEvent {
+    /// Sources retrieved from vector search
+    Sources { sources: Vec<UnifiedChatSource> },
+    /// Thinking/reasoning content (collapsible)
+    Thinking { content: String },
+    /// Main answer content
+    Content { content: String },
+    /// Stream completed
+    Done {
+        conversation_id: Option<String>,
+        tokens_used: i32,
+    },
+    /// Error occurred
+    Error { message: String },
+}
+
 /// Source reference in chat response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UnifiedChatSource {
     pub collection: String,
     pub document_id: String,
     pub document_name: String,
     pub content: String,
     pub score: f64,
+}
+
+// ─────────────────────────────────────────
+// Unified RAG Endpoint
+// ─────────────────────────────────────────
+
+/// POST /v1/rag - Unified RAG chat endpoint
+/// Accepts single or multiple collections, with optional streaming
+pub async fn rag_chat(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Json(req): Json<UnifiedChatRequest>,
+) -> Result<Response> {
+    let collections = req.get_collections();
+
+    if collections.is_empty() {
+        return Err(Error::BadRequest("At least one collection must be specified".to_string()));
+    }
+
+    if req.stream {
+        // Return SSE stream
+        let sse = rag_chat_stream_internal(state, auth, req).await?;
+        Ok(sse.into_response())
+    } else {
+        // Return JSON response
+        let json = rag_chat_json_internal(&state, &auth, req).await?;
+        Ok(Json(json).into_response())
+    }
+}
+
+/// Internal JSON response handler
+async fn rag_chat_json_internal(
+    state: &Arc<AppState>,
+    auth: &AuthContext,
+    req: UnifiedChatRequest,
+) -> Result<UnifiedChatResponse> {
+    let project_id = auth.require_project()?;
+    let collections = req.get_collections();
+
+    // Get the project to access LLM provider settings
+    let project: crate::db::models::Project = sqlx::query_as(
+        "SELECT * FROM sys_projects WHERE id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await
+    .map_err(|_| Error::NotFound("Project not found".to_string()))?;
+
+    let settings: serde_json::Value = project.settings.unwrap_or_default();
+    let llm_providers = settings.get("llm_providers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+
+    // Get RAG config from first valid collection
+    let mut rag_config: Option<RagConfig> = None;
+    let mut provider_info: Option<(&serde_json::Value, &str, Option<&str>)> = None;
+    let mut collections_used: Vec<String> = Vec::new();
+
+    let top_k = req.top_k.unwrap_or(5);
+    let mut all_results: Vec<(String, rag::RetrievalResult)> = Vec::new();
+
+    for collection_name in &collections {
+        let collection = match vector::get_collection(&state.pool, collection_name, Some(project_id)).await {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        if !collection.rag_enabled {
+            continue;
+        }
+
+        if rag_config.is_none() {
+            if let Some(config) = collection.rag_config.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok()) {
+                let cfg: RagConfig = config;
+                if let Some(p) = llm_providers.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&cfg.llm_provider_id)) {
+                    let provider_type = p.get("type").and_then(|v| v.as_str()).unwrap_or("openai");
+                    let base_url = p.get("base_url").and_then(|v| v.as_str());
+                    provider_info = Some((p, provider_type, base_url));
+                    rag_config = Some(cfg);
+                }
+            }
+        }
+
+        let retrieval_query = RetrievalQuery {
+            collection: collection_name.to_string(),
+            query: req.message.clone(),
+            top_k: Some(top_k),
+            filter: None,
+            rerank: None,
+            include_content: Some(true),
+        };
+
+        let embedding_provider = match get_project_embedding_provider(&settings) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        if let Ok(results) = rag::retrieve_with_provider(&state.pool, embedding_provider.as_ref(), retrieval_query, Some(project_id)).await {
+            collections_used.push(collection_name.clone());
+            for result in results {
+                all_results.push((collection_name.clone(), result));
+            }
+        }
+    }
+
+    if collections_used.is_empty() {
+        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+    }
+
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
+    let (provider, provider_type, base_url) = provider_info.ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+
+    let api_key = provider.get("api_key")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+
+    // Sort and truncate results
+    all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+    all_results.truncate(top_k as usize);
+
+    // Build sources
+    let sources: Vec<UnifiedChatSource> = all_results.iter().map(|(collection_name, r)| {
+        UnifiedChatSource {
+            collection: collection_name.clone(),
+            document_id: r.document_id.to_string(),
+            document_name: r.metadata
+                .as_ref()
+                .and_then(|m| m.get("document_name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            content: r.content.chars().take(200).collect(),
+            score: r.score,
+        }
+    }).collect();
+
+    // Build context
+    let context_parts: Vec<String> = all_results.iter()
+        .enumerate()
+        .map(|(idx, (collection_name, r))| {
+            if collections.len() > 1 {
+                format!("[{} - {}] {}", idx + 1, collection_name, r.content)
+            } else {
+                format!("[{}] {}", idx + 1, r.content)
+            }
+        })
+        .collect();
+    let context = context_parts.join("\n\n");
+
+    let full_prompt = if collections.len() > 1 {
+        format!(
+            "{}\n\nYou are answering based on information from these collections: {}\n\nContext:\n{}\n\nUser: {}",
+            rag_config.system_prompt,
+            collections_used.join(", "),
+            context,
+            req.message
+        )
+    } else {
+        format!(
+            "{}\n\nContext:\n{}\n\nUser: {}",
+            rag_config.system_prompt,
+            context,
+            req.message
+        )
+    };
+
+    let answer = call_llm(
+        provider_type,
+        api_key,
+        base_url,
+        &rag_config.model,
+        &full_prompt,
+        rag_config.temperature,
+        rag_config.max_tokens,
+    ).await?;
+
+    // Extract thinking
+    let (thinking, clean_answer) = extract_thinking(&answer);
+
+    let prompt_tokens = count_tokens(&full_prompt) as i32;
+    let answer_tokens = count_tokens(&clean_answer) as i32;
+    let total_tokens = prompt_tokens + answer_tokens;
+
+    Ok(UnifiedChatResponse {
+        answer: clean_answer,
+        thinking,
+        sources: if req.include_sources { sources } else { vec![] },
+        conversation_id: req.conversation_id,
+        tokens_used: total_tokens,
+        collections_used,
+    })
+}
+
+/// Internal streaming response handler
+async fn rag_chat_stream_internal(
+    state: Arc<AppState>,
+    auth: AuthContext,
+    req: UnifiedChatRequest,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, Infallible>>>> {
+    let project_id = auth.require_project()?;
+    let collections = req.get_collections();
+
+    // Get the project to access LLM provider settings
+    let project: crate::db::models::Project = sqlx::query_as(
+        "SELECT * FROM sys_projects WHERE id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await
+    .map_err(|_| Error::NotFound("Project not found".to_string()))?;
+
+    let settings: serde_json::Value = project.settings.unwrap_or_default();
+    let llm_providers = settings.get("llm_providers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+
+    // Get RAG config from first valid collection
+    let mut rag_config: Option<RagConfig> = None;
+    let mut provider_type_str: Option<String> = None;
+    let mut base_url_str: Option<String> = None;
+    let mut api_key_str: Option<String> = None;
+    let mut collections_used: Vec<String> = Vec::new();
+
+    let top_k = req.top_k.unwrap_or(5);
+    let mut all_results: Vec<(String, rag::RetrievalResult)> = Vec::new();
+
+    for collection_name in &collections {
+        let collection = match vector::get_collection(&state.pool, collection_name, Some(project_id)).await {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        if !collection.rag_enabled {
+            continue;
+        }
+
+        if rag_config.is_none() {
+            if let Some(config) = collection.rag_config.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok()) {
+                let cfg: RagConfig = config;
+                if let Some(p) = llm_providers.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&cfg.llm_provider_id)) {
+                    provider_type_str = Some(p.get("type").and_then(|v| v.as_str()).unwrap_or("openai").to_string());
+                    base_url_str = p.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    api_key_str = p.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    rag_config = Some(cfg);
+                }
+            }
+        }
+
+        let retrieval_query = RetrievalQuery {
+            collection: collection_name.to_string(),
+            query: req.message.clone(),
+            top_k: Some(top_k),
+            filter: None,
+            rerank: None,
+            include_content: Some(true),
+        };
+
+        let embedding_provider = match get_project_embedding_provider(&settings) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        if let Ok(results) = rag::retrieve_with_provider(&state.pool, embedding_provider.as_ref(), retrieval_query, Some(project_id)).await {
+            collections_used.push(collection_name.to_string());
+            for result in results {
+                all_results.push((collection_name.to_string(), result));
+            }
+        }
+    }
+
+    if collections_used.is_empty() {
+        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+    }
+
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
+    let provider_type = provider_type_str.ok_or_else(|| Error::BadRequest("LLM provider type not found".to_string()))?;
+    let api_key = api_key_str.ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+
+    // Sort and truncate results
+    all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+    all_results.truncate(top_k as usize);
+
+    // Build sources
+    let sources: Vec<UnifiedChatSource> = all_results.iter().map(|(collection_name, r)| {
+        UnifiedChatSource {
+            collection: collection_name.clone(),
+            document_id: r.document_id.to_string(),
+            document_name: r.metadata
+                .as_ref()
+                .and_then(|m| m.get("document_name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            content: r.content.chars().take(200).collect(),
+            score: r.score,
+        }
+    }).collect();
+
+    // Build context
+    let context_parts: Vec<String> = all_results.iter()
+        .enumerate()
+        .map(|(idx, (collection_name, r))| {
+            if collections.len() > 1 {
+                format!("[{} - {}] {}", idx + 1, collection_name, r.content)
+            } else {
+                format!("[{}] {}", idx + 1, r.content)
+            }
+        })
+        .collect();
+    let context = context_parts.join("\n\n");
+
+    let full_prompt = if collections.len() > 1 {
+        format!(
+            "{}\n\nYou are answering based on information from these collections: {}\n\nContext:\n{}\n\nUser: {}",
+            rag_config.system_prompt,
+            collections_used.join(", "),
+            context,
+            req.message.clone()
+        )
+    } else {
+        format!(
+            "{}\n\nContext:\n{}\n\nUser: {}",
+            rag_config.system_prompt,
+            context,
+            req.message.clone()
+        )
+    };
+
+    let model = rag_config.model.clone();
+    let temperature = rag_config.temperature;
+    let max_tokens = rag_config.max_tokens;
+    let message = req.message.clone();
+
+    // Create channel for streaming chunks
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<String>>(100);
+
+    // Spawn the streaming LLM call
+    tokio::spawn(async move {
+        let _ = call_llm_stream(
+            &provider_type,
+            &api_key,
+            base_url_str.as_deref(),
+            &model,
+            &full_prompt,
+            temperature,
+            max_tokens,
+            tx,
+        ).await;
+    });
+
+    // Create the SSE stream
+    let stream = async_stream::stream! {
+        // First, send sources
+        let sources_event = StreamEvent::Sources { sources: sources.clone() };
+        yield Ok(Event::default().data(serde_json::to_string(&sources_event).unwrap_or_default()));
+
+        // Process streaming chunks from channel
+        let mut full_response = String::new();
+        let mut thinking_content = String::new();
+        let mut in_thinking = false;
+        let mut thinking_sent = false;
+        let mut had_error = false;
+
+        while let Some(chunk_result) = rx.recv().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    full_response.push_str(&chunk);
+
+                    // Check for thinking tags
+                    if chunk.contains("<think>") || chunk.contains("<thinking>") {
+                        in_thinking = true;
+                    }
+
+                    if in_thinking {
+                        thinking_content.push_str(&chunk);
+
+                        if chunk.contains("</think>") || chunk.contains("</thinking>") {
+                            in_thinking = false;
+                            let clean_thinking = thinking_content
+                                .replace("<think>", "")
+                                .replace("</think>", "")
+                                .replace("<thinking>", "")
+                                .replace("</thinking>", "")
+                                .trim()
+                                .to_string();
+                            if !clean_thinking.is_empty() {
+                                let event = StreamEvent::Thinking { content: clean_thinking };
+                                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                                thinking_sent = true;
+                            }
+                            thinking_content.clear();
+                        }
+                    } else {
+                        let event = StreamEvent::Content { content: chunk };
+                        yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    }
+                }
+                Err(e) => {
+                    let event = StreamEvent::Error { message: e.to_string() };
+                    yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    had_error = true;
+                    break;
+                }
+            }
+        }
+
+        if had_error {
+            return;
+        }
+
+        // Extract final thinking and answer
+        let (thinking, answer) = extract_thinking(&full_response);
+
+        // If we have thinking but didn't send it during streaming, send now
+        if let Some(ref t) = thinking {
+            if !thinking_sent && !t.is_empty() {
+                let event = StreamEvent::Thinking { content: t.clone() };
+                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+            }
+        }
+
+        // Count tokens
+        let user_tokens = count_tokens(&message) as i32;
+        let answer_tokens = count_tokens(&answer) as i32;
+        let total_tokens = user_tokens + answer_tokens;
+
+        // Send done event
+        let event = StreamEvent::Done {
+            conversation_id: None,
+            tokens_used: total_tokens,
+        };
+        yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+    };
+
+    Ok(Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(15))
+            .text("keep-alive")
+    ))
 }
 
 /// POST /collections/:name/chat - Chat with a single collection
@@ -73,9 +564,13 @@ pub async fn collection_chat(
 
     let result = chat_internal(&state, &auth, &collection_name, legacy_req).await?;
 
+    // Parse thinking from answer if present
+    let (thinking, answer) = extract_thinking(&result.answer);
+
     // Convert to unified response
     Ok(Json(UnifiedChatResponse {
-        answer: result.answer,
+        answer,
+        thinking,
         sources: result.sources.into_iter().map(|s| UnifiedChatSource {
             collection: collection_name.to_string(),
             document_id: s.document_id,
@@ -89,23 +584,292 @@ pub async fn collection_chat(
     }))
 }
 
+/// POST /collections/:name/chat/stream - Streaming chat with a single collection
+pub async fn collection_chat_stream(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Path(collection_name): Path<String>,
+    Json(req): Json<UnifiedChatRequest>,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, Infallible>>>> {
+    let project_id = auth.require_project()?;
+
+    // Get the collection
+    let collection = vector::get_collection(&state.pool, &collection_name, Some(project_id)).await?;
+
+    // Check if RAG is enabled
+    if !collection.rag_enabled {
+        return Err(Error::BadRequest(format!(
+            "RAG is not enabled for collection '{}'",
+            collection_name
+        )));
+    }
+
+    // Parse RAG config
+    let rag_config: RagConfig = collection.rag_config
+        .as_ref()
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or_else(|| Error::BadRequest("Invalid RAG configuration".to_string()))?;
+
+    // Get the project settings
+    let project: crate::db::models::Project = sqlx::query_as(
+        "SELECT * FROM sys_projects WHERE id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await
+    .map_err(|_| Error::NotFound("Project not found".to_string()))?;
+
+    let settings: serde_json::Value = project.settings.unwrap_or_default();
+    let llm_providers = settings.get("llm_providers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+
+    let provider = llm_providers.iter()
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&rag_config.llm_provider_id))
+        .ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+
+    let api_key = provider.get("api_key")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?
+        .to_string();
+
+    let provider_type = provider.get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("openai")
+        .to_string();
+
+    let base_url = provider.get("base_url")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    // Get embedding provider and search
+    let embedding_provider = get_project_embedding_provider(&settings)
+        .map_err(|e| Error::Config(format!("Embedding error: {}", e)))?;
+
+    let retrieval_query = RetrievalQuery {
+        collection: collection_name.to_string(),
+        query: req.message.clone(),
+        top_k: Some(rag_config.top_k),
+        filter: None,
+        rerank: None,
+        include_content: Some(true),
+    };
+
+    let search_results = rag::retrieve_with_provider(
+        &state.pool,
+        embedding_provider.as_ref(),
+        retrieval_query,
+        Some(project_id),
+    ).await?;
+
+    // Build sources
+    let sources: Vec<UnifiedChatSource> = search_results.iter().map(|r| {
+        UnifiedChatSource {
+            collection: collection_name.clone(),
+            document_id: r.document_id.to_string(),
+            document_name: r.metadata
+                .as_ref()
+                .and_then(|m| m.get("document_name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            content: r.content.chars().take(200).collect(),
+            score: r.score,
+        }
+    }).collect();
+
+    // Build context
+    let context_parts: Vec<String> = search_results.iter()
+        .enumerate()
+        .map(|(idx, r)| format!("[{}] {}", idx + 1, r.content))
+        .collect();
+    let context = context_parts.join("\n\n");
+
+    let full_prompt = format!(
+        "{}\n\nContext:\n{}\n\nUser: {}",
+        rag_config.system_prompt,
+        context,
+        req.message.clone()
+    );
+
+    let model = rag_config.model.clone();
+    let temperature = rag_config.temperature;
+    let max_tokens = rag_config.max_tokens;
+    let message = req.message.clone();
+    let conversation_id = req.conversation_id.clone();
+    let pool = state.pool.clone();
+    let collection_id = collection.id;
+    let user_id = auth.user_id;
+
+    // Create channel for streaming chunks
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<String>>(100);
+
+    // Spawn the streaming LLM call
+    tokio::spawn(async move {
+        let _ = call_llm_stream(
+            &provider_type,
+            &api_key,
+            base_url.as_deref(),
+            &model,
+            &full_prompt,
+            temperature,
+            max_tokens,
+            tx,
+        ).await;
+    });
+
+    // Create the SSE stream
+    let stream = async_stream::stream! {
+        // First, send sources
+        let sources_event = StreamEvent::Sources { sources: sources.clone() };
+        yield Ok(Event::default().data(serde_json::to_string(&sources_event).unwrap_or_default()));
+
+        // Process streaming chunks from channel
+        let mut full_response = String::new();
+        let mut thinking_content = String::new();
+        let mut in_thinking = false;
+        let mut thinking_sent = false;
+        let mut had_error = false;
+
+        while let Some(chunk_result) = rx.recv().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    full_response.push_str(&chunk);
+
+                    // Check for thinking tags
+                    if chunk.contains("<think>") || chunk.contains("<thinking>") {
+                        in_thinking = true;
+                    }
+
+                    if in_thinking {
+                        thinking_content.push_str(&chunk);
+
+                        if chunk.contains("</think>") || chunk.contains("</thinking>") {
+                            in_thinking = false;
+                            // Send thinking content
+                            let clean_thinking = thinking_content
+                                .replace("<think>", "")
+                                .replace("</think>", "")
+                                .replace("<thinking>", "")
+                                .replace("</thinking>", "")
+                                .trim()
+                                .to_string();
+                            if !clean_thinking.is_empty() {
+                                let event = StreamEvent::Thinking { content: clean_thinking };
+                                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                                thinking_sent = true;
+                            }
+                            thinking_content.clear();
+                        }
+                    } else {
+                        // Send content chunk
+                        let event = StreamEvent::Content { content: chunk };
+                        yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    }
+                }
+                Err(e) => {
+                    let event = StreamEvent::Error { message: e.to_string() };
+                    yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    had_error = true;
+                    break;
+                }
+            }
+        }
+
+        if had_error {
+            return;
+        }
+
+        // Extract final thinking and answer
+        let (thinking, answer) = extract_thinking(&full_response);
+
+        // If we have thinking but didn't send it during streaming, send now
+        if let Some(ref t) = thinking {
+            if !thinking_sent && !t.is_empty() {
+                let event = StreamEvent::Thinking { content: t.clone() };
+                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+            }
+        }
+
+        // Count tokens
+        let user_tokens = count_tokens(&message) as i32;
+        let answer_tokens = count_tokens(&answer) as i32;
+        let total_tokens = user_tokens + answer_tokens;
+
+        // Save conversation
+        if let Ok(conv_id) = conversations::get_or_create_conversation(
+            &pool,
+            project_id,
+            collection_id,
+            user_id,
+            conversation_id.clone(),
+        ).await {
+            let _ = conversations::save_message(&pool, conv_id, "user", &message, user_tokens, None).await;
+            let sources_json = serde_json::to_value(&sources).ok();
+            let _ = conversations::save_message(&pool, conv_id, "assistant", &answer, answer_tokens, sources_json).await;
+
+            // Send done event
+            let event = StreamEvent::Done {
+                conversation_id: Some(conv_id.to_string()),
+                tokens_used: total_tokens,
+            };
+            yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+        } else {
+            let event = StreamEvent::Done {
+                conversation_id: None,
+                tokens_used: total_tokens,
+            };
+            yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+        }
+    };
+
+    Ok(Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(15))
+            .text("keep-alive")
+    ))
+}
+
+/// Extract thinking content from response
+fn extract_thinking(response: &str) -> (Option<String>, String) {
+    // Try <think>...</think> format
+    if let Some(start) = response.find("<think>") {
+        if let Some(end) = response.find("</think>") {
+            let thinking = response[start + 7..end].trim().to_string();
+            let answer = format!("{}{}", &response[..start], &response[end + 8..]).trim().to_string();
+            return (Some(thinking), answer);
+        }
+    }
+
+    // Try <thinking>...</thinking> format
+    if let Some(start) = response.find("<thinking>") {
+        if let Some(end) = response.find("</thinking>") {
+            let thinking = response[start + 10..end].trim().to_string();
+            let answer = format!("{}{}", &response[..start], &response[end + 11..]).trim().to_string();
+            return (Some(thinking), answer);
+        }
+    }
+
+    (None, response.to_string())
+}
+
 /// POST /chat - Unified chat across multiple collections
 pub async fn unified_chat(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
     Json(req): Json<UnifiedChatRequest>,
 ) -> Result<Json<UnifiedChatResponse>> {
-    let collections = req.collections.clone().unwrap_or_default();
+    let collections = req.get_collections();
 
     if collections.is_empty() {
-        return Err(Error::BadRequest("At least one collection must be specified in 'collections' array".to_string()));
+        return Err(Error::BadRequest("At least one collection must be specified in 'collection' field".to_string()));
     }
 
     // Convert to legacy request
     let legacy_req = MultiCollectionChatRequest {
         collections: collections.clone(),
-        message: req.message,
-        conversation_id: req.conversation_id,
+        message: req.message.clone(),
+        conversation_id: req.conversation_id.clone(),
         include_sources: Some(req.include_sources),
         top_k: req.top_k,
     };
@@ -113,8 +877,12 @@ pub async fn unified_chat(
     let result = chat_multi_internal(&state, &auth, legacy_req).await?;
 
     // Convert to unified response
+    // Parse thinking from answer
+    let (thinking, answer) = extract_thinking(&result.answer);
+
     Ok(Json(UnifiedChatResponse {
-        answer: result.answer,
+        answer,
+        thinking,
         sources: result.sources.into_iter().map(|s| UnifiedChatSource {
             collection: s.collection_name,
             document_id: s.document_id,
@@ -126,6 +894,244 @@ pub async fn unified_chat(
         tokens_used: result.tokens_used,
         collections_used: result.collections_used,
     }))
+}
+
+/// POST /chat/stream - Streaming chat across multiple collections
+pub async fn unified_chat_stream(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Json(req): Json<UnifiedChatRequest>,
+) -> Result<Sse<impl Stream<Item = std::result::Result<Event, Infallible>>>> {
+    let project_id = auth.require_project()?;
+    let collections = req.get_collections();
+
+    if collections.is_empty() {
+        return Err(Error::BadRequest("At least one collection must be specified in 'collection' field".to_string()));
+    }
+
+    // Get the project to access LLM provider settings
+    let project: crate::db::models::Project = sqlx::query_as(
+        "SELECT * FROM sys_projects WHERE id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await
+    .map_err(|_| Error::NotFound("Project not found".to_string()))?;
+
+    let settings: serde_json::Value = project.settings.unwrap_or_default();
+    let llm_providers = settings.get("llm_providers")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+
+    // We'll use the RAG config from the first valid collection
+    let mut rag_config: Option<RagConfig> = None;
+    let mut provider_type_str: Option<String> = None;
+    let mut base_url_str: Option<String> = None;
+    let mut api_key_str: Option<String> = None;
+    let mut collections_used: Vec<String> = Vec::new();
+
+    // Search across all collections and gather results
+    let top_k = req.top_k.unwrap_or(5);
+    let mut all_results: Vec<(String, rag::RetrievalResult)> = Vec::new();
+
+    for collection_name in &collections {
+        let collection = match vector::get_collection(&state.pool, collection_name, Some(project_id)).await {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        if !collection.rag_enabled {
+            continue;
+        }
+
+        if rag_config.is_none() {
+            if let Some(config) = collection.rag_config.as_ref().and_then(|v| serde_json::from_value(v.clone()).ok()) {
+                let cfg: RagConfig = config;
+                if let Some(p) = llm_providers.iter().find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&cfg.llm_provider_id)) {
+                    provider_type_str = Some(p.get("type").and_then(|v| v.as_str()).unwrap_or("openai").to_string());
+                    base_url_str = p.get("base_url").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    api_key_str = p.get("api_key").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    rag_config = Some(cfg);
+                }
+            }
+        }
+
+        let retrieval_query = RetrievalQuery {
+            collection: collection_name.to_string(),
+            query: req.message.clone(),
+            top_k: Some(top_k),
+            filter: None,
+            rerank: None,
+            include_content: Some(true),
+        };
+
+        let embedding_provider = match get_project_embedding_provider(&settings) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+
+        if let Ok(results) = rag::retrieve_with_provider(&state.pool, embedding_provider.as_ref(), retrieval_query, Some(project_id)).await {
+            collections_used.push(collection_name.to_string());
+            for result in results {
+                all_results.push((collection_name.to_string(), result));
+            }
+        }
+    }
+
+    if collections_used.is_empty() {
+        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+    }
+
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
+    let provider_type = provider_type_str.ok_or_else(|| Error::BadRequest("LLM provider type not found".to_string()))?;
+    let api_key = api_key_str.ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+
+    // Sort and truncate results
+    all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+    all_results.truncate(top_k as usize);
+
+    // Build sources
+    let sources: Vec<UnifiedChatSource> = all_results.iter().map(|(collection_name, r)| {
+        UnifiedChatSource {
+            collection: collection_name.clone(),
+            document_id: r.document_id.to_string(),
+            document_name: r.metadata
+                .as_ref()
+                .and_then(|m| m.get("document_name"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            content: r.content.chars().take(200).collect(),
+            score: r.score,
+        }
+    }).collect();
+
+    // Build context
+    let context_parts: Vec<String> = all_results.iter()
+        .enumerate()
+        .map(|(idx, (collection_name, r))| format!("[{} - {}] {}", idx + 1, collection_name, r.content))
+        .collect();
+    let context = context_parts.join("\n\n");
+
+    let full_prompt = format!(
+        "{}\n\nYou are answering based on information from these collections: {}\n\nContext:\n{}\n\nUser: {}",
+        rag_config.system_prompt,
+        collections_used.join(", "),
+        context,
+        req.message.clone()
+    );
+
+    let model = rag_config.model.clone();
+    let temperature = rag_config.temperature;
+    let max_tokens = rag_config.max_tokens;
+    let message = req.message.clone();
+
+    // Create channel for streaming chunks
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<String>>(100);
+
+    // Spawn the streaming LLM call
+    tokio::spawn(async move {
+        let _ = call_llm_stream(
+            &provider_type,
+            &api_key,
+            base_url_str.as_deref(),
+            &model,
+            &full_prompt,
+            temperature,
+            max_tokens,
+            tx,
+        ).await;
+    });
+
+    // Create the SSE stream
+    let stream = async_stream::stream! {
+        // First, send sources
+        let sources_event = StreamEvent::Sources { sources: sources.clone() };
+        yield Ok(Event::default().data(serde_json::to_string(&sources_event).unwrap_or_default()));
+
+        // Process streaming chunks from channel
+        let mut full_response = String::new();
+        let mut thinking_content = String::new();
+        let mut in_thinking = false;
+        let mut thinking_sent = false;
+        let mut had_error = false;
+
+        while let Some(chunk_result) = rx.recv().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    full_response.push_str(&chunk);
+
+                    // Check for thinking tags
+                    if chunk.contains("<think>") || chunk.contains("<thinking>") {
+                        in_thinking = true;
+                    }
+
+                    if in_thinking {
+                        thinking_content.push_str(&chunk);
+
+                        if chunk.contains("</think>") || chunk.contains("</thinking>") {
+                            in_thinking = false;
+                            let clean_thinking = thinking_content
+                                .replace("<think>", "")
+                                .replace("</think>", "")
+                                .replace("<thinking>", "")
+                                .replace("</thinking>", "")
+                                .trim()
+                                .to_string();
+                            if !clean_thinking.is_empty() {
+                                let event = StreamEvent::Thinking { content: clean_thinking };
+                                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                                thinking_sent = true;
+                            }
+                            thinking_content.clear();
+                        }
+                    } else {
+                        let event = StreamEvent::Content { content: chunk };
+                        yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    }
+                }
+                Err(e) => {
+                    let event = StreamEvent::Error { message: e.to_string() };
+                    yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+                    had_error = true;
+                    break;
+                }
+            }
+        }
+
+        if had_error {
+            return;
+        }
+
+        // Extract final thinking and answer
+        let (thinking, answer) = extract_thinking(&full_response);
+
+        // If we have thinking but didn't send it during streaming, send now
+        if let Some(ref t) = thinking {
+            if !thinking_sent && !t.is_empty() {
+                let event = StreamEvent::Thinking { content: t.clone() };
+                yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+            }
+        }
+
+        // Count tokens
+        let user_tokens = count_tokens(&message) as i32;
+        let answer_tokens = count_tokens(&answer) as i32;
+        let total_tokens = user_tokens + answer_tokens;
+
+        // Send done event
+        let event = StreamEvent::Done {
+            conversation_id: None,
+            tokens_used: total_tokens,
+        };
+        yield Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default()));
+    };
+
+    Ok(Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(15))
+            .text("keep-alive")
+    ))
 }
 
 // ─────────────────────────────────────────
@@ -598,6 +1604,9 @@ async fn call_llm(
     let json: serde_json::Value = response.json().await
         .map_err(|e| Error::Internal(format!("Failed to parse LLM response: {}", e)))?;
 
+    // Log the response for debugging
+    tracing::debug!("LLM response for provider {}: {}", provider_type, json);
+
     // Extract the answer based on provider type
     let answer = match provider_type {
         "anthropic" => {
@@ -606,8 +1615,11 @@ async fn call_llm(
                 .and_then(|arr| arr.first())
                 .and_then(|item| item.get("text"))
                 .and_then(|t| t.as_str())
-                .unwrap_or("")
-                .to_string()
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    tracing::error!("Failed to parse Anthropic response: {}", json);
+                    Error::Internal(format!("Unexpected Anthropic response format: {}", json))
+                })?
         }
         "google" => {
             json.get("candidates")
@@ -619,21 +1631,193 @@ async fn call_llm(
                 .and_then(|arr| arr.first())
                 .and_then(|part| part.get("text"))
                 .and_then(|t| t.as_str())
-                .unwrap_or("")
-                .to_string()
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    tracing::error!("Failed to parse Google response: {}", json);
+                    Error::Internal(format!("Unexpected Google response format: {}", json))
+                })?
         }
         _ => {
-            // OpenAI-compatible
-            json.get("choices")
+            // OpenAI-compatible (openai, custom)
+            // Try standard OpenAI format first: choices[0].message.content
+            let content = json.get("choices")
                 .and_then(|c| c.as_array())
                 .and_then(|arr| arr.first())
                 .and_then(|choice| choice.get("message"))
                 .and_then(|msg| msg.get("content"))
                 .and_then(|c| c.as_str())
-                .unwrap_or("")
-                .to_string()
+                .map(|s| s.to_string());
+
+            if let Some(answer) = content {
+                answer
+            } else {
+                // Try alternative formats for custom providers
+                // Format: choices[0].text (older completions API)
+                let alt_content = json.get("choices")
+                    .and_then(|c| c.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|choice| choice.get("text"))
+                    .and_then(|t| t.as_str())
+                    .map(|s| s.to_string());
+
+                if let Some(answer) = alt_content {
+                    answer
+                } else {
+                    // Format: response or output (some custom APIs)
+                    let simple_content = json.get("response")
+                        .or_else(|| json.get("output"))
+                        .or_else(|| json.get("text"))
+                        .or_else(|| json.get("content"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+
+                    if let Some(answer) = simple_content {
+                        answer
+                    } else {
+                        tracing::error!("Failed to parse OpenAI-compatible response: {}", json);
+                        return Err(Error::Internal(format!(
+                            "Could not extract content from LLM response. Expected OpenAI-compatible format. Response: {}",
+                            json
+                        )));
+                    }
+                }
+            }
         }
     };
 
+    if answer.is_empty() {
+        tracing::warn!("LLM returned empty response for provider {}", provider_type);
+    }
+
     Ok(answer)
+}
+
+/// Streaming LLM call - collects chunks and sends via channel
+async fn call_llm_stream(
+    provider_type: &str,
+    api_key: &str,
+    base_url: Option<&str>,
+    model: &str,
+    prompt: &str,
+    temperature: f32,
+    max_tokens: i32,
+    tx: tokio::sync::mpsc::Sender<Result<String>>,
+) -> Result<()> {
+    let client = reqwest::Client::new();
+
+    let url = match provider_type {
+        "openai" => base_url.unwrap_or("https://api.openai.com/v1").to_string() + "/chat/completions",
+        "anthropic" => base_url.unwrap_or("https://api.anthropic.com/v1").to_string() + "/messages",
+        "custom" => base_url.ok_or_else(|| Error::BadRequest("Base URL required for custom provider".to_string()))?.to_string() + "/chat/completions",
+        _ => return Err(Error::BadRequest(format!("Streaming not supported for provider: {}", provider_type))),
+    };
+
+    let response = match provider_type {
+        "anthropic" => {
+            let body = serde_json::json!({
+                "model": model,
+                "max_tokens": max_tokens,
+                "stream": true,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            });
+
+            client.post(&url)
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| Error::Internal(format!("LLM request failed: {}", e)))?
+        }
+        _ => {
+            // OpenAI-compatible (openai, custom)
+            let body = serde_json::json!({
+                "model": model,
+                "stream": true,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            });
+
+            client.post(&url)
+                .header("Authorization", format!("Bearer {}", api_key))
+                .header("content-type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| Error::Internal(format!("LLM request failed: {}", e)))?
+        }
+    };
+
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(Error::Internal(format!("LLM API error: {}", error_text)));
+    }
+
+    let provider = provider_type.to_string();
+    let mut buffer = String::new();
+    let mut byte_stream = response.bytes_stream();
+
+    while let Some(chunk_result) = FuturesStreamExt::next(&mut byte_stream).await {
+        match chunk_result {
+            Ok(chunk_bytes) => {
+                buffer.push_str(&String::from_utf8_lossy(&chunk_bytes));
+
+                // Process complete SSE lines
+                while let Some(newline_pos) = buffer.find('\n') {
+                    let line = buffer[..newline_pos].trim().to_string();
+                    buffer = buffer[newline_pos + 1..].to_string();
+
+                    if line.is_empty() || line == "data: [DONE]" {
+                        continue;
+                    }
+
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                            let content = match provider.as_str() {
+                                "anthropic" => {
+                                    // Anthropic streaming format
+                                    if json.get("type").and_then(|t| t.as_str()) == Some("content_block_delta") {
+                                        json.get("delta")
+                                            .and_then(|d| d.get("text"))
+                                            .and_then(|t| t.as_str())
+                                            .map(|s| s.to_string())
+                                    } else {
+                                        None
+                                    }
+                                }
+                                _ => {
+                                    // OpenAI-compatible streaming format
+                                    json.get("choices")
+                                        .and_then(|c| c.as_array())
+                                        .and_then(|arr| arr.first())
+                                        .and_then(|choice| choice.get("delta"))
+                                        .and_then(|delta| delta.get("content"))
+                                        .and_then(|c| c.as_str())
+                                        .map(|s| s.to_string())
+                                }
+                            };
+
+                            if let Some(text) = content {
+                                if !text.is_empty() {
+                                    let _ = tx.send(Ok(text)).await;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = tx.send(Err(Error::Internal(format!("Stream error: {}", e)))).await;
+                return Err(Error::Internal(format!("Stream error: {}", e)));
+            }
+        }
+    }
+
+    Ok(())
 }

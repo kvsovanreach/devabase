@@ -58,8 +58,9 @@ export function useConversations(params?: ListConversationsParams) {
       const queryString = searchParams.toString();
       const url = queryString ? `/conversations?${queryString}` : '/conversations';
 
-      const response = await api.get<Conversation[]>(url);
-      return response.data;
+      const response = await api.get<{ data: Conversation[]; pagination: unknown }>(url);
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }

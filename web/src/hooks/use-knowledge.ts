@@ -31,10 +31,11 @@ export function useEntities(params: ListEntitiesParams = {}) {
       if (params.limit) searchParams.set('limit', params.limit.toString());
       if (params.offset) searchParams.set('offset', params.offset.toString());
 
-      const response = await apiClient.get<Entity[]>(
+      const response = await apiClient.get<{ data: Entity[]; pagination: unknown }>(
         `/knowledge/entities?${searchParams.toString()}`
       );
-      return response.data;
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }
@@ -172,10 +173,11 @@ export function useRelationships(params: ListRelationshipsParams = {}) {
       if (params.limit) searchParams.set('limit', params.limit.toString());
       if (params.offset) searchParams.set('offset', params.offset.toString());
 
-      const response = await apiClient.get<Relationship[]>(
+      const response = await apiClient.get<{ data: Relationship[]; pagination: unknown }>(
         `/knowledge/relationships?${searchParams.toString()}`
       );
-      return response.data;
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }

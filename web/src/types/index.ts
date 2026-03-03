@@ -288,6 +288,7 @@ export interface RagConfig {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string;
 }
 
 export interface ChatRequest {
@@ -305,10 +306,56 @@ export interface ChatSource {
 
 export interface ChatResponse {
   answer: string;
+  thinking?: string;
   sources: ChatSource[];
   conversation_id: string;
   tokens_used: number;
 }
+
+// Streaming source format from backend (different from ChatSource)
+export interface StreamingSource {
+  collection: string;
+  document_id: string;
+  document_name: string;
+  content: string;
+  score: number;
+}
+
+// Streaming event types
+export type StreamEventType = 'sources' | 'thinking' | 'content' | 'done' | 'error';
+
+export interface StreamSourcesEvent {
+  type: 'sources';
+  sources: StreamingSource[];
+}
+
+export interface StreamThinkingEvent {
+  type: 'thinking';
+  content: string;
+}
+
+export interface StreamContentEvent {
+  type: 'content';
+  content: string;
+}
+
+export interface StreamDoneEvent {
+  type: 'done';
+  conversation_id: string | null;
+  tokens_used: number;
+}
+
+export interface StreamErrorEvent {
+  type: 'error';
+  message: string;
+}
+
+export type StreamEvent =
+  | StreamSourcesEvent
+  | StreamThinkingEvent
+  | StreamContentEvent
+  | StreamDoneEvent
+  | StreamErrorEvent;
 
 // Evaluation types
 export interface EvaluationDataset {
@@ -483,7 +530,37 @@ export interface ApiError {
   message?: string;
 }
 
+// Pagination types for table API endpoints
+export interface PaginationMeta {
+  /** Total number of rows matching the filter */
+  total: number;
+  /** Number of rows returned in this response */
+  count: number;
+  /** Current limit (rows per page) */
+  limit: number;
+  /** Current offset */
+  offset: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Total number of pages */
+  total_pages: number;
+  /** Whether there is a next page */
+  has_next: boolean;
+  /** Whether there is a previous page */
+  has_previous: boolean;
+  /** Cursor for next page (if available) */
+  next_cursor?: string;
+  /** Cursor for previous page (if available) */
+  prev_cursor?: string;
+}
+
 export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationMeta;
+}
+
+/** @deprecated Use PaginatedResponse with pagination metadata instead */
+export interface LegacyPaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;

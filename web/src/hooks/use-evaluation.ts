@@ -18,8 +18,9 @@ export function useEvaluationDatasets() {
   return useQuery({
     queryKey: ['evaluation-datasets'],
     queryFn: async () => {
-      const response = await api.get<EvaluationDatasetWithStats[]>('/evaluation/datasets');
-      return response.data;
+      const response = await api.get<{ data: EvaluationDatasetWithStats[]; pagination: unknown }>('/evaluation/datasets');
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }
@@ -150,8 +151,9 @@ export function useEvaluationRuns(datasetId: string | undefined) {
     queryKey: ['evaluation-runs', datasetId],
     queryFn: async () => {
       if (!datasetId) throw new Error('Dataset ID required');
-      const response = await api.get<EvaluationRun[]>(`/evaluation/datasets/${datasetId}/runs`);
-      return response.data;
+      const response = await api.get<{ data: EvaluationRun[]; pagination: unknown }>(`/evaluation/datasets/${datasetId}/runs`);
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
     enabled: !!datasetId,
   });

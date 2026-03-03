@@ -46,7 +46,8 @@ export function DataBrowser({ table }: DataBrowserProps) {
     setEditingRow(null);
   };
 
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
+  const totalPages = data ? data.pagination.total_pages : 0;
+  const totalRows = data?.pagination.total ?? 0;
 
   // Get columns excluding internal ones
   const columns = table.columns.filter((c) => c.name !== 'project_id');
@@ -61,7 +62,7 @@ export function DataBrowser({ table }: DataBrowserProps) {
             Refresh
           </Button>
           <span className="text-sm text-text-secondary">
-            {data?.total ?? 0} rows
+            {totalRows} rows
           </span>
         </div>
         <Button size="sm" onClick={() => setShowCreateModal(true)}>
@@ -157,14 +158,16 @@ export function DataBrowser({ table }: DataBrowserProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-text-secondary">
-            Page {page + 1} of {totalPages}
+            Page {data?.pagination.page ?? page + 1} of {totalPages}
+            {' · '}
+            Showing {data?.pagination.count ?? 0} of {totalRows} rows
           </span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
+              disabled={!data?.pagination.has_previous}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -172,7 +175,7 @@ export function DataBrowser({ table }: DataBrowserProps) {
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
+              disabled={!data?.pagination.has_next}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>

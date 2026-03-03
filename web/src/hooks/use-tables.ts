@@ -40,8 +40,9 @@ export function useTables() {
   return useQuery({
     queryKey: ['tables'],
     queryFn: async () => {
-      const response = await api.get<TableInfo[]>('/tables');
-      return response.data;
+      const response = await api.get<{ data: TableInfo[]; pagination: unknown }>('/tables');
+      // Backend returns paginated response, extract the data array
+      return response.data.data;
     },
   });
 }

@@ -1,10 +1,11 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::Deserialize;
 use std::sync::Arc;
 
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::{CreatePrompt, PromptResponse, RenderedPrompt, UpdatePrompt};
 use crate::rag;
@@ -14,11 +15,14 @@ use crate::{Error, Result};
 pub async fn list_prompts(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<PromptResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<PromptResponse>>> {
     let project_id = auth.require_project()?;
 
-    let prompts = rag::list_prompts(&state.pool, Some(project_id)).await?;
-    Ok(Json(prompts.into_iter().map(PromptResponse::from).collect()))
+    let (limit, offset) = query.get_pagination();
+    let (prompts, total) = rag::list_prompts_paginated(&state.pool, Some(project_id), limit, offset).await?;
+    let responses: Vec<PromptResponse> = prompts.into_iter().map(PromptResponse::from).collect();
+    Ok(Json(PaginatedResponse::new(responses, total, limit, offset)))
 }
 
 pub async fn create_prompt(

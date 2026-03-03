@@ -114,6 +114,14 @@ Building AI-powered applications in 2024+ typically requires:
 - **Configurable top-N** — Rerank top results for better accuracy
 - **Per-query control** — Enable/disable reranking per request
 
+### 🎯 Advanced Retrieval Strategies
+
+- **HyDE (Hypothetical Document Embeddings)** — Generate hypothetical answer, embed it, then search for better semantic matching
+- **Multi-Query** — Expand query into multiple variations, search all, merge results for improved recall
+- **Self-Query** — Extract structured filters from natural language queries (e.g., "Python docs from 2023")
+- **Parent-Child Retrieval** — Search small precise chunks, return larger parent context
+- **Contextual Compression** — Compress retrieved chunks to only relevant portions, reducing noise
+
 ### 🕸️ Knowledge Graphs
 
 - **Auto-extraction** — Extract entities and relationships from documents using LLMs
@@ -251,23 +259,49 @@ Add intelligent search to your application:
 
 ```bash
 # Vector search
-curl -X POST localhost:8080/v1/retrieve \
+curl -X POST localhost:8080/v1/collections/products/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "collection": "products",
     "query": "comfortable running shoes for marathon",
     "top_k": 10,
     "rerank": true
   }'
 
 # Hybrid search (vector + keyword)
-curl -X POST localhost:8080/v1/collections/products/vectors/hybrid-search \
+curl -X POST localhost:8080/v1/collections/products/search \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
     "query": "Nike running shoes",
     "top_k": 10,
+    "search_type": "hybrid",
     "vector_weight": 0.7,
     "keyword_weight": 0.3
+  }'
+
+# HyDE strategy (generates hypothetical answer first)
+curl -X POST localhost:8080/v1/collections/docs/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "query": "How do I implement OAuth2?",
+    "strategy": "hyde",
+    "rerank": true
+  }'
+
+# Multi-query strategy (expands query into variations)
+curl -X POST localhost:8080/v1/collections/docs/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "query": "authentication best practices",
+    "strategy": "multi_query",
+    "strategy_options": {"num_query_variations": 3}
+  }'
+
+# Self-query strategy (extracts filters from natural language)
+curl -X POST localhost:8080/v1/collections/docs/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "query": "Python tutorials from 2023",
+    "strategy": "self_query"
   }'
 ```
 
@@ -381,16 +415,27 @@ POST   /v1/chunks/merge                    # Merge chunks
 
 ```http
 # Vector search (single collection)
-POST /v1/collections/:name/vectors/search
-{"query": "...", "top_k": 10, "filter": {...}}
+POST /v1/collections/:name/search
+{"query": "...", "top_k": 10, "filter": {...}, "rerank": true}
 
-# Hybrid search (vector + keyword)
-POST /v1/collections/:name/vectors/hybrid-search
-{"query": "...", "top_k": 10, "vector_weight": 0.7, "keyword_weight": 0.3}
+# Advanced retrieval strategies
+POST /v1/collections/:name/search
+{
+  "query": "...",
+  "top_k": 10,
+  "strategy": "hyde",           # or: standard, multi_query, self_query, parent_child, compression
+  "strategy_options": {
+    "hyde_temperature": 0.7,    # HyDE: temperature for generation
+    "hyde_num_hypotheticals": 1,# HyDE: number of hypothetical docs
+    "num_query_variations": 3,  # Multi-query: number of variations
+    "max_compressed_length": 500# Compression: max length
+  },
+  "rerank": true
+}
 
-# Cross-collection retrieval with reranking
-POST /v1/retrieve
-{"collection": "...", "query": "...", "top_k": 10, "rerank": true}
+# Unified search (multiple collections)
+POST /v1/search
+{"collections": ["docs", "faq"], "query": "...", "top_k": 10}
 ```
 
 ### RAG Chat

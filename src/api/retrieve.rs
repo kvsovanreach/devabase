@@ -7,7 +7,13 @@ use std::sync::Arc;
 
 use crate::auth::AuthContext;
 use crate::db::models::Project;
-use crate::rag::{self, get_project_embedding_provider, get_project_reranker, ContextQuery, ContextResult, MultiCollectionQuery, MultiCollectionResponse, RetrievalQuery, RetrievalResult};
+use crate::rag::{
+    self, get_project_embedding_provider, get_project_reranker, ContextQuery, ContextResult,
+    MultiCollectionQuery, MultiCollectionResponse, RetrievalQuery, RetrievalResult,
+    // Strategies
+    execute_strategy, ProjectLlmProvider, RetrievalStrategyType, StrategyContext, StrategyInput,
+    StrategyOptions,
+};
 use crate::server::AppState;
 use crate::{Error, Result};
 
@@ -36,6 +42,12 @@ pub struct SearchRequest {
     /// Enable reranking of results (requires reranking provider configured)
     #[serde(default)]
     pub rerank: bool,
+    /// Retrieval strategy to use (default: standard)
+    #[serde(default)]
+    pub strategy: RetrievalStrategyType,
+    /// Strategy-specific options
+    #[serde(default)]
+    pub strategy_options: StrategyOptions,
 }
 
 fn default_top_k() -> i32 { 10 }
@@ -89,24 +101,31 @@ pub async fn collection_search(
         None
     };
 
-    // Build retrieval query
-    let query = RetrievalQuery {
-        collection: collection_name.clone(),
-        query: req.query.clone(),
-        top_k: Some(req.top_k),
-        filter: req.filter,
-        rerank: Some(req.rerank),
-        include_content: Some(true),
+    // Get LLM provider if strategy requires it
+    let llm_provider = if req.strategy.requires_llm() {
+        Some(ProjectLlmProvider::from_settings(&settings, None)?)
+    } else {
+        None
     };
 
-    // Use reranking retrieval if reranker is available
-    let results = rag::retrieve_with_reranking(
-        &state.pool,
-        embedding_provider.as_ref(),
-        reranker.as_deref(),
-        query,
-        Some(project_id),
-    ).await?;
+    // Use strategy-based retrieval
+    let strategy_input = StrategyInput {
+        collection: collection_name.clone(),
+        query: req.query.clone(),
+        top_k: req.top_k,
+        filter: req.filter,
+        options: req.strategy_options,
+    };
+
+    let ctx = StrategyContext {
+        pool: &state.pool,
+        embedding_provider: embedding_provider.as_ref(),
+        llm_provider: llm_provider.as_ref().map(|p| p as &dyn crate::rag::LlmProvider),
+        reranker: reranker.as_deref(),
+        project_id,
+    };
+
+    let results = execute_strategy(&ctx, strategy_input, req.strategy).await?;
 
     // Convert to search response
     let search_results: Vec<SearchResult> = results

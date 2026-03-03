@@ -10,9 +10,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
+import { Markdown } from '@/components/ui/markdown';
 import { RagConfigModal } from '@/components/collections/rag-config-modal';
 import { useCollections } from '@/hooks/use-collections';
-import { useRagChat, useMultiCollectionRagChat } from '@/hooks/use-rag';
+import { useDisableRag, streamRagChat, streamMultiRagChat } from '@/hooks/use-rag';
 import { useConversation } from '@/hooks/use-conversations';
 import { ChatMessage, ChatSource, ProjectSettings } from '@/types';
 import { useProjectStore } from '@/stores/project-store';
@@ -31,6 +32,9 @@ import {
   History,
   FolderOpen,
   Layers,
+  Power,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -40,6 +44,12 @@ type ChatMode = 'single' | 'multi';
 // Extended source type for multi-collection
 interface ExtendedSource extends ChatSource {
   collection_name?: string;
+}
+
+// Extended message type with thinking support
+interface MessageWithThinking extends ChatMessage {
+  thinking?: string;
+  isThinkingExpanded?: boolean;
 }
 
 export default function RagPage() {
@@ -58,7 +68,7 @@ export default function RagPage() {
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
 
   // Common state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<MessageWithThinking[]>([]);
   const [input, setInput] = useState('');
   const [sources, setSources] = useState<ExtendedSource[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -67,6 +77,14 @@ export default function RagPage() {
   const [collectionsUsed, setCollectionsUsed] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Streaming state
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [streamingThinking, setStreamingThinking] = useState('');
+  const [isThinkingPhase, setIsThinkingPhase] = useState(false);
+  const contentRef = useRef('');
+  const thinkingRef = useRef('');
+
   // Check for conversation continuation from URL params
   const urlConversationId = searchParams.get('conversation');
   const urlCollectionName = searchParams.get('collection');
@@ -74,8 +92,7 @@ export default function RagPage() {
   // Fetch conversation if continuing
   const { data: existingConversation } = useConversation(urlConversationId ?? undefined);
 
-  const chatMutation = useRagChat();
-  const multiChatMutation = useMultiCollectionRagChat();
+  const disableRagMutation = useDisableRag();
 
   // Get LLM providers from project settings
   const projectSettings = currentProject?.settings as unknown as ProjectSettings | undefined;
@@ -132,11 +149,10 @@ export default function RagPage() {
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent, streamingThinking]);
 
   const handleSend = async () => {
-    const isPending = chatMutation.isPending || multiChatMutation.isPending;
-    if (!input.trim() || isPending) return;
+    if (!input.trim() || isStreaming) return;
 
     const userMessage = input.trim();
     setInput('');
@@ -144,50 +160,141 @@ export default function RagPage() {
     setSources([]);
     setCollectionsUsed([]);
 
+    // Use streaming for both single and multi-collection
+    setIsStreaming(true);
+    setStreamingContent('');
+    setStreamingThinking('');
+    setIsThinkingPhase(false);
+    contentRef.current = '';
+    thinkingRef.current = '';
+
     try {
       if (chatMode === 'single') {
         if (!selectedCollection) return;
 
-        const response = await chatMutation.mutateAsync({
-          collectionName: selectedCollection,
-          request: {
+        await streamRagChat(
+          selectedCollection,
+          {
             message: userMessage,
             conversation_id: conversationId,
             include_sources: true,
           },
-        });
-
-        setMessages((prev) => [...prev, { role: 'assistant', content: response.answer }]);
-        setSources(response.sources);
-        setConversationId(response.conversation_id);
-        setCollectionsUsed([selectedCollection]);
+          {
+            onSources: (newSources) => {
+              // Map streaming source format to ExtendedSource format
+              const mappedSources: ExtendedSource[] = newSources.map((s) => ({
+                document_id: s.document_id,
+                document_name: s.document_name,
+                chunk_content: s.content,
+                relevance_score: s.score,
+                collection_name: s.collection,
+              }));
+              setSources(mappedSources);
+            },
+            onThinking: (thinking) => {
+              setIsThinkingPhase(true);
+              thinkingRef.current = thinking;
+              setStreamingThinking(thinking);
+            },
+            onContent: (content) => {
+              setIsThinkingPhase(false);
+              contentRef.current += content;
+              setStreamingContent(contentRef.current);
+            },
+            onDone: (newConversationId) => {
+              setConversationId(newConversationId || undefined);
+              const finalContent = contentRef.current;
+              const finalThinking = thinkingRef.current;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: 'assistant',
+                  content: finalContent || '',
+                  thinking: finalThinking || undefined,
+                  isThinkingExpanded: false,
+                },
+              ]);
+              setStreamingContent('');
+              setStreamingThinking('');
+              setIsStreaming(false);
+              setCollectionsUsed([selectedCollection]);
+            },
+            onError: (error) => {
+              setMessages((prev) => [
+                ...prev,
+                { role: 'assistant', content: `Error: ${error}` },
+              ]);
+              setIsStreaming(false);
+            },
+          }
+        );
       } else {
         if (selectedCollections.length === 0) return;
 
-        const response = await multiChatMutation.mutateAsync({
-          collections: selectedCollections,
-          message: userMessage,
-          include_sources: true,
-          top_k: 10,
-        });
-
-        setMessages((prev) => [...prev, { role: 'assistant', content: response.answer }]);
-        // Convert multi-collection sources to extended format
-        const extendedSources: ExtendedSource[] = response.sources.map((s) => ({
-          document_id: s.document_id,
-          document_name: s.document_name,
-          chunk_content: s.chunk_content,
-          relevance_score: s.relevance_score,
-          collection_name: s.collection_name,
-        }));
-        setSources(extendedSources);
-        setCollectionsUsed(response.collections_used);
+        await streamMultiRagChat(
+          {
+            collections: selectedCollections,
+            message: userMessage,
+            include_sources: true,
+            top_k: 10,
+          },
+          {
+            onSources: (newSources) => {
+              // Convert to extended format
+              const extendedSources: ExtendedSource[] = newSources.map((s) => ({
+                document_id: s.document_id,
+                document_name: s.document_name,
+                chunk_content: s.content,
+                relevance_score: s.score,
+                collection_name: s.collection,
+              }));
+              setSources(extendedSources);
+              // Extract unique collections from sources
+              const usedCollections = [...new Set(newSources.map((s) => s.collection))];
+              setCollectionsUsed(usedCollections);
+            },
+            onThinking: (thinking) => {
+              setIsThinkingPhase(true);
+              thinkingRef.current = thinking;
+              setStreamingThinking(thinking);
+            },
+            onContent: (content) => {
+              setIsThinkingPhase(false);
+              contentRef.current += content;
+              setStreamingContent(contentRef.current);
+            },
+            onDone: () => {
+              const finalContent = contentRef.current;
+              const finalThinking = thinkingRef.current;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: 'assistant',
+                  content: finalContent || '',
+                  thinking: finalThinking || undefined,
+                  isThinkingExpanded: false,
+                },
+              ]);
+              setStreamingContent('');
+              setStreamingThinking('');
+              setIsStreaming(false);
+            },
+            onError: (error) => {
+              setMessages((prev) => [
+                ...prev,
+                { role: 'assistant', content: `Error: ${error}` },
+              ]);
+              setIsStreaming(false);
+            },
+          }
+        );
       }
     } catch {
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' },
       ]);
+      setIsStreaming(false);
     }
   };
 
@@ -203,6 +310,17 @@ export default function RagPage() {
     setSources([]);
     setConversationId(undefined);
     setCollectionsUsed([]);
+    setStreamingContent('');
+    setStreamingThinking('');
+    setIsStreaming(false);
+  };
+
+  const toggleThinking = (index: number) => {
+    setMessages((prev) =>
+      prev.map((msg, i) =>
+        i === index ? { ...msg, isThinkingExpanded: !msg.isThinkingExpanded } : msg
+      )
+    );
   };
 
   const handleCollectionChange = (name: string) => {
@@ -226,17 +344,14 @@ export default function RagPage() {
   };
 
   const copyEndpoint = () => {
-    const endpoint =
-      chatMode === 'single'
-        ? `${API_CONFIG.baseUrl}/v1/rag/${encodeURIComponent(selectedCollection)}/chat`
-        : `${API_CONFIG.baseUrl}/v1/rag/multi/chat`;
+    const endpoint = `${API_CONFIG.baseUrl}/v1/rag`;
     navigator.clipboard.writeText(endpoint);
     setCopied(true);
     toast.success('Endpoint copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const isPending = chatMutation.isPending || multiChatMutation.isPending;
+  const isPending = isStreaming;
   const canChat =
     chatMode === 'single'
       ? selectedCollection && isRagEnabled
@@ -405,15 +520,42 @@ export default function RagPage() {
                     </div>
                   )}
 
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full mt-3"
-                    onClick={() => setIsConfigModalOpen(true)}
-                  >
-                    <Settings className="w-3.5 h-3.5 mr-1.5" />
-                    {isRagEnabled ? 'Configure' : 'Enable RAG'}
-                  </Button>
+                  {isRagEnabled ? (
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setIsConfigModalOpen(true)}
+                      >
+                        <Settings className="w-3.5 h-3.5 mr-1.5" />
+                        Configure
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-error hover:bg-error/10"
+                        onClick={() => disableRagMutation.mutate(selectedCollection)}
+                        disabled={disableRagMutation.isPending}
+                      >
+                        {disableRagMutation.isPending ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <Power className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full mt-3"
+                      onClick={() => setIsConfigModalOpen(true)}
+                    >
+                      <Settings className="w-3.5 h-3.5 mr-1.5" />
+                      Enable RAG
+                    </Button>
+                  )}
                 </Card>
               )}
 
@@ -445,7 +587,7 @@ export default function RagPage() {
                   <div className="text-[13px] font-medium text-foreground mb-2">API Endpoint</div>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-[11px] text-primary bg-primary/5 px-2 py-1.5 rounded truncate">
-                      POST /v1/rag/{chatMode === 'single' ? `${selectedCollection}/chat` : 'multi/chat'}
+                      POST /v1/rag
                     </code>
                     <button
                       onClick={copyEndpoint}
@@ -617,7 +759,7 @@ export default function RagPage() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.length === 0 ? (
+                {messages.length === 0 && !isStreaming ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <div className="w-16 h-16 rounded-2xl bg-surface-secondary flex items-center justify-center mb-4">
                       <Bot className="w-8 h-8 text-text-tertiary" />
@@ -632,50 +774,110 @@ export default function RagPage() {
                     </p>
                   </div>
                 ) : (
-                  messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        'flex gap-3',
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      )}
-                    >
-                      {message.role === 'assistant' && (
+                  <>
+                    {messages.map((message, index) => (
+                      <div key={index}>
+                        <div
+                          className={cn(
+                            'flex gap-3',
+                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                          )}
+                        >
+                          {message.role === 'assistant' && (
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Bot className="w-4 h-4 text-primary" />
+                            </div>
+                          )}
+                          <div className="max-w-[75%] flex flex-col gap-2">
+                            {/* Thinking block (collapsible) */}
+                            {message.role === 'assistant' && message.thinking && (
+                              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => toggleThinking(index)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                                >
+                                  {message.isThinkingExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                  )}
+                                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                  <span className="text-[13px] font-medium text-amber-700 dark:text-amber-300">
+                                    Thinking
+                                  </span>
+                                </button>
+                                {message.isThinkingExpanded && (
+                                  <div className="px-3 pb-3 pt-1 text-[13px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap border-t border-amber-200 dark:border-amber-800">
+                                    {message.thinking}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {/* Main content */}
+                            <div
+                              className={cn(
+                                'px-4 py-3 rounded-2xl text-[14px]',
+                                message.role === 'user'
+                                  ? 'bg-primary text-white rounded-br-md'
+                                  : 'bg-surface-secondary text-foreground rounded-bl-md'
+                              )}
+                            >
+                              {message.role === 'assistant' ? (
+                                <Markdown content={message.content} />
+                              ) : (
+                                <p className="whitespace-pre-wrap">{message.content}</p>
+                              )}
+                            </div>
+                          </div>
+                          {message.role === 'user' && (
+                            <div className="w-8 h-8 rounded-full bg-surface-secondary flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-text-secondary" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Streaming message for single collection */}
+                    {isStreaming && (
+                      <div className="flex gap-3 justify-start">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <Bot className="w-4 h-4 text-primary" />
                         </div>
-                      )}
-                      <div
-                        className={cn(
-                          'max-w-[75%] px-4 py-3 rounded-2xl text-[14px]',
-                          message.role === 'user'
-                            ? 'bg-primary text-white rounded-br-md'
-                            : 'bg-surface-secondary text-foreground rounded-bl-md'
-                        )}
-                      >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      </div>
-                      {message.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-surface-secondary flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-text-secondary" />
+                        <div className="max-w-[75%] flex flex-col gap-2">
+                          {/* Streaming thinking block */}
+                          {isThinkingPhase && streamingThinking && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Spinner size="sm" className="text-amber-600 dark:text-amber-400" />
+                                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <span className="text-[13px] font-medium text-amber-700 dark:text-amber-300">
+                                  Thinking...
+                                </span>
+                              </div>
+                              <p className="text-[13px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
+                                {streamingThinking}
+                              </p>
+                            </div>
+                          )}
+                          {/* Streaming content */}
+                          {(streamingContent || !isThinkingPhase) && (
+                            <div className="px-4 py-3 bg-surface-secondary rounded-2xl rounded-bl-md text-[14px]">
+                              {streamingContent ? (
+                                <Markdown content={streamingContent} />
+                              ) : (
+                                <div className="flex items-center gap-2 text-text-secondary">
+                                  <Spinner size="sm" />
+                                  Generating response...
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))
-                )}
-
-                {isPending && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="px-4 py-3 bg-surface-secondary rounded-2xl rounded-bl-md">
-                      <div className="flex items-center gap-2 text-[14px] text-text-secondary">
-                        <Spinner size="sm" />
-                        {chatMode === 'multi' ? 'Searching collections...' : 'Thinking...'}
                       </div>
-                    </div>
-                  </div>
+                    )}
+
+                  </>
                 )}
 
                 <div ref={messagesEndRef} />

@@ -1,3 +1,4 @@
+use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::{
     validate_events, CreateWebhook, UpdateWebhook, Webhook, WebhookLog, WebhookLogResponse,
@@ -15,26 +16,41 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// List webhooks for the current project
+/// List webhooks for the current project with pagination
 pub async fn list_webhooks(
     State(state): State<Arc<AppState>>,
     auth: AuthContext,
-) -> Result<Json<Vec<WebhookResponse>>> {
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<PaginatedResponse<WebhookResponse>>> {
     let project_id = auth.require_project()?;
     auth.require_read()?;
+
+    let (limit, offset) = query.get_pagination();
+
+    // Get total count
+    let total: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sys_webhooks WHERE project_id = $1"
+    )
+    .bind(project_id)
+    .fetch_one(state.pool.inner())
+    .await?;
 
     let webhooks: Vec<Webhook> = sqlx::query_as(
         r#"
         SELECT * FROM sys_webhooks
         WHERE project_id = $1
         ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
         "#,
     )
     .bind(project_id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(state.pool.inner())
     .await?;
 
-    Ok(Json(webhooks.into_iter().map(Into::into).collect()))
+    let responses: Vec<WebhookResponse> = webhooks.into_iter().map(Into::into).collect();
+    Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
 
 /// Create a new webhook

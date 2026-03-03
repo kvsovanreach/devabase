@@ -1,3 +1,4 @@
+pub mod app_auth;
 pub mod auth;
 pub mod benchmarks;
 pub mod cache;
@@ -10,6 +11,7 @@ pub mod files;
 pub mod health;
 pub mod keys;
 pub mod knowledge_graph;
+pub mod pagination;
 pub mod prompts;
 pub mod projects;
 pub mod providers;
