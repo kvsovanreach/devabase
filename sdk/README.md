@@ -360,10 +360,44 @@ const table = await client.tables.create({
     { name: 'age', type: 'integer' },
     { name: 'status', type: 'varchar(50)', default: "'active'" },
     { name: 'metadata', type: 'jsonb' },
-    { name: 'created_at', type: 'timestamptz', default: 'now()' }
+    { name: 'created_at', type: 'timestamptz', default: 'now()' },
+    { name: 'updated_at', type: 'timestamptz', default: 'now()' }
   ]
 });
 // Column types: uuid, varchar(n), text, integer, bigint, boolean, jsonb, timestamptz, date, time
+```
+
+### Timestamp Handling
+
+ISO 8601 timestamp strings are automatically parsed:
+
+```typescript
+// All these formats work:
+await client.tables.rows('events').insert({
+  scheduled_at: new Date().toISOString(),           // "2024-01-15T10:30:00.000Z"
+  event_date: '2024-01-15',                         // Date only
+  start_time: '2024-01-15T10:30:00'                 // Without timezone
+});
+```
+
+### Auto-Update `updated_at`
+
+The `updated_at` column's `default: 'now()'` only applies on INSERT. To auto-update on UPDATE, manually include it:
+
+```typescript
+// Option 1: Include updated_at in every update
+await client.tables.rows('users').update(id, {
+  name: 'Jane',
+  updated_at: new Date().toISOString()
+});
+
+// Option 2: Create a helper function
+const updateRow = async (table: string, id: string, data: object) => {
+  return client.tables.rows(table).update(id, {
+    ...data,
+    updated_at: new Date().toISOString()
+  });
+};
 ```
 
 ### List Tables
