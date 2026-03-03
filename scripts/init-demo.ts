@@ -543,12 +543,30 @@ async function main() {
   // Step 1: Register/Login
   log("Step 1: Setting up demo user...", "info");
 
-  // Try to register
-  await apiCall("POST", "/v1/auth/register", {
+  // Check if backend is ready
+  try {
+    const health = await fetch(`${BASE_URL}/v1/health`);
+    if (!health.ok) {
+      log(`Backend not ready at ${BASE_URL}. Make sure the server is running.`, "error");
+      process.exit(1);
+    }
+  } catch (e) {
+    log(`Cannot connect to backend at ${BASE_URL}. Make sure the server is running.`, "error");
+    process.exit(1);
+  }
+
+  // Try to register (may fail if user exists, that's ok)
+  const registerResult = await apiCall("POST", "/v1/auth/register", {
     email: DEMO_EMAIL,
     password: DEMO_PASSWORD,
     name: DEMO_NAME,
   });
+
+  if (registerResult.error) {
+    log(`Registration: ${registerResult.error} (may already exist, continuing...)`, "warning");
+  } else if (registerResult.user) {
+    log(`Registered new user: ${DEMO_EMAIL}`, "success");
+  }
 
   // Login
   const loginResult = await apiCall("POST", "/v1/auth/login", {
@@ -558,6 +576,7 @@ async function main() {
 
   if (!loginResult.token) {
     log(`Failed to login: ${JSON.stringify(loginResult)}`, "error");
+    log("Make sure the backend is running and the database is initialized.", "error");
     process.exit(1);
   }
 
