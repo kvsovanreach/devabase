@@ -49,7 +49,7 @@
             <div class="hero-content">
                 <div class="hero-badge animate-fade-in">
                     <span class="badge-dot"></span>
-                    <span>Now with App Authentication</span>
+                    <span>Now with Knowledge Graphs & Advanced Retrieval</span>
                 </div>
                 <h1 class="hero-title animate-fade-in-up">
                     Build AI Apps<br>
@@ -57,8 +57,8 @@
                 </h1>
                 <p class="hero-description animate-fade-in-up delay-1">
                     The complete backend for RAG and LLM applications.
-                    Vector storage, document processing, semantic search,
-                    and user authentication — all in one place.
+                    Vector storage, document processing, knowledge graphs,
+                    advanced retrieval strategies, and user authentication — all in one place.
                 </p>
                 <div class="hero-cta animate-fade-in-up delay-2">
                     <a href="#get-started" class="btn btn-primary btn-lg">
@@ -143,6 +143,12 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                 </div>
                 <div class="logo-item">
                     <span class="logo-text-brand">Cohere</span>
+                </div>
+                <div class="logo-item">
+                    <span class="logo-text-brand">Jina AI</span>
+                </div>
+                <div class="logo-item">
+                    <span class="logo-text-brand">Voyage AI</span>
                 </div>
                 <div class="logo-item">
                     <span class="logo-text-brand">PostgreSQL</span>
@@ -268,6 +274,45 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                         <li>Cursor-based pagination</li>
                     </ul>
                 </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="6" cy="6" r="3"/>
+                            <circle cx="18" cy="6" r="3"/>
+                            <circle cx="12" cy="18" r="3"/>
+                            <path d="M8.5 7.5L10.5 16M15.5 7.5L13.5 16M7.5 5.5h9"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Knowledge Graphs</h3>
+                    <p class="feature-description">
+                        Extract entities and relationships from documents automatically.
+                        Build connected knowledge for enhanced RAG.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Automatic entity extraction</li>
+                        <li>Relationship mapping</li>
+                        <li>Graph-enhanced retrieval</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2"/>
+                            <rect x="5" y="5" width="14" height="14" rx="2"/>
+                            <path d="M9 9h6v6H9z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Advanced Retrieval</h3>
+                    <p class="feature-description">
+                        State-of-the-art retrieval strategies that dramatically
+                        improve RAG accuracy and relevance.
+                    </p>
+                    <ul class="feature-list">
+                        <li>HyDE & Multi-Query expansion</li>
+                        <li>Self-Query & contextual compression</li>
+                        <li>Parent-Child chunking</li>
+                    </ul>
+                </div>
             </div>
         </div>
     </section>
@@ -381,6 +426,7 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     <div class="code-tabs">
                         <button class="code-tab active" data-tab="search">Search</button>
                         <button class="code-tab" data-tab="chat">Chat</button>
+                        <button class="code-tab" data-tab="knowledge">Knowledge</button>
                         <button class="code-tab" data-tab="auth">Auth</button>
                     </div>
                     <div class="code-panels">
@@ -394,12 +440,12 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
   filter: { category: <span class="code-string">'security'</span> }
 });
 
-<span class="code-comment">// Hybrid search (vector + keyword)</span>
-<span class="code-keyword">const</span> hybrid = <span class="code-keyword">await</span> client.search.<span class="code-function">hybrid</span>({
-  collection: <span class="code-string">'knowledge-base'</span>,
-  query: <span class="code-string">'JWT token refresh'</span>,
-  vector_weight: <span class="code-number">0.7</span>,
-  keyword_weight: <span class="code-number">0.3</span>
+<span class="code-comment">// Advanced retrieval with HyDE strategy</span>
+<span class="code-keyword">const</span> advanced = <span class="code-keyword">await</span> client.search.<span class="code-function">query</span>({
+  collection: <span class="code-string">'docs'</span>,
+  query: <span class="code-string">'How do I implement OAuth?'</span>,
+  strategy: <span class="code-string">'hyde'</span>,  <span class="code-comment">// or 'multi_query'</span>
+  rerank: <span class="code-boolean">true</span>
 });</code></pre>
                         </div>
                         <div class="code-panel" id="chat-panel">
@@ -420,6 +466,22 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
 <span class="code-keyword">const</span> r2 = <span class="code-keyword">await</span> client.chat.<span class="code-function">continue</span>(
   response.conversation_id,
   <span class="code-string">'What about refresh tokens?'</span>
+);</code></pre>
+                        </div>
+                        <div class="code-panel" id="knowledge-panel">
+                            <pre><code><span class="code-comment">// Extract knowledge from documents</span>
+<span class="code-keyword">await</span> client.knowledge.<span class="code-function">extract</span>(<span class="code-string">'docs'</span>);
+
+<span class="code-comment">// Get entities from collection</span>
+<span class="code-keyword">const</span> entities = <span class="code-keyword">await</span> client.knowledge.<span class="code-function">getEntities</span>(
+  <span class="code-string">'docs'</span>,
+  { type: <span class="code-string">'PERSON'</span>, limit: <span class="code-number">50</span> }
+);
+
+<span class="code-comment">// Get entity relationships</span>
+<span class="code-keyword">const</span> graph = <span class="code-keyword">await</span> client.knowledge.<span class="code-function">getGraph</span>(
+  <span class="code-string">'docs'</span>,
+  { entity_id: <span class="code-string">'entity-123'</span>, depth: <span class="code-number">2</span> }
 );</code></pre>
                         </div>
                         <div class="code-panel" id="auth-panel">
@@ -575,7 +637,7 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 Devabase. All rights reserved.</p>
+                <p>&copy; 2026 Devabase. All rights reserved.</p>
             </div>
         </div>
     </footer>

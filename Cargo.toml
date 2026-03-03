@@ -29,7 +29,7 @@ tower = { version = "0.4", features = ["util", "timeout"] }
 tower-http = { version = "0.5", features = ["fs", "cors", "trace", "compression-gzip"] }
 
 # Database
-sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
 deadpool-postgres = "0.12"
 
 # Serialization
@@ -98,6 +98,11 @@ local-embedding = ["rust-bert"]
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3"
+reqwest = { version = "0.11", features = ["json"] }
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
 
 [profile.release]
 lto = true

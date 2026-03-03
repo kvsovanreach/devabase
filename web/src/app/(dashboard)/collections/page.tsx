@@ -29,7 +29,7 @@ import { ProjectSettings } from '@/types';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
-const ITEMS_PER_PAGE = 9;
+const ITEMS_PER_PAGE = 12;
 
 type SortOption = 'updated' | 'name' | 'vectors';
 type ViewMode = 'grid' | 'list';
@@ -279,8 +279,8 @@ export default function CollectionsPage() {
                 <div
                   className={cn(
                     viewMode === 'grid'
-                      ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5'
-                      : 'flex flex-col gap-4'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+                      : 'flex flex-col gap-3'
                   )}
                 >
                   {paginatedCollections.map((collection) => (

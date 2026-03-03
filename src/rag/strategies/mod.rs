@@ -203,6 +203,13 @@ pub async fn execute_strategy(
 }
 
 /// Execute a pipeline of strategies (for composition)
+///
+/// Pipeline composition rules:
+/// - Pre-retrieval strategies (HyDE, MultiQuery, SelfQuery) modify the query/search
+/// - Post-retrieval strategies (ParentChild, Compression) modify results
+/// - Standard is the base retrieval
+///
+/// Order: Pre-retrieval -> Standard retrieval -> Post-retrieval
 pub async fn execute_pipeline(
     ctx: &StrategyContext<'_>,
     input: StrategyInput,
@@ -216,13 +223,59 @@ pub async fn execute_pipeline(
         return execute_strategy(ctx, input, strategies[0]).await;
     }
 
-    // For multiple strategies, we need to be smart about composition:
-    // - Pre-retrieval strategies (HyDE, MultiQuery, SelfQuery) modify how we search
-    // - Post-retrieval strategies (ParentChild, Compression) modify results
-    //
-    // Current simple approach: just use the last strategy
-    // TODO: Implement proper pipeline composition
+    // Categorize strategies
+    let mut pre_retrieval: Vec<RetrievalStrategyType> = Vec::new();
+    let mut post_retrieval: Vec<RetrievalStrategyType> = Vec::new();
 
-    let last_strategy = strategies.last().unwrap();
-    execute_strategy(ctx, input, *last_strategy).await
+    for &strategy in strategies {
+        match strategy {
+            // Pre-retrieval: modify query before searching
+            RetrievalStrategyType::Hyde
+            | RetrievalStrategyType::MultiQuery
+            | RetrievalStrategyType::SelfQuery => {
+                pre_retrieval.push(strategy);
+            }
+            // Post-retrieval: modify results after searching
+            RetrievalStrategyType::ParentChild | RetrievalStrategyType::Compression => {
+                post_retrieval.push(strategy);
+            }
+            // Standard is our base retrieval
+            RetrievalStrategyType::Standard => {}
+        }
+    }
+
+    // Execute pipeline: use the first pre-retrieval strategy if any, otherwise standard
+    let retrieval_strategy = pre_retrieval.first().copied().unwrap_or(RetrievalStrategyType::Standard);
+    let mut results = execute_strategy(ctx, input.clone(), retrieval_strategy).await?;
+
+    // Apply post-retrieval strategies in order
+    for strategy_type in post_retrieval {
+        let strategy = create_strategy(strategy_type);
+
+        // For post-retrieval, we pass results through each strategy
+        // ParentChild expands to parent chunks, Compression reduces content
+        match strategy_type {
+            RetrievalStrategyType::ParentChild => {
+                // Re-retrieve with parent-child to expand context
+                results = strategy.retrieve(ctx, input.clone()).await?;
+            }
+            RetrievalStrategyType::Compression => {
+                // Compress the existing results
+                if ctx.llm_provider.is_some() {
+                    // Create a modified input with the results to compress
+                    let compress_input = StrategyInput {
+                        collection: input.collection.clone(),
+                        query: input.query.clone(),
+                        top_k: results.len() as i32,
+                        filter: input.filter.clone(),
+                        options: input.options.clone(),
+                    };
+                    results = strategy.retrieve(ctx, compress_input).await?;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(results)
 }

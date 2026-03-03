@@ -52,7 +52,7 @@ Instead of stitching together Pinecone + LangChain + Auth0 + PostgreSQL + custom
 
 ## Why We Built Devabase
 
-Building AI-powered applications in 2024+ typically requires:
+Building AI-powered applications today typically requires:
 
 | Component | Common Solutions | Problems |
 |-----------|------------------|----------|
@@ -155,6 +155,35 @@ Building AI-powered applications in 2024+ typically requires:
 - **Publication-ready exports** — LaTeX tables, CSV, Markdown reports
 - **Custom datasets** — Create your own test cases
 
+### 📝 Prompt Management
+
+- **Template storage** — Store and version your prompt templates
+- **Variable rendering** — Handlebars-style variable interpolation
+- **Token counting** — Preview token usage before sending
+- **CRUD operations** — Full management via API or dashboard
+
+### 💬 Conversation Management
+
+- **Conversation persistence** — Store chat history with context
+- **Message tracking** — User/assistant role tracking with metadata
+- **Source attribution** — Track which documents informed each response
+- **Conversation summaries** — Auto-generate conversation titles
+
+### 🔐 Application User Auth
+
+- **End-user authentication** — Built-in auth for your app's users
+- **Registration & login** — Email/password auth with JWT tokens
+- **Password reset flow** — Secure password recovery via email tokens
+- **Email verification** — Optional email verification workflow
+- **Account security** — Failed login tracking, account lockout
+
+### 📡 Real-time Events
+
+- **WebSocket support** — Real-time updates for all operations
+- **Event streaming** — Live document processing status
+- **Pub/Sub architecture** — Subscribe to specific event channels
+- **Connection indicators** — Built-in UI connection status
+
 ### 🛠️ Developer Experience
 
 - **Modern dashboard** — Beautiful React UI for all operations
@@ -163,6 +192,7 @@ Building AI-powered applications in 2024+ typically requires:
 - **Webhooks** — Get notified when documents are processed
 - **Comprehensive API docs** — Built-in API documentation page
 - **CLI tool** — Manage everything from your terminal
+- **TypeScript SDK** — Type-safe client library for easy integration
 
 ---
 
@@ -530,12 +560,71 @@ POST   /v1/tables/:name/import             # Import CSV/JSON
 GET    /v1/tables/:name/export             # Export CSV/JSON
 ```
 
+### Prompts
+
+```http
+POST   /v1/prompts                         # Create prompt template
+GET    /v1/prompts                         # List prompts
+GET    /v1/prompts/:id                     # Get prompt
+PATCH  /v1/prompts/:id                     # Update prompt
+DELETE /v1/prompts/:id                     # Delete prompt
+POST   /v1/prompts/:id/render              # Render with variables
+```
+
+### Conversations
+
+```http
+POST   /v1/conversations                   # Create conversation
+GET    /v1/conversations                   # List conversations
+GET    /v1/conversations/:id               # Get conversation with messages
+PATCH  /v1/conversations/:id               # Update conversation
+DELETE /v1/conversations/:id               # Delete conversation
+```
+
+### App User Authentication
+
+```http
+POST   /v1/auth/app/register               # Register app user
+POST   /v1/auth/app/login                  # Login app user
+POST   /v1/auth/app/logout                 # Logout app user
+POST   /v1/auth/app/refresh                # Refresh tokens
+GET    /v1/auth/app/me                     # Get current app user
+PATCH  /v1/auth/app/me                     # Update profile
+DELETE /v1/auth/app/me                     # Delete account
+POST   /v1/auth/app/change-password        # Change password
+POST   /v1/auth/app/forgot-password        # Request password reset
+POST   /v1/auth/app/reset-password         # Reset with token
+POST   /v1/auth/app/verify-email           # Verify email
+POST   /v1/auth/app/resend-verification    # Resend verification
+```
+
+### Webhooks
+
+```http
+POST   /v1/webhooks                        # Create webhook
+GET    /v1/webhooks                        # List webhooks
+GET    /v1/webhooks/:id                    # Get webhook
+PATCH  /v1/webhooks/:id                    # Update webhook
+DELETE /v1/webhooks/:id                    # Delete webhook
+POST   /v1/webhooks/:id/test               # Test webhook
+GET    /v1/webhooks/:id/logs               # Get delivery logs
+```
+
 ### API Keys
 
 ```http
 POST   /v1/keys                            # Create API key
 GET    /v1/keys                            # List API keys
+GET    /v1/keys/:id                        # Get API key
 DELETE /v1/keys/:id                        # Revoke API key
+```
+
+### Real-time
+
+```http
+GET    /v1/ws                              # WebSocket connection
+GET    /health                             # Health check
+GET    /ready                              # Readiness check
 ```
 
 ---
@@ -569,6 +658,18 @@ DELETE /v1/keys/:id                        # Revoke API key
 | **Voyage** | `rerank-2`, `rerank-2-lite` |
 | **Custom** | Any compatible reranking API |
 
+### Supported Document Formats
+
+| Format | Extensions | Notes |
+|--------|------------|-------|
+| **PDF** | `.pdf` | Text extraction with layout preservation |
+| **Markdown** | `.md`, `.markdown` | Native parsing with header detection |
+| **Plain Text** | `.txt` | Direct text ingestion |
+| **HTML** | `.html`, `.htm` | HTML to text conversion |
+| **CSV** | `.csv` | Row-based chunking |
+| **JSON** | `.json` | Structured data extraction |
+| **Word** | `.docx` | Microsoft Word documents |
+
 ---
 
 ## 🖥️ Dashboard
@@ -578,18 +679,19 @@ The web dashboard provides a complete interface for managing your Devabase insta
 | Page | Description |
 |------|-------------|
 | **Dashboard** | Overview stats, recent activity, quick actions |
-| **Collections** | Create and manage vector collections |
-| **Documents** | Upload, process, view chunks, extract knowledge |
-| **Search** | Test vector, hybrid, and reranked search |
-| **RAG Chat** | Interactive chat with your knowledge base |
-| **Knowledge** | Explore entities, relationships, and graph visualization |
-| **Evaluation** | Create test datasets and run retrieval evaluations |
-| **Tables** | Create tables, browse data, import/export |
-| **SQL Editor** | Direct SQL access with schema browser |
-| **Prompts** | Manage prompt templates with versioning |
-| **API Keys** | Create and manage scoped API keys |
-| **Settings** | Project config, team members, AI providers |
-| **API Docs** | Built-in API documentation and examples |
+| **Collections** | Create and manage vector collections, enable RAG |
+| **Documents** | Upload, process, view chunks, reprocess documents |
+| **Search** | Test vector, hybrid, and reranked search with strategies |
+| **RAG Chat** | Interactive chat with streaming responses, source attribution |
+| **Knowledge** | Explore entities, relationships, graph visualization, extraction |
+| **Evaluation** | Create test datasets, run retrieval evaluations, export reports |
+| **Tables** | Create tables, browse data, import/export CSV/JSON |
+| **SQL Editor** | Direct SQL access with syntax highlighting, query history |
+| **Prompts** | Manage prompt templates with variable rendering |
+| **Webhooks** | Configure event webhooks, view delivery logs, test endpoints |
+| **API Keys** | Create and manage scoped API keys with permissions |
+| **Settings** | Project config, team members, AI providers (embedding, LLM, reranking) |
+| **API Docs** | Built-in API documentation with interactive examples |
 
 ---
 
@@ -598,30 +700,128 @@ The web dashboard provides a complete interface for managing your Devabase insta
 The `deva` CLI lets you manage Devabase from your terminal:
 
 ```bash
-# Install
-cargo install devabase-cli
+# Server Management
+deva serve                               # Start the server
+deva serve --host 0.0.0.0 --port 8080    # Custom host/port
+deva init                                # Initialize new project
 
-# Authenticate
-deva login
-deva project use my-project
+# Database Management
+deva db setup                            # Create DB and run migrations
+deva db migrate                          # Run pending migrations
+deva db status                           # Check migration status
+deva db backup --output backup.sql       # Backup database
+deva db restore backup.sql --yes         # Restore from backup
 
-# Manage collections
-deva collections list
-deva collections create docs --dimensions 1536
+# Configuration
+deva config show                         # Display configuration
+deva config show --section server        # Show specific section
+deva config validate                     # Validate config file
+deva config generate --output devabase.toml  # Generate default config
 
-# Upload documents
-deva documents upload ./manual.pdf -c docs
-deva documents list -c docs
+# User Management
+deva user create --email admin@example.com --name Admin
+deva user list --limit 50
+deva user get admin@example.com
+deva user delete admin@example.com --yes
 
-# Query
-deva search "how to reset password" -c docs --top-k 5
+# Project Management
+deva project create --name "My Project" --owner user-id
+deva project list --user user-id
+deva project get project-id
+deva project delete project-id --yes
 
-# Tables
-deva tables list
-deva tables export users -f csv -o users.csv
+# API Key Management
+deva key create --project project-id --name "Production Key" --scopes read,write
+deva key list --project project-id
+deva key revoke --project project-id key-id
 
-# SQL
-deva sql "SELECT * FROM customers LIMIT 10"
+# Collection Management
+deva vector create-collection docs --dimensions 1536 --metric cosine
+deva vector list-collections
+deva vector stats docs
+deva vector delete-collection docs
+
+# Document Management
+deva document upload manual.pdf --collection docs --project project-id
+deva document list --collection docs --project project-id --status processed
+deva document get doc-id --project project-id
+deva document reprocess doc-id --project project-id
+deva document delete doc-id --project project-id --yes
+```
+
+---
+
+## 📦 SDK
+
+### TypeScript/JavaScript SDK
+
+```bash
+npm install devabase-sdk
+```
+
+```typescript
+import { createClient } from 'devabase-sdk';
+
+// Initialize client
+const client = createClient({
+  baseUrl: 'http://localhost:9002',
+  apiKey: 'dvb_your_api_key',
+});
+
+// Set project context
+client.useProject('your-project-id');
+
+// Collections
+const { data: collections } = await client.collections.list();
+const collection = await client.collections.create({
+  name: 'docs',
+  dimensions: 1536,
+  metric: 'cosine',
+});
+
+// Documents
+const doc = await client.documents.upload('docs', {
+  file: myFile,
+  filename: 'document.pdf',
+});
+
+// Search
+const results = await client.search.query({
+  collection: 'docs',
+  query: 'How do I reset my password?',
+  top_k: 10,
+  rerank: true,
+});
+
+// RAG Chat
+const response = await client.chat.send({
+  collection: 'docs',
+  message: 'What is the refund policy?',
+  conversation_id: 'conv-123',
+});
+
+// Tables (Auto-API)
+const { rows } = await client.tables.rows('customers').query({
+  filter: 'status.eq=active',
+  limit: 50,
+});
+
+await client.tables.rows('customers').insert({
+  name: 'John Doe',
+  email: 'john@example.com',
+});
+
+// App User Auth
+const { user, access_token } = await client.appAuth.register({
+  email: 'user@example.com',
+  password: 'securepassword',
+  name: 'John Doe',
+});
+
+const session = await client.appAuth.login({
+  email: 'user@example.com',
+  password: 'securepassword',
+});
 ```
 
 ---
@@ -666,24 +866,51 @@ NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}
 [server]
 host = "0.0.0.0"
 port = 9002
-max_upload_size_mb = 50
+max_upload_size_mb = 100
+ui_enabled = true
 
 [database]
 url = "${DATABASE_URL}"
 max_connections = 20
+auto_migrate = true
+
+[storage]
+type = "local"
+path = "./data/storage"
 
 [vector]
+index_type = "hnsw"
 default_dimensions = 1536
 default_metric = "cosine"
 
 [chunking]
+default_strategy = "fixed"      # fixed, sentence, paragraph, markdown
 default_chunk_size = 512
 default_overlap = 50
+
+[cache]
+enabled = true
+type = "memory"
+ttl_seconds = 3600
+
+[events]
+enabled = true
+channel_capacity = 1024
+
+[auth]
+jwt_secret = "${JWT_SECRET}"
+token_expiry_seconds = 3600
+refresh_token_expiry_seconds = 604800
 
 [rate_limit]
 enabled = true
 requests_per_window = 100
 window_seconds = 60
+
+[cors]
+allowed_origins = ["*"]
+allow_credentials = true
+max_age = 3600
 ```
 
 ---
@@ -721,8 +948,8 @@ window_seconds = 60
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        PostgreSQL + pgvector                             │
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐                │
-│  │   sys_* tables│  │  sys_vectors  │  │  ut_* tables  │                │
-│  │    (system)   │  │  (embeddings) │  │  (user data)  │                │
+│  │   sys_* tables│  │  uv_* tables  │  │  ut_* tables  │                │
+│  │    (system)   │  │  (vectors)    │  │  (user data)  │                │
 │  └───────────────┘  └───────────────┘  └───────────────┘                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -732,7 +959,7 @@ window_seconds = 60
 | Prefix | Purpose | Example |
 |--------|---------|---------|
 | `sys_` | System tables | `sys_users`, `sys_projects`, `sys_collections` |
-| `sys_vectors` | Vector embeddings | Stores all embeddings with collection/chunk references |
+| `uv_{project}_{collection}` | Vector embeddings | Per-collection vector storage with pgvector |
 | `sys_entities` | Knowledge graph entities | People, organizations, concepts, etc. |
 | `sys_relationships` | Knowledge graph edges | Connections between entities |
 | `ut_{project}_{table}` | User-defined tables | `ut_abc123_customers` |

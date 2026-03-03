@@ -161,13 +161,8 @@ pub async fn delete_chunk(
     .await?
     .ok_or_else(|| Error::NotFound("Chunk not found".to_string()))?;
 
-    // Delete vector first (foreign key constraint)
-    sqlx::query("DELETE FROM sys_vectors WHERE chunk_id = $1")
-        .bind(id)
-        .execute(state.pool.inner())
-        .await?;
-
-    // Delete chunk
+    // Delete chunk (vectors cascade delete via foreign key in uv_* tables)
+    // Note: sys_vectors doesn't exist - vectors are in dynamic uv_* tables
     sqlx::query("DELETE FROM sys_chunks WHERE id = $1")
         .bind(id)
         .execute(state.pool.inner())
@@ -380,13 +375,8 @@ pub async fn merge_chunks(
     let chunks_to_delete: Vec<Uuid> = chunks[1..].iter().map(|c| c.id).collect();
     let delete_count = chunks_to_delete.len();
 
-    // Delete vectors for chunks being removed
-    sqlx::query("DELETE FROM sys_vectors WHERE chunk_id = ANY($1)")
-        .bind(&chunks_to_delete)
-        .execute(state.pool.inner())
-        .await?;
-
-    // Delete the other chunks
+    // Delete the chunks (vectors cascade delete via foreign key in uv_* tables)
+    // Note: sys_vectors doesn't exist - vectors are in dynamic uv_* tables
     sqlx::query("DELETE FROM sys_chunks WHERE id = ANY($1)")
         .bind(&chunks_to_delete)
         .execute(state.pool.inner())
@@ -459,6 +449,18 @@ async fn regenerate_chunk_embedding(
 ) -> Result<()> {
     let embedding_provider = get_embedding_provider_for_collection(state, project_id).await?;
 
+    // Get the collection name for this chunk
+    let (collection_name,): (String,) = sqlx::query_as(
+        r#"
+        SELECT c.name FROM sys_collections c
+        JOIN sys_chunks ch ON ch.collection_id = c.id
+        WHERE ch.id = $1
+        "#,
+    )
+    .bind(chunk_id)
+    .fetch_one(state.pool.inner())
+    .await?;
+
     // Generate embedding
     let embeddings = embedding_provider
         .embed(&[content.to_string()])
@@ -469,14 +471,17 @@ async fn regenerate_chunk_embedding(
         .next()
         .ok_or_else(|| Error::Embedding("No embedding returned".to_string()))?;
 
-    // Update existing vector
-    sqlx::query(
-        "UPDATE sys_vectors SET embedding = $1 WHERE chunk_id = $2"
-    )
-    .bind(&embedding)
-    .bind(chunk_id)
-    .execute(state.pool.inner())
-    .await?;
+    // Update existing vector in the collection's vector table
+    let table_name = vector::get_vector_table_name(Some(project_id), &collection_name);
+    let query = format!(
+        "UPDATE \"{}\" SET embedding = $1::vector WHERE chunk_id = $2",
+        table_name
+    );
+    sqlx::query(&query)
+        .bind(&embedding)
+        .bind(chunk_id)
+        .execute(state.pool.inner())
+        .await?;
 
     Ok(())
 }

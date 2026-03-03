@@ -264,7 +264,24 @@ pub async fn register(
     );
     let _ = state.events.publish(event);
 
-    // TODO: Send verification email if required
+    // Send verification email if required
+    if settings.require_email_verification {
+        if let Some(token) = &email_token {
+            // Log verification token for now - email infrastructure not yet implemented
+            // In production, this should send an actual email via SMTP/SendGrid/etc.
+            tracing::warn!(
+                user_id = %user.id,
+                email = %user.email,
+                "Email verification required but email sending not configured. \
+                 Verification token generated - implement email provider to send verification emails."
+            );
+            tracing::debug!(
+                user_id = %user.id,
+                verification_token = %token,
+                "Email verification token (for testing/development)"
+            );
+        }
+    }
 
     Ok(Json(AppAuthResponse {
         user: user.into(),

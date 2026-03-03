@@ -91,6 +91,7 @@ export {
 
 // Resource classes (for advanced usage)
 export { AuthResource } from './resources/auth';
+export { AppAuthResource } from './resources/app-auth';
 export { ProjectsResource } from './resources/projects';
 export { CollectionsResource } from './resources/collections';
 export { DocumentsResource } from './resources/documents';

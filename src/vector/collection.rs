@@ -259,20 +259,40 @@ pub async fn get_collection_stats(pool: &DbPool, name: &str, project_id: Option<
     let table_name = get_vector_table_name(project_id, name);
     let count_query = format!("SELECT COUNT(*) as count FROM \"{}\"", table_name);
 
-    let (vector_count,): (i64,) = sqlx::query_as(&count_query)
+    let vector_count = match sqlx::query_as::<_, (i64,)>(&count_query)
         .fetch_one(pool.inner())
         .await
-        .unwrap_or((0,));
+    {
+        Ok((count,)) => count,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to get vector count for collection '{}': {}. Using 0.",
+                name,
+                e
+            );
+            0
+        }
+    };
 
     // Estimate storage size
     let size_query = format!(
         "SELECT pg_total_relation_size('\"{}\"') as size",
         table_name
     );
-    let (storage_bytes,): (i64,) = sqlx::query_as(&size_query)
+    let storage_bytes = match sqlx::query_as::<_, (i64,)>(&size_query)
         .fetch_one(pool.inner())
         .await
-        .unwrap_or((0,));
+    {
+        Ok((size,)) => size,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to get storage size for collection '{}': {}. Using 0.",
+                name,
+                e
+            );
+            0
+        }
+    };
 
     Ok(CollectionStats {
         name: collection.name,

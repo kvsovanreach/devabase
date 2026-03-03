@@ -90,9 +90,11 @@ console.log(response.sources);
 | Feature | Description |
 |---------|-------------|
 | **Vector Collections** | Store and query millions of embeddings with cosine, L2, or inner product similarity |
-| **Document Processing** | Upload PDF, DOCX, TXT, MD files with automatic chunking and embedding |
+| **Document Processing** | Upload PDF, DOCX, TXT, MD, HTML, CSV, JSON files with automatic chunking and embedding |
 | **Semantic Search** | Vector search, keyword search, hybrid retrieval, and cross-encoder reranking |
+| **Advanced Retrieval** | HyDE, Multi-Query, Self-Query, Parent-Child, and Compression strategies |
 | **RAG Chat** | Conversational AI with source attribution, streaming, and conversation memory |
+| **Knowledge Graphs** | Extract entities and relationships from documents, traverse connections |
 | **Tables & REST API** | Create PostgreSQL tables with auto-generated CRUD endpoints |
 | **App Authentication** | Complete auth system for your end-users with JWT, password reset, and email verification |
 
@@ -138,6 +140,9 @@ const collection = await client.collections.get('docs');
 
 // Stats
 const stats = await client.collections.stats('docs');
+
+// Update
+await client.collections.update('docs', { description: 'Updated description' });
 
 // Delete
 await client.collections.delete('docs');
@@ -247,6 +252,57 @@ const vectors = await client.search.embed(['text 1', 'text 2']);
 
 // Search by vector
 const results = await client.search.byVector('docs', vector, { top_k: 10 });
+
+// Similar chunks
+const similar = await client.search.similar('chunk-id', 'docs', 5);
+```
+
+**Advanced Retrieval Strategies:**
+
+```typescript
+// HyDE - Hypothetical Document Embeddings
+// Generates a hypothetical answer, embeds it, then searches
+const results = await client.search.hyde({
+  collection: 'docs',
+  query: 'What causes memory leaks in JavaScript?',
+  rerank: true,
+  strategy_options: { hyde_num_hypotheticals: 2 }
+});
+
+// Multi-Query - Expands query into variations
+// Generates N variations, searches each, merges results
+const results = await client.search.multiQuery({
+  collection: 'docs',
+  query: 'authentication best practices',
+  strategy_options: { num_query_variations: 4 }
+});
+
+// Self-Query - Extracts filters from natural language
+// Parses "Python docs from 2023" → query="docs" + filter={language:"Python", year:2023}
+const results = await client.search.selfQuery({
+  collection: 'docs',
+  query: 'Python tutorials from 2023',
+  strategy_options: {
+    extractable_fields: [
+      { name: 'language', description: 'Programming language', type: 'string' },
+      { name: 'year', description: 'Publication year', type: 'number' }
+    ]
+  }
+});
+
+// Parent-Child - Search small chunks, return parent context
+const results = await client.search.parentChild({
+  collection: 'docs',
+  query: 'error handling patterns',
+  strategy_options: { parent_depth: 1 }
+});
+
+// Compression - Reduces chunks to only relevant portions
+const results = await client.search.compressed({
+  collection: 'docs',
+  query: 'How to reset password?',
+  strategy_options: { max_compressed_length: 300 }
+});
 ```
 
 ---
@@ -458,6 +514,113 @@ await client.projects.members.remove('member-id');
 
 ---
 
+### Knowledge Graph
+
+Extract and explore entities and relationships from your documents.
+
+**Entity Operations:**
+
+```typescript
+// List entities
+const { data, pagination } = await client.knowledge.entities.list({
+  entity_type: 'person',
+  limit: 50
+});
+
+// Get entity with relationships
+const entity = await client.knowledge.entities.get('entity-id');
+
+// Search entities
+const results = await client.knowledge.entities.search('John Doe', {
+  entity_type: 'person',
+  limit: 10
+});
+
+// Update entity
+await client.knowledge.entities.update('entity-id', {
+  description: 'Updated description',
+  aliases: ['Johnny', 'J. Doe']
+});
+
+// Merge duplicate entities
+const merged = await client.knowledge.entities.merge(
+  'primary-entity-id',
+  ['duplicate-id-1', 'duplicate-id-2']
+);
+
+// Delete entity
+await client.knowledge.entities.delete('entity-id');
+```
+
+**Relationship Operations:**
+
+```typescript
+// List relationships
+const { data } = await client.knowledge.relationships.list({
+  entity_id: 'entity-id',
+  limit: 50
+});
+
+// Create relationship
+const relationship = await client.knowledge.relationships.create({
+  source_entity_id: 'person-1',
+  target_entity_id: 'company-1',
+  relationship_type: 'works_at',
+  description: 'Senior Engineer since 2020'
+});
+
+// Delete relationship
+await client.knowledge.relationships.delete('relationship-id');
+```
+
+**Graph Operations:**
+
+```typescript
+// Get entity subgraph (N-hop neighborhood)
+const graph = await client.knowledge.getGraph('entity-id', { depth: 2 });
+// Returns: { entities: Entity[], relationships: Relationship[] }
+
+// Find paths between entities
+const paths = await client.knowledge.findPath(
+  'entity-1',
+  'entity-2',
+  { max_depth: 5 }
+);
+```
+
+**Knowledge Extraction:**
+
+```typescript
+// Extract knowledge from a document
+const knowledge = await client.knowledge.extractFromDocument('document-id');
+// Returns: { entities: Entity[], relationships: Relationship[] }
+
+// Extract from all documents in a collection (async job)
+const job = await client.knowledge.extractFromCollection('my-collection');
+// Returns: { job_id: string, status: string }
+
+// Check extraction job status
+const status = await client.knowledge.getExtractionStatus(job.job_id);
+// Returns: { status: 'pending'|'processing'|'completed'|'failed', progress: number, ... }
+```
+
+<details>
+<summary><strong>Entity Types</strong></summary>
+
+| Type | Description |
+|------|-------------|
+| `person` | People, individuals |
+| `organization` | Companies, institutions |
+| `location` | Places, addresses |
+| `concept` | Ideas, topics |
+| `product` | Products, services |
+| `event` | Events, occurrences |
+| `technology` | Technologies, tools |
+
+</details>
+
+---
+
 ## Error Handling
 
 ```typescript
@@ -527,13 +690,33 @@ Full type definitions included. Import types directly:
 
 ```typescript
 import type {
+  // Core
   Collection,
   Document,
   SearchResult,
-  RagChatResponse,
   Table,
+  PaginatedResponse,
+
+  // RAG
+  RagChatResponse,
+  RagChatOptions,
+  ChatMessage,
+  ChatSource,
+  RagStreamCallbacks,
+
+  // Knowledge Graph
+  Entity,
+  Relationship,
+  EntityGraph,
+
+  // Auth
   AppUser,
-  PaginatedResponse
+  AuthResponse,
+  ApiKey,
+
+  // Webhooks
+  Webhook,
+  WebhookEvent,
 } from 'devabase-sdk';
 ```
 
@@ -597,6 +780,71 @@ const { rows } = await client.tables.rows('posts').query({
 });
 ```
 
+### Knowledge Graph Analysis
+
+```typescript
+// Extract knowledge from documents
+await client.knowledge.extractFromDocument('document-id');
+
+// Search for a person
+const [person] = await client.knowledge.entities.search('Elon Musk', {
+  entity_type: 'person'
+});
+
+// Get their connections (2-hop)
+const graph = await client.knowledge.getGraph(person.id, { depth: 2 });
+
+// Find connections between entities
+const paths = await client.knowledge.findPath(
+  'person-id',
+  'company-id',
+  { max_depth: 3 }
+);
+
+// Visualize
+console.log(`Found ${graph.entities.length} entities`);
+console.log(`Found ${graph.relationships.length} relationships`);
+```
+
+### Advanced Search Pipeline
+
+```typescript
+// Combine strategies for best results
+async function intelligentSearch(query: string) {
+  // Try HyDE for complex questions
+  if (query.includes('how') || query.includes('why')) {
+    return client.search.hyde({
+      collection: 'docs',
+      query,
+      rerank: true
+    });
+  }
+
+  // Use self-query for filtered searches
+  if (query.match(/from \d{4}|in \w+/)) {
+    return client.search.selfQuery({
+      collection: 'docs',
+      query,
+      strategy_options: {
+        extractable_fields: [
+          { name: 'year', type: 'number' },
+          { name: 'category', type: 'string' }
+        ]
+      }
+    });
+  }
+
+  // Default to hybrid search
+  return client.search.hybrid({
+    collection: 'docs',
+    query,
+    vector_weight: 0.7,
+    keyword_weight: 0.3,
+    rerank: true
+  });
+}
+```
+
 ---
 
 ## Important Notes
@@ -608,6 +856,9 @@ const { rows } = await client.tables.rows('posts').query({
 | **String Defaults** | Use `"'value'"` (with inner quotes) for string defaults |
 | **Async Processing** | Document uploads return immediately; poll status for completion |
 | **Dimensions** | Collection dimensions must match your embedding model |
+| **Knowledge Extraction** | Requires LLM provider configured in project settings |
+| **Advanced Strategies** | HyDE, Multi-Query, Self-Query, Compression require LLM provider |
+| **Reranking** | Requires reranking provider (Cohere, Jina, or Voyage) configured |
 
 ---
 

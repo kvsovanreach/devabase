@@ -837,14 +837,24 @@ pub async fn reprocess_document(
     .await?
     .ok_or_else(|| Error::NotFound("Document not found".to_string()))?;
 
-    // Get collection name
-    let _collection = vector::get_collection_by_id(&state.pool, document.collection_id).await?;
+    // Get the current chunk count before deleting
+    let old_chunk_count = document.chunk_count;
 
-    // Delete existing chunks and vectors
+    // Delete existing chunks (vectors cascade delete via foreign key)
     sqlx::query("DELETE FROM sys_chunks WHERE document_id = $1")
         .bind(id)
         .execute(state.pool.inner())
         .await?;
+
+    // Update collection vector count (decrement by old chunk count)
+    if old_chunk_count > 0 {
+        vector::update_vector_count(
+            &state.pool,
+            document.collection_id,
+            -(old_chunk_count as i64),
+        )
+        .await?;
+    }
 
     // Reset document status
     sqlx::query("UPDATE sys_documents SET status = 'pending', chunk_count = 0, error_message = NULL WHERE id = $1")
@@ -857,6 +867,7 @@ pub async fn reprocess_document(
     let state_clone = state.clone();
     tokio::spawn(async move {
         if let Err(e) = process_document(state_clone.clone(), doc_id_clone).await {
+            tracing::error!("Failed to reprocess document {}: {}", doc_id_clone, e);
             let _ = sqlx::query(
                 "UPDATE sys_documents SET status = 'failed', error_message = $2 WHERE id = $1"
             )
