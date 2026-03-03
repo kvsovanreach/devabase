@@ -525,6 +525,17 @@ fn bind_json_value<'q>(
             // Try to parse as UUID first (for project_id and id columns)
             if let Ok(uuid) = uuid::Uuid::parse_str(s) {
                 query.bind(uuid)
+            // Try to parse as ISO 8601 timestamp (e.g., "2024-01-15T10:30:00.000Z")
+            } else if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+                query.bind(dt.with_timezone(&chrono::Utc))
+            // Try alternate ISO format without timezone (e.g., "2024-01-15T10:30:00")
+            } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+                query.bind(dt)
+            } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
+                query.bind(dt)
+            // Try date only format (e.g., "2024-01-15")
+            } else if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                query.bind(d)
             } else {
                 query.bind(s.as_str())
             }

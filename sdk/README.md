@@ -1,465 +1,360 @@
-# @devabase/sdk
+<p align="center">
+  <strong>⚡</strong>
+</p>
 
-Official Node.js/TypeScript SDK for Devabase - Backend for RAG/LLM Applications.
+<h1 align="center">Devabase SDK</h1>
+
+<p align="center">
+  <strong>The complete backend SDK for RAG and LLM applications</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/devabase-sdk"><img src="https://img.shields.io/npm/v/devabase-sdk.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/devabase-sdk"><img src="https://img.shields.io/npm/dm/devabase-sdk.svg" alt="npm downloads"></a>
+  <a href="https://github.com/kvsovanreach/devabase/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://sovanreach.com/projects/devabase"><img src="https://img.shields.io/badge/docs-documentation-blue.svg" alt="Documentation"></a>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#api-reference">API Reference</a> •
+  <a href="#examples">Examples</a>
+</p>
+
+---
 
 ## Installation
 
 ```bash
-npm install @devabase/sdk
+npm install devabase-sdk
 ```
 
-## Initialization
-
-```typescript
-import { createClient } from '@devabase/sdk';
-
-// Initialize with API key (required)
-const client = createClient({
-  baseUrl: 'http://localhost:9002',  // Your Devabase server URL
-  apiKey: 'dvb_your_api_key'         // Get from dashboard /keys
-});
-
-// Set project context (required for all operations)
-client.useProject('your-project-id');
+```bash
+yarn add devabase-sdk
 ```
 
-## Authentication Headers
+```bash
+pnpm add devabase-sdk
+```
 
-All requests automatically include:
-- `Authorization: Bearer <api_key>`
-- `X-Project-ID: <project_id>`
-- `Content-Type: application/json`
+**Requirements:** Node.js 18+, TypeScript 4.7+ (optional)
 
 ---
 
-## Collections
+## Quick Start
+
+Get up and running in under 5 minutes.
+
+```typescript
+import { createClient } from 'devabase-sdk';
+
+// 1. Initialize the client
+const devabase = createClient({
+  baseUrl: 'https://your-server.com',
+  apiKey: 'dvb_your_api_key'
+});
+
+// 2. Set project context
+devabase.useProject('project-id');
+
+// 3. Create a collection and upload documents
+await devabase.collections.create({ name: 'knowledge-base', dimensions: 1536 });
+await devabase.documents.upload('knowledge-base', {
+  file: pdfBuffer,
+  filename: 'manual.pdf'
+});
+
+// 4. Search your documents
+const results = await devabase.search.query({
+  collection: 'knowledge-base',
+  query: 'How do I get started?',
+  rerank: true
+});
+
+// 5. Chat with your documents (RAG)
+const response = await devabase.chat.send({
+  collection: 'knowledge-base',
+  message: 'Summarize the onboarding process'
+});
+
+console.log(response.answer);
+console.log(response.sources);
+```
+
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Vector Collections** | Store and query millions of embeddings with cosine, L2, or inner product similarity |
+| **Document Processing** | Upload PDF, DOCX, TXT, MD files with automatic chunking and embedding |
+| **Semantic Search** | Vector search, keyword search, hybrid retrieval, and cross-encoder reranking |
+| **RAG Chat** | Conversational AI with source attribution, streaming, and conversation memory |
+| **Tables & REST API** | Create PostgreSQL tables with auto-generated CRUD endpoints |
+| **App Authentication** | Complete auth system for your end-users with JWT, password reset, and email verification |
+
+---
+
+## API Reference
+
+### Configuration
+
+```typescript
+import { createClient } from 'devabase-sdk';
+
+const client = createClient({
+  baseUrl: string,      // Required: Your Devabase server URL
+  apiKey?: string,      // API key (starts with 'dvb_')
+  timeout?: number,     // Request timeout in ms (default: 30000)
+  headers?: object      // Custom headers for all requests
+});
+
+// Set active project (required before operations)
+client.useProject(projectId: string);
+```
+
+---
+
+### Collections
 
 Manage vector collections for storing document embeddings.
 
-### Create Collection
-
 ```typescript
+// Create
 const collection = await client.collections.create({
-  name: 'my-docs',           // Required: unique name
-  dimensions: 768,           // Required: embedding dimensions (768 for sentence-transformers, 1536 for OpenAI)
-  metric: 'cosine'           // Optional: 'cosine' | 'l2' | 'ip' (default: cosine)
+  name: 'docs',
+  dimensions: 1536,              // Must match your embedding model
+  metric: 'cosine'               // 'cosine' | 'l2' | 'ip'
 });
-// Returns: { id, name, dimensions, metric, document_count, chunk_count, created_at }
+
+// List
+const { data, pagination } = await client.collections.list({ limit: 50 });
+
+// Get
+const collection = await client.collections.get('docs');
+
+// Stats
+const stats = await client.collections.stats('docs');
+
+// Delete
+await client.collections.delete('docs');
+
+// Clear (remove documents, keep collection)
+await client.collections.clear('docs');
 ```
 
-### List Collections
+<details>
+<summary><strong>Embedding Dimensions Reference</strong></summary>
 
-```typescript
-const result = await client.collections.list({ limit: 50, offset: 0 });
-// Returns: { data: Collection[], pagination: { total, count, limit, offset, has_next, has_previous } }
-```
+| Provider | Model | Dimensions |
+|----------|-------|------------|
+| OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-3-large | 3072 |
+| Cohere | embed-english-v3.0 | 1024 |
+| Local | all-MiniLM-L6-v2 | 384 |
+| Local | bge-small-en | 384 |
 
-### Get Collection
-
-```typescript
-const collection = await client.collections.get('my-docs');
-// Returns: { id, name, dimensions, metric, document_count, chunk_count, created_at }
-```
-
-### Get Collection Stats
-
-```typescript
-const stats = await client.collections.stats('my-docs');
-// Returns: { name, document_count, chunk_count, total_size_bytes }
-```
-
-### Update Collection
-
-```typescript
-const updated = await client.collections.update('my-docs', {
-  description: 'Updated description'
-});
-```
-
-### Delete Collection
-
-```typescript
-await client.collections.delete('my-docs');
-// Deletes collection and all its documents/chunks
-```
-
-### Clear Collection
-
-```typescript
-await client.collections.clear('my-docs');
-// Removes all documents but keeps collection
-```
+</details>
 
 ---
 
-## Documents
+### Documents
 
-Upload and manage documents for RAG. Supported formats: PDF, TXT, MD, DOCX.
-
-### Upload Document
+Upload and manage documents. Supported formats: PDF, DOCX, TXT, Markdown.
 
 ```typescript
-import { readFileSync } from 'fs';
-
-const doc = await client.documents.upload('my-docs', {
-  file: readFileSync('document.pdf'),  // Buffer, Blob, or ReadableStream
-  filename: 'document.pdf',            // Required: original filename
-  metadata: { author: 'John' }         // Optional: custom metadata
+// Upload single document
+const doc = await client.documents.upload('collection-name', {
+  file: Buffer | Blob | ReadableStream,
+  filename: 'document.pdf',
+  metadata: { author: 'John', category: 'technical' }
 });
-// Returns: { id, collection_id, filename, content_type, size_bytes, status, chunk_count, created_at }
-// Status: 'pending' | 'processing' | 'processed' | 'failed'
-```
+// Returns: { id, status: 'pending' | 'processing' | 'processed' | 'failed', ... }
 
-### Upload Multiple Documents
-
-```typescript
-const docs = await client.documents.uploadMany('my-docs', [
+// Upload multiple
+const docs = await client.documents.uploadMany('collection-name', [
   { file: buffer1, filename: 'doc1.pdf' },
   { file: buffer2, filename: 'doc2.pdf' }
 ]);
-```
 
-### List Documents
-
-```typescript
-const result = await client.documents.list('my-docs', {
-  status: 'processed',  // Optional: filter by status
-  limit: 50,
-  offset: 0
+// List documents
+const { data } = await client.documents.list('collection-name', {
+  status: 'processed',
+  limit: 50
 });
-// Returns: { data: Document[], pagination: {...} }
-```
 
-### Get Document
-
-```typescript
+// Get document
 const doc = await client.documents.get('document-id');
-```
 
-### Get Document Chunks
-
-```typescript
+// Get chunks
 const chunks = await client.documents.chunks('document-id');
-// Returns: Array<{ id, content, metadata }>
-```
 
-### Update Document Metadata
+// Update metadata
+await client.documents.updateMetadata('document-id', { category: 'updated' });
 
-```typescript
-const doc = await client.documents.updateMetadata('document-id', {
-  author: 'Jane',
-  category: 'Technical'
-});
-```
+// Reprocess
+await client.documents.reprocess('document-id');
 
-### Reprocess Document
-
-```typescript
-const doc = await client.documents.reprocess('document-id');
-// Re-chunks and re-embeds the document
-```
-
-### Delete Document
-
-```typescript
+// Delete
 await client.documents.delete('document-id');
 ```
 
+> **Note:** Document processing is asynchronous. Poll the document status or use webhooks to know when processing completes.
+
 ---
 
-## Search
+### Search
 
-Semantic search with vector, keyword, and hybrid modes.
-
-### Vector Search (Single Collection)
+Semantic search with multiple retrieval modes.
 
 ```typescript
+// Vector search
 const results = await client.search.query({
-  collection: 'my-docs',      // Required
-  query: 'How to authenticate?',  // Required
-  top_k: 10,                  // Optional: number of results (default: 10)
-  rerank: true,               // Optional: enable reranking for better results
-  include_content: true,      // Optional: include chunk content (default: true)
-  filter: { category: 'auth' } // Optional: metadata filter
-});
-// Returns: Array<{ id, content, score, document_id, document_name, metadata, rerank_score? }>
-```
-
-### Hybrid Search (Vector + Keyword)
-
-```typescript
-const results = await client.search.hybrid({
-  collection: 'my-docs',
-  query: 'authentication JWT tokens',
+  collection: 'docs',
+  query: 'authentication best practices',
   top_k: 10,
-  vector_weight: 0.7,   // Weight for vector similarity
-  keyword_weight: 0.3,  // Weight for keyword matching
+  rerank: true,
+  filter: { category: 'security' }
+});
+// Returns: Array<{ id, content, score, document_id, document_name, metadata }>
+
+// Hybrid search (vector + keyword)
+const results = await client.search.hybrid({
+  collection: 'docs',
+  query: 'JWT refresh tokens',
+  vector_weight: 0.7,
+  keyword_weight: 0.3,
   rerank: true
 });
-```
 
-### Keyword Search (BM25)
-
-```typescript
+// Keyword search (BM25)
 const results = await client.search.keyword({
-  collection: 'my-docs',
+  collection: 'docs',
   query: 'authentication',
   top_k: 10
 });
-```
 
-### Global Search (All Collections)
-
-```typescript
-const results = await client.search.global('authentication', {
-  top_k: 20,
-  rerank: true
+// Search across all collections
+const results = await client.search.global('query', {
+  top_k: 20
 });
-```
 
-### Search by Vector
+// Generate embeddings
+const vectors = await client.search.embed(['text 1', 'text 2']);
 
-```typescript
-// First get embeddings
-const embeddings = await client.search.embed(['my query text']);
-
-// Then search by vector
-const results = await client.search.byVector('my-docs', embeddings[0], {
-  top_k: 10
-});
-```
-
-### Create Embeddings
-
-```typescript
-const embeddings = await client.search.embed(['text 1', 'text 2']);
-// Returns: number[][] (array of embedding vectors)
+// Search by vector
+const results = await client.search.byVector('docs', vector, { top_k: 10 });
 ```
 
 ---
 
-## RAG Chat
+### RAG Chat
 
-Conversational AI with document context. Supports single/multi-collection and streaming.
-
-### Basic RAG Chat
+Conversational AI with document context.
 
 ```typescript
+// Basic chat
 const response = await client.chat.send({
-  collection: 'my-docs',           // Required: collection name or array of names
-  message: 'What is the auth flow?', // Required: user message
-  include_sources: true,           // Optional: include source documents (default: true)
-  top_k: 5,                        // Optional: chunks to retrieve (default: 5)
-  conversation_id: 'conv-id'       // Optional: continue existing conversation
-});
-// Returns: {
-//   answer: string,
-//   thinking?: string,
-//   sources: Array<{ chunk_id, document_id, document_name, content, score, collection_name? }>,
-//   collections_used: string[],
-//   conversation_id?: string,
-//   tokens_used: number
-// }
-```
-
-### Multi-Collection RAG
-
-```typescript
-const response = await client.chat.send({
-  collection: ['docs', 'faq', 'tutorials'],  // Search across multiple collections
+  collection: 'docs',                    // string or string[]
   message: 'How do I implement OAuth?',
-  top_k: 15
+  include_sources: true,
+  top_k: 5
 });
+// Returns: { answer, sources, collections_used, conversation_id, tokens_used }
 
-console.log(response.collections_used);  // Which collections contributed
-```
-
-### Streaming RAG Chat
-
-```typescript
+// Streaming
 await client.chat.stream({
-  collection: 'my-docs',
-  message: 'Explain the architecture in detail'
+  collection: 'docs',
+  message: 'Explain the architecture'
 }, {
-  onSources: (sources) => {
-    // Called once when sources are retrieved
-    console.log('Found', sources.length, 'sources');
-  },
-  onThinking: (thinking) => {
-    // Called with model's reasoning (if supported)
-    console.log('Thinking:', thinking);
-  },
-  onContent: (chunk) => {
-    // Called for each content chunk
-    process.stdout.write(chunk);
-  },
-  onDone: (conversationId, tokensUsed) => {
-    // Called when complete
-    console.log('\nDone!', tokensUsed, 'tokens');
-  },
-  onError: (error) => {
-    // Called on error
-    console.error('Error:', error);
-  }
-});
-```
-
-### Continue Conversation
-
-```typescript
-const response1 = await client.chat.send({
-  collection: 'my-docs',
-  message: 'What is authentication?'
+  onSources: (sources) => console.log('Sources:', sources.length),
+  onThinking: (text) => console.log('Thinking:', text),
+  onContent: (chunk) => process.stdout.write(chunk),
+  onDone: (convId, tokens) => console.log('Done:', tokens, 'tokens'),
+  onError: (err) => console.error(err)
 });
 
-// Use conversation_id to continue
+// Continue conversation
 const response2 = await client.chat.continue(
-  response1.conversation_id!,
-  'How do I implement it?',
-  { include_sources: true, top_k: 5 }
+  response.conversation_id,
+  'What about refresh tokens?'
 );
-```
 
-### List Conversations
-
-```typescript
-const conversations = await client.chat.listConversations({
-  collection: 'my-docs',  // Optional: filter by collection
-  limit: 20
-});
-// Returns: Array<{ id, collection_name, title, message_count, total_tokens, created_at, updated_at }>
-```
-
-### Get Conversation
-
-```typescript
-const conv = await client.chat.getConversation('conversation-id');
-```
-
-### Delete Conversation
-
-```typescript
-await client.chat.deleteConversation('conversation-id');
+// Conversation management
+const conversations = await client.chat.listConversations({ limit: 20 });
+const conversation = await client.chat.getConversation('conv-id');
+await client.chat.deleteConversation('conv-id');
 ```
 
 ---
 
-## Tables
+### Tables
 
-PostgreSQL tables with automatic REST API.
-
-### Create Table
+PostgreSQL tables with auto-generated REST API.
 
 ```typescript
-const table = await client.tables.create({
+// Create table
+await client.tables.create({
   name: 'users',
   columns: [
     { name: 'id', type: 'uuid', primary: true, default: 'gen_random_uuid()' },
     { name: 'email', type: 'varchar(255)', nullable: false, unique: true },
     { name: 'name', type: 'varchar(255)' },
-    { name: 'age', type: 'integer' },
-    { name: 'status', type: 'varchar(50)', default: "'active'" },
+    { name: 'role', type: 'varchar(50)', default: "'user'" },
     { name: 'metadata', type: 'jsonb' },
-    { name: 'created_at', type: 'timestamptz', default: 'now()' },
-    { name: 'updated_at', type: 'timestamptz', default: 'now()' }
+    { name: 'created_at', type: 'timestamptz', default: 'now()' }
   ]
 });
-// Column types: uuid, varchar(n), text, integer, bigint, boolean, jsonb, timestamptz, date, time
-```
 
-### Timestamp Handling
-
-ISO 8601 timestamp strings are automatically parsed:
-
-```typescript
-// All these formats work:
-await client.tables.rows('events').insert({
-  scheduled_at: new Date().toISOString(),           // "2024-01-15T10:30:00.000Z"
-  event_date: '2024-01-15',                         // Date only
-  start_time: '2024-01-15T10:30:00'                 // Without timezone
-});
-```
-
-### Auto-Update `updated_at`
-
-The `updated_at` column's `default: 'now()'` only applies on INSERT. To auto-update on UPDATE, manually include it:
-
-```typescript
-// Option 1: Include updated_at in every update
-await client.tables.rows('users').update(id, {
-  name: 'Jane',
-  updated_at: new Date().toISOString()
-});
-
-// Option 2: Create a helper function
-const updateRow = async (table: string, id: string, data: object) => {
-  return client.tables.rows(table).update(id, {
-    ...data,
-    updated_at: new Date().toISOString()
-  });
-};
-```
-
-### List Tables
-
-```typescript
-const result = await client.tables.list({ limit: 50 });
-// Returns: { data: Table[], pagination: {...} }
-```
-
-### Get Table
-
-```typescript
+// Table operations
+const tables = await client.tables.list();
 const table = await client.tables.get('users');
-// Returns: { name, columns: Array<{ name, data_type, is_nullable, is_primary, column_default }>, row_count, created_at }
-```
-
-### Delete Table
-
-```typescript
 await client.tables.delete('users');
 ```
 
-### Insert Row
+**Row Operations:**
 
 ```typescript
-const user = await client.tables.rows('users').insert({
-  email: 'user@example.com',
-  name: 'John Doe',
-  age: 30,
-  metadata: { plan: 'pro' }
+const rows = client.tables.rows('users');
+
+// Insert
+const user = await rows.insert({ email: 'user@example.com', name: 'John' });
+const users = await rows.insertMany([{ email: 'a@b.com' }, { email: 'c@d.com' }]);
+
+// Query
+const { rows: data, pagination } = await rows.query({
+  filter: 'role.eq=admin&created_at.gte=2024-01-01',
+  order: 'created_at:desc',
+  select: 'id,name,email',
+  limit: 20
 });
-// Returns the inserted row with generated fields (id, created_at, etc.)
+
+// Get single row
+const user = await rows.get('user-id');
+const user = await rows.findFirst('email.eq=user@example.com');
+
+// Update
+const updated = await rows.update('user-id', { name: 'Jane' });
+
+// Delete
+await rows.delete('user-id');
+
+// Utilities
+const count = await rows.count('role.eq=admin');
+const exists = await rows.exists('user-id');
+const allUsers = await rows.all({ filter: 'role.eq=user' }); // Auto-paginated
 ```
 
-### Insert Multiple Rows
-
-```typescript
-const users = await client.tables.rows('users').insertMany([
-  { email: 'user1@example.com', name: 'User 1' },
-  { email: 'user2@example.com', name: 'User 2' }
-]);
-```
-
-### Query Rows
-
-```typescript
-const result = await client.tables.rows('users').query({
-  limit: 20,                    // Max rows to return
-  offset: 0,                    // Skip N rows
-  order: 'created_at:desc',     // Sort: 'column:asc' or 'column:desc'
-  filter: 'status.eq=active',   // Filter conditions
-  select: 'id,name,email'       // Columns to return
-});
-// Returns: { rows: T[], pagination: { total, count, limit, offset, has_next, has_previous, next_cursor, prev_cursor } }
-```
-
-### Filter Syntax
+<details>
+<summary><strong>Filter Operators</strong></summary>
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `eq` | Equal | `status.eq=active` |
-| `neq` | Not equal | `status.neq=deleted` |
+| `eq` | Equals | `status.eq=active` |
+| `neq` | Not equals | `status.neq=deleted` |
 | `gt` | Greater than | `age.gt=18` |
 | `gte` | Greater or equal | `age.gte=18` |
 | `lt` | Less than | `price.lt=100` |
@@ -467,252 +362,97 @@ const result = await client.tables.rows('users').query({
 | `like` | Contains (case-insensitive) | `name.like=john` |
 | `is` | Is null/true/false | `deleted_at.is=null` |
 
-Combine filters with `&`:
-```typescript
-filter: 'age.gte=18&status.eq=active&name.like=john'
-```
+Combine with `&`: `age.gte=18&status.eq=active`
 
-### Get Single Row
+</details>
 
-```typescript
-const user = await client.tables.rows('users').get('row-id');
-```
+<details>
+<summary><strong>Supported Column Types</strong></summary>
 
-### Find First Matching Row
+`uuid`, `text`, `varchar(n)`, `integer`, `bigint`, `smallint`, `serial`, `bigserial`, `real`, `double`, `numeric`, `boolean`, `jsonb`, `timestamptz`, `date`, `time`, `bytea`
 
-```typescript
-const user = await client.tables.rows('users').findFirst('email.eq=user@example.com');
-// Returns row or null
-```
-
-### Update Row
-
-```typescript
-const updated = await client.tables.rows('users').update('row-id', {
-  name: 'Jane Doe',
-  status: 'premium'
-});
-```
-
-### Delete Row
-
-```typescript
-await client.tables.rows('users').delete('row-id');
-```
-
-### Count Rows
-
-```typescript
-const count = await client.tables.rows('users').count('status.eq=active');
-```
-
-### Check If Row Exists
-
-```typescript
-const exists = await client.tables.rows('users').exists('row-id');
-// Returns: boolean
-```
-
-### Get All Rows (Auto-Paginate)
-
-```typescript
-const allUsers = await client.tables.rows('users').all({
-  filter: 'status.eq=active',
-  order: 'created_at:desc'
-});
-// Returns all matching rows (handles pagination automatically)
-```
-
-### Cursor-Based Pagination
-
-```typescript
-const page1 = await client.tables.rows('users').query({ limit: 50 });
-const page2 = await client.tables.rows('users').query({
-  cursor: page1.pagination.next_cursor
-});
-```
+</details>
 
 ---
 
-## App Authentication
+### App Authentication
 
-Complete authentication system for your application's end-users.
-
-### Register User
+Complete auth system for your application's end-users.
 
 ```typescript
+// Register
 const auth = await client.appAuth.register({
   email: 'user@example.com',
   password: 'securePassword123',
-  name: 'John Doe',                    // Optional
-  phone: '+1234567890',                // Optional
-  metadata: { plan: 'free' }           // Optional: custom data
+  name: 'John Doe',
+  metadata: { plan: 'free' }
 });
-// Returns: { user, access_token, refresh_token, token_type, expires_in }
-```
+// Returns: { user, access_token, refresh_token, expires_in }
 
-### Login User
-
-```typescript
+// Login
 const auth = await client.appAuth.login({
   email: 'user@example.com',
   password: 'securePassword123'
 });
-// Token is automatically stored for subsequent requests
-```
 
-### Set Token Manually
-
-```typescript
-client.appAuth.setToken(auth.access_token);
-```
-
-### Get Current User
-
-```typescript
+// Current user
 const user = await client.appAuth.me();
-// Returns: { id, email, email_verified, name, avatar_url, phone, status, metadata, created_at }
-```
 
-### Update Profile
-
-```typescript
-const updated = await client.appAuth.updateProfile({
-  name: 'Jane Doe',
-  phone: '+1987654321',
-  metadata: { plan: 'pro' }
-});
-```
-
-### Change Password
-
-```typescript
+// Profile management
+await client.appAuth.updateProfile({ name: 'Jane Doe' });
 await client.appAuth.changePassword({
-  current_password: 'oldPassword',
-  new_password: 'newSecurePassword123'
+  current_password: 'old',
+  new_password: 'new'
 });
-```
 
-### Password Reset Flow
-
-```typescript
-// Step 1: Request reset (sends email with token)
+// Password reset flow
 await client.appAuth.forgotPassword('user@example.com');
-
-// Step 2: Reset with token from email
 await client.appAuth.resetPassword(token, 'newPassword');
-```
 
-### Email Verification
-
-```typescript
+// Email verification
 await client.appAuth.verifyEmail(token);
 await client.appAuth.resendVerification();
-```
 
-### Refresh Token
-
-```typescript
-const newAuth = await client.appAuth.refresh(refreshToken);
-```
-
-### Logout
-
-```typescript
+// Token management
+await client.appAuth.refresh(refreshToken);
+client.appAuth.setToken(accessToken);
 await client.appAuth.logout();
-```
 
-### Delete Account
-
-```typescript
+// Delete account
 await client.appAuth.deleteAccount();
 ```
 
-### Admin: List Users
+**Admin Operations:**
 
 ```typescript
-const result = await client.appAuth.users.list({ limit: 20 });
-// Returns: { data: AppUser[], pagination: {...} }
-```
-
-### Admin: Get User
-
-```typescript
+const { data } = await client.appAuth.users.list({ limit: 20 });
 const user = await client.appAuth.users.get('user-id');
-```
-
-### Admin: Update User
-
-```typescript
-const updated = await client.appAuth.users.update('user-id', {
-  status: 'suspended',
-  email_verified: true
-});
-```
-
-### Admin: Delete User
-
-```typescript
+await client.appAuth.users.update('user-id', { status: 'suspended' });
 await client.appAuth.users.delete('user-id');
 ```
 
 ---
 
-## Projects
-
-Manage projects and API keys.
-
-### List Projects
+### Projects & API Keys
 
 ```typescript
-const result = await client.projects.list({ limit: 10 });
-```
-
-### Create Project
-
-```typescript
-const project = await client.projects.create({
-  name: 'My Project',
-  description: 'Project description'
-});
-```
-
-### Set Active Project
-
-```typescript
+// Projects
+const projects = await client.projects.list();
+const project = await client.projects.create({ name: 'My App' });
 client.useProject(project.id);
-```
 
-### API Keys
-
-```typescript
-// List keys
+// API Keys
 const keys = await client.projects.apiKeys.list();
-
-// Create key
 const { key } = await client.projects.apiKeys.create({
-  name: 'Production Key',
+  name: 'Production',
   scopes: ['read', 'write']
-});
-// IMPORTANT: Save the key - it's only shown once
-
-// Revoke key
+});  // Save this key - only shown once!
 await client.projects.apiKeys.revoke('key-id');
-```
 
-### Members
-
-```typescript
-// List members
+// Team Members
 const members = await client.projects.members.list();
-
-// Invite member
-await client.projects.members.invite('colleague@example.com', 'member');  // 'admin' | 'member' | 'viewer'
-
-// Update role
+await client.projects.members.invite('email@example.com', 'member');
 await client.projects.members.updateRole('member-id', 'admin');
-
-// Remove member
 await client.projects.members.remove('member-id');
 ```
 
@@ -728,186 +468,156 @@ import {
   NotFoundError,
   ValidationError,
   RateLimitError
-} from '@devabase/sdk';
+} from 'devabase-sdk';
 
 try {
   await client.collections.get('non-existent');
 } catch (error) {
   if (error instanceof NotFoundError) {
-    console.log('Collection not found');
+    // Resource not found (404)
   } else if (error instanceof AuthenticationError) {
-    console.log('Invalid or expired API key');
+    // Invalid or expired credentials (401)
   } else if (error instanceof AuthorizationError) {
-    console.log('Access denied');
+    // Insufficient permissions (403)
   } else if (error instanceof ValidationError) {
-    console.log('Invalid input:', error.details);
+    // Invalid input (400)
+    console.log(error.details);
   } else if (error instanceof RateLimitError) {
-    console.log('Rate limited. Retry after:', error.retryAfter, 'seconds');
+    // Too many requests (429)
+    console.log('Retry after:', error.retryAfter);
   } else if (error instanceof DevabaseError) {
-    console.log(`Error ${error.code} (${error.status}): ${error.message}`);
+    // Other API error
+    console.log(error.code, error.status, error.message);
   }
 }
 ```
 
 ---
 
-## Request Options
+## Advanced Configuration
 
-All methods accept optional request options:
+### Request Options
+
+All methods accept an optional `RequestOptions` parameter:
 
 ```typescript
-// Custom timeout (milliseconds)
-const result = await client.collections.list(undefined, {
-  timeout: 60000
+const result = await client.search.query(options, {
+  timeout: 60000,
+  headers: { 'X-Custom': 'value' },
+  signal: abortController.signal
 });
+```
 
-// Custom headers
-const result = await client.search.query({
-  collection: 'my-docs',
-  query: 'test'
-}, {
-  headers: { 'X-Custom-Header': 'value' }
-});
+### Cancellation
 
-// Abort signal for cancellation
+```typescript
 const controller = new AbortController();
 
-const promise = client.chat.stream({
-  collection: 'my-docs',
-  message: 'Long query...'
-}, callbacks, {
-  signal: controller.signal
-});
+client.chat.stream(options, callbacks, { signal: controller.signal });
 
-// Cancel after 5 seconds
-setTimeout(() => controller.abort(), 5000);
+// Cancel after 10 seconds
+setTimeout(() => controller.abort(), 10000);
 ```
 
 ---
 
-## TypeScript Types
+## TypeScript Support
 
-All types are exported:
+Full type definitions included. Import types directly:
 
 ```typescript
 import type {
-  // Config
-  DevabaseConfig,
-  RequestOptions,
-
-  // Auth
-  User,
-  AuthResponse,
-  AppUser,
-  AppAuthResponse,
-
-  // Resources
-  Project,
   Collection,
   Document,
-  Table,
-  TableColumn,
-
-  // Search
   SearchResult,
-  SearchOptions,
-
-  // Chat
-  RagChatOptions,
   RagChatResponse,
-  ChatSource,
-  RagStreamCallbacks,
-
-  // Pagination
-  PaginatedResponse,
-  PaginationMeta,
-  QueryOptions
-} from '@devabase/sdk';
+  Table,
+  AppUser,
+  PaginatedResponse
+} from 'devabase-sdk';
 ```
 
 ---
 
-## Complete Example
+## Examples
+
+### RAG Chatbot
 
 ```typescript
-import { createClient } from '@devabase/sdk';
+import { createClient } from 'devabase-sdk';
 import { readFileSync } from 'fs';
 
-async function main() {
-  // Initialize
-  const client = createClient({
-    baseUrl: 'http://localhost:9002',
-    apiKey: 'dvb_your_api_key'
-  });
-  client.useProject('your-project-id');
+const client = createClient({ baseUrl: URL, apiKey: KEY });
+client.useProject(PROJECT_ID);
 
-  // Create collection
-  await client.collections.create({
-    name: 'docs',
-    dimensions: 768
-  });
+// Setup
+await client.collections.create({ name: 'support-docs', dimensions: 1536 });
+await client.documents.upload('support-docs', {
+  file: readFileSync('./faq.pdf'),
+  filename: 'faq.pdf'
+});
 
-  // Upload document
-  const doc = await client.documents.upload('docs', {
-    file: readFileSync('manual.pdf'),
-    filename: 'manual.pdf'
-  });
-  console.log('Uploaded:', doc.id, 'Status:', doc.status);
-
-  // Wait for processing (poll status)
-  let status = doc.status;
-  while (status === 'pending' || status === 'processing') {
-    await new Promise(r => setTimeout(r, 1000));
-    const updated = await client.documents.get(doc.id);
-    status = updated.status;
-  }
-
-  // Search
-  const results = await client.search.query({
-    collection: 'docs',
-    query: 'How to get started?',
-    top_k: 5,
-    rerank: true
-  });
-  console.log('Found', results.length, 'results');
-
-  // RAG Chat
-  const response = await client.chat.send({
-    collection: 'docs',
-    message: 'Summarize the getting started guide',
+// Chat endpoint
+async function chat(message: string, conversationId?: string) {
+  return client.chat.send({
+    collection: 'support-docs',
+    message,
+    conversation_id: conversationId,
     include_sources: true
   });
-  console.log('Answer:', response.answer);
-  console.log('Sources:', response.sources.length);
-
-  // Create table
-  await client.tables.create({
-    name: 'feedback',
-    columns: [
-      { name: 'id', type: 'uuid', primary: true, default: 'gen_random_uuid()' },
-      { name: 'rating', type: 'integer' },
-      { name: 'comment', type: 'text' },
-      { name: 'created_at', type: 'timestamptz', default: 'now()' }
-    ]
-  });
-
-  // Insert data
-  await client.tables.rows('feedback').insert({
-    rating: 5,
-    comment: 'Great documentation!'
-  });
-
-  // Query data
-  const feedback = await client.tables.rows('feedback').query({
-    order: 'created_at:desc',
-    limit: 10
-  });
-  console.log('Feedback:', feedback.rows);
 }
-
-main().catch(console.error);
 ```
+
+### CRUD API
+
+```typescript
+// Create table
+await client.tables.create({
+  name: 'posts',
+  columns: [
+    { name: 'id', type: 'uuid', primary: true, default: 'gen_random_uuid()' },
+    { name: 'title', type: 'text', nullable: false },
+    { name: 'content', type: 'text' },
+    { name: 'author_id', type: 'uuid', references_table: 'users' },
+    { name: 'published', type: 'boolean', default: 'false' },
+    { name: 'created_at', type: 'timestamptz', default: 'now()' }
+  ]
+});
+
+// CRUD operations
+const post = await client.tables.rows('posts').insert({
+  title: 'Hello World',
+  content: 'My first post'
+});
+
+const { rows } = await client.tables.rows('posts').query({
+  filter: 'published.eq=true',
+  order: 'created_at:desc',
+  limit: 10
+});
+```
+
+---
+
+## Important Notes
+
+| Topic | Note |
+|-------|------|
+| **Project Context** | Always call `useProject()` before operations |
+| **Table ID Column** | Tables must have an `id` column for update/delete |
+| **String Defaults** | Use `"'value'"` (with inner quotes) for string defaults |
+| **Async Processing** | Document uploads return immediately; poll status for completion |
+| **Dimensions** | Collection dimensions must match your embedding model |
+
+---
+
+## Support
+
+- **Documentation:** [sovanreach.com/projects/devabase](https://sovanreach.com/projects/devabase)
+- **Issues:** [GitHub Issues](https://github.com/kvsovanreach/devabase/issues)
+
+---
 
 ## License
 
-MIT
+MIT © [Devabase](https://github.com/kvsovanreach/devabase)

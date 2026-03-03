@@ -63,7 +63,22 @@ impl IntoResponse for Error {
         let (status, message) = match &self {
             Error::Database(e) => {
                 tracing::error!("Database error: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                // Extract meaningful error message for developers
+                let msg = match e {
+                    sqlx::Error::Database(db_err) => {
+                        // Get the actual PostgreSQL error message
+                        db_err.message().to_string()
+                    }
+                    _ => e.to_string(),
+                };
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": "Database error",
+                        "details": msg,
+                        "code": 400
+                    })),
+                ).into_response();
             }
             Error::Config(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             Error::Auth(msg) => (StatusCode::UNAUTHORIZED, msg.as_str()),
