@@ -403,38 +403,105 @@ const results = await client.search.query({
 
 ## RAG Chat
 
+Devabase provides a unified `/v1/rag` endpoint that supports:
+- Single or multiple collections
+- Streaming or non-streaming responses
+- Thinking/reasoning display (for supported models)
+- Source attribution
+
+### Single Collection Chat
+
 ```typescript
-// Single message
+// Simple RAG chat
 const response = await client.chat.send({
   collection: 'my-docs',
   message: 'What is the authentication flow?',
   include_sources: true
 });
 
-console.log(response.message);
+console.log(response.answer);
 console.log(response.sources);
+console.log(response.thinking); // If model supports it
 
-// Streaming response
-await client.chat.stream({
+// With more options
+const response = await client.chat.send({
   collection: 'my-docs',
   message: 'Explain the architecture',
-  onChunk: (chunk) => process.stdout.write(chunk),
-  onComplete: (response) => {
-    console.log('\nSources:', response.sources);
-  }
+  conversation_id: 'existing-conv-id', // Continue conversation
+  top_k: 10, // Number of chunks to retrieve
+  include_sources: true
+});
+```
+
+### Multi-Collection Chat
+
+```typescript
+// Search across multiple collections
+const response = await client.chat.send({
+  collection: ['docs', 'faq', 'tutorials'],
+  message: 'How do I implement OAuth?',
+  top_k: 15
 });
 
+console.log(response.answer);
+console.log(response.collections_used); // Which collections contributed
+console.log(response.sources); // Sources with collection_name
+```
+
+### Streaming Responses
+
+```typescript
+// Single or multi-collection streaming
+await client.chat.stream({
+  collection: 'my-docs', // or ['docs', 'faq', 'tutorials']
+  message: 'Explain the architecture in detail'
+}, {
+  onSources: (sources) => {
+    console.log('Retrieved sources:', sources.length);
+  },
+  onThinking: (thinking) => {
+    console.log('Model thinking:', thinking);
+  },
+  onContent: (chunk) => {
+    process.stdout.write(chunk);
+  },
+  onDone: (conversationId, tokensUsed) => {
+    console.log(`\nDone! Conversation: ${conversationId}, Tokens: ${tokensUsed}`);
+  },
+  onError: (error) => {
+    console.error('Error:', error);
+  }
+});
+```
+
+### Conversation Management
+
+```typescript
 // Multi-turn conversation
 const response1 = await client.chat.send({
   collection: 'my-docs',
   message: 'What is authentication?'
 });
 
+// Continue the conversation
 const response2 = await client.chat.continue(
   response1.conversation_id,
   'How do I implement it?'
 );
+
+// List conversations
+const conversations = await client.chat.listConversations({
+  collection: 'my-docs',
+  limit: 20
+});
+
+// Get conversation details
+const conv = await client.chat.getConversation('conv-id');
+
+// Delete conversation
+await client.chat.deleteConversation('conv-id');
 ```
+
 
 ## Knowledge Graph
 

@@ -45,12 +45,19 @@ export type {
   SearchOptions,
   HybridSearchOptions,
 
-  // Chat
+  // Chat / RAG
   ChatMessage,
   ChatSource,
-  ChatOptions,
-  ChatResponse,
-  StreamChatOptions,
+  RagChatOptions,
+  RagChatResponse,
+  RagStreamCallbacks,
+  StreamEvent,
+  StreamEventType,
+  StreamSourcesEvent,
+  StreamThinkingEvent,
+  StreamContentEvent,
+  StreamDoneEvent,
+  StreamErrorEvent,
 
   // Knowledge Graph
   Entity,

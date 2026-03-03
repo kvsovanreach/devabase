@@ -1,16 +1,21 @@
 import { HttpClient } from '../utils/http';
 import {
   ChatMessage,
-  ChatOptions,
-  ChatResponse,
-  StreamChatOptions,
+  RagChatOptions,
+  RagChatResponse,
+  RagStreamCallbacks,
+  StreamEvent,
   RequestOptions,
 } from '../types';
 
 export interface Conversation {
   id: string;
-  collection: string;
-  messages: ChatMessage[];
+  collection_id: string;
+  collection_name?: string;
+  title: string | null;
+  message_count: number;
+  total_tokens: number;
+  messages?: ChatMessage[];
   created_at: string;
   updated_at: string;
 }
@@ -19,73 +24,95 @@ export class ChatResource {
   constructor(private http: HttpClient) {}
 
   /**
-   * Send a chat message and get a response (RAG)
+   * Send a RAG chat message using the unified endpoint
+   * Supports single or multiple collections
+   *
    * @example
+   * // Single collection
    * const response = await client.chat.send({
    *   collection: 'my-docs',
    *   message: 'What is the authentication flow?',
    *   include_sources: true
    * });
-   * console.log(response.message);
-   * console.log(response.sources);
+   *
+   * // Multiple collections
+   * const response = await client.chat.send({
+   *   collection: ['docs', 'faq', 'tutorials'],
+   *   message: 'How do I implement OAuth?',
+   *   top_k: 10
+   * });
    */
-  async send(options: ChatOptions, requestOptions?: RequestOptions): Promise<ChatResponse> {
-    return this.http.post<ChatResponse>(
-      `/v1/collections/${options.collection}/chat`,
+  async send(
+    options: RagChatOptions,
+    requestOptions?: RequestOptions
+  ): Promise<RagChatResponse> {
+    return this.http.post<RagChatResponse>(
+      '/v1/rag',
       {
+        collection: options.collection,
         message: options.message,
         conversation_id: options.conversation_id,
         include_sources: options.include_sources ?? true,
-        system_prompt: options.system_prompt,
-        temperature: options.temperature,
-        max_tokens: options.max_tokens,
+        top_k: options.top_k,
+        stream: false,
       },
       requestOptions
     );
   }
 
   /**
-   * Stream a chat response
+   * Stream a RAG chat response using Server-Sent Events
+   * Supports single or multiple collections
+   *
    * @example
    * await client.chat.stream({
    *   collection: 'my-docs',
    *   message: 'Explain the architecture',
-   *   onChunk: (chunk) => process.stdout.write(chunk),
-   *   onComplete: (response) => console.log('\nSources:', response.sources)
+   * }, {
+   *   onSources: (sources) => console.log('Sources:', sources),
+   *   onThinking: (thinking) => console.log('Thinking:', thinking),
+   *   onContent: (chunk) => process.stdout.write(chunk),
+   *   onDone: (convId, tokens) => console.log('Done:', convId, tokens)
    * });
    */
-  async stream(options: StreamChatOptions, requestOptions?: RequestOptions): Promise<void> {
-    let fullMessage = '';
-
+  async stream(
+    options: Omit<RagChatOptions, 'stream'>,
+    callbacks: RagStreamCallbacks,
+    requestOptions?: RequestOptions
+  ): Promise<void> {
     await this.http.stream(
-      `/v1/collections/${options.collection}/chat/stream`,
+      '/v1/rag',
       {
+        collection: options.collection,
         message: options.message,
         conversation_id: options.conversation_id,
         include_sources: options.include_sources ?? true,
-        system_prompt: options.system_prompt,
-        temperature: options.temperature,
-        max_tokens: options.max_tokens,
+        top_k: options.top_k,
+        stream: true,
       },
       (data) => {
         try {
-          const parsed = JSON.parse(data);
-          if (parsed.content) {
-            fullMessage += parsed.content;
-            options.onChunk?.(parsed.content);
-          }
-          if (parsed.done && options.onComplete) {
-            options.onComplete({
-              message: fullMessage,
-              conversation_id: parsed.conversation_id,
-              sources: parsed.sources,
-              usage: parsed.usage,
-            });
+          const event = JSON.parse(data) as StreamEvent;
+
+          switch (event.type) {
+            case 'sources':
+              callbacks.onSources?.(event.sources);
+              break;
+            case 'thinking':
+              callbacks.onThinking?.(event.content);
+              break;
+            case 'content':
+              callbacks.onContent?.(event.content);
+              break;
+            case 'done':
+              callbacks.onDone?.(event.conversation_id, event.tokens_used);
+              break;
+            case 'error':
+              callbacks.onError?.(event.message);
+              break;
           }
         } catch {
-          // If not JSON, treat as raw content
-          fullMessage += data;
-          options.onChunk?.(data);
+          // If not valid JSON, might be keep-alive or malformed
         }
       },
       requestOptions
@@ -108,18 +135,21 @@ export class ChatResource {
   async continue(
     conversationId: string,
     message: string,
-    options?: Omit<ChatOptions, 'collection' | 'message' | 'conversation_id'>,
+    options?: { include_sources?: boolean; top_k?: number },
     requestOptions?: RequestOptions
-  ): Promise<ChatResponse> {
-    // Get conversation to find collection
+  ): Promise<RagChatResponse> {
     const conversation = await this.getConversation(conversationId, requestOptions);
 
-    return this.send({
-      collection: conversation.collection,
-      message,
-      conversation_id: conversationId,
-      ...options,
-    }, requestOptions);
+    return this.send(
+      {
+        collection: conversation.collection_name || '',
+        message,
+        conversation_id: conversationId,
+        include_sources: options?.include_sources,
+        top_k: options?.top_k,
+      },
+      requestOptions
+    );
   }
 
   /**
@@ -132,7 +162,7 @@ export class ChatResource {
     requestOptions?: RequestOptions
   ): Promise<Conversation> {
     return this.http.get<Conversation>(
-      `/v1/chat/conversations/${conversationId}`,
+      `/v1/conversations/${conversationId}`,
       undefined,
       requestOptions
     );
@@ -142,16 +172,13 @@ export class ChatResource {
    * List conversations
    * @example
    * const conversations = await client.chat.listConversations();
+   * const filtered = await client.chat.listConversations({ collection: 'my-docs' });
    */
   async listConversations(
     options?: { collection?: string; limit?: number; offset?: number },
     requestOptions?: RequestOptions
   ): Promise<Conversation[]> {
-    return this.http.get<Conversation[]>(
-      '/v1/chat/conversations',
-      options,
-      requestOptions
-    );
+    return this.http.get<Conversation[]>('/v1/conversations', options, requestOptions);
   }
 
   /**
@@ -163,36 +190,6 @@ export class ChatResource {
     conversationId: string,
     requestOptions?: RequestOptions
   ): Promise<void> {
-    await this.http.delete<void>(
-      `/v1/chat/conversations/${conversationId}`,
-      requestOptions
-    );
-  }
-
-  /**
-   * Chat with a specific prompt template
-   * @example
-   * const response = await client.chat.withPrompt({
-   *   collection: 'my-docs',
-   *   message: 'Summarize the main features',
-   *   prompt_id: 'summarize-prompt'
-   * });
-   */
-  async withPrompt(
-    options: ChatOptions & { prompt_id: string },
-    requestOptions?: RequestOptions
-  ): Promise<ChatResponse> {
-    return this.http.post<ChatResponse>(
-      `/v1/collections/${options.collection}/chat`,
-      {
-        message: options.message,
-        conversation_id: options.conversation_id,
-        include_sources: options.include_sources ?? true,
-        prompt_id: options.prompt_id,
-        temperature: options.temperature,
-        max_tokens: options.max_tokens,
-      },
-      requestOptions
-    );
+    await this.http.delete<void>(`/v1/conversations/${conversationId}`, requestOptions);
   }
 }

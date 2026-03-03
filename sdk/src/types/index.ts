@@ -395,6 +395,7 @@ export interface HybridSearchOptions extends SearchOptions {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  thinking?: string;
 }
 
 export interface ChatSource {
@@ -403,44 +404,99 @@ export interface ChatSource {
   document_name: string;
   content: string;
   score: number;
+  collection_name?: string;
 }
 
-export interface ChatOptions {
-  /** Collection to use for context */
-  collection: string;
+/**
+ * Options for unified RAG chat (single or multi-collection)
+ */
+export interface RagChatOptions {
+  /** Collection(s) to use - single name or array of names */
+  collection: string | string[];
   /** User message */
   message: string;
   /** Conversation ID for multi-turn chat */
   conversation_id?: string;
   /** Include source documents in response */
   include_sources?: boolean;
-  /** System prompt override */
-  system_prompt?: string;
-  /** Temperature (0-2) */
-  temperature?: number;
-  /** Max tokens for response */
-  max_tokens?: number;
+  /** Number of chunks to retrieve */
+  top_k?: number;
+  /** Enable streaming response */
+  stream?: boolean;
 }
 
-export interface ChatResponse {
+/**
+ * Response from unified RAG chat endpoint
+ */
+export interface RagChatResponse {
+  /** Generated answer */
+  answer: string;
+  /** Model's thinking/reasoning (if model supports it) */
+  thinking?: string;
+  /** Source documents used */
+  sources: ChatSource[];
+  /** Collections that contributed to the response */
+  collections_used: string[];
+  /** Conversation ID for follow-up messages */
+  conversation_id?: string;
+  /** Total tokens used */
+  tokens_used: number;
+}
+
+/**
+ * Streaming event types from RAG chat
+ */
+export type StreamEventType = 'sources' | 'thinking' | 'content' | 'done' | 'error';
+
+export interface StreamSourcesEvent {
+  type: 'sources';
+  sources: ChatSource[];
+}
+
+export interface StreamThinkingEvent {
+  type: 'thinking';
+  content: string;
+}
+
+export interface StreamContentEvent {
+  type: 'content';
+  content: string;
+}
+
+export interface StreamDoneEvent {
+  type: 'done';
+  conversation_id: string | null;
+  tokens_used: number;
+}
+
+export interface StreamErrorEvent {
+  type: 'error';
   message: string;
-  conversation_id: string;
-  sources?: ChatSource[];
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
 }
 
-export interface StreamChatOptions extends ChatOptions {
-  /** Callback for each chunk */
-  onChunk?: (chunk: string) => void;
-  /** Callback when complete */
-  onComplete?: (response: ChatResponse) => void;
-  /** Callback on error */
-  onError?: (error: Error) => void;
+export type StreamEvent =
+  | StreamSourcesEvent
+  | StreamThinkingEvent
+  | StreamContentEvent
+  | StreamDoneEvent
+  | StreamErrorEvent;
+
+/**
+ * Callbacks for streaming RAG chat
+ */
+export interface RagStreamCallbacks {
+  /** Called when sources are retrieved */
+  onSources?: (sources: ChatSource[]) => void;
+  /** Called with thinking/reasoning content */
+  onThinking?: (thinking: string) => void;
+  /** Called for each content chunk */
+  onContent?: (content: string) => void;
+  /** Called when generation is complete */
+  onDone?: (conversationId: string | null, tokensUsed: number) => void;
+  /** Called on error */
+  onError?: (error: string) => void;
 }
+
 
 // ============================================================================
 // Knowledge Graph Types
