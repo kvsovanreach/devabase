@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useProjectStore } from '@/stores/project-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
@@ -15,8 +15,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, fetchUser } = useAuthStore();
-  const { fetchProjects } = useProjectStore();
+  const { projects, fetchProjects } = useProjectStore();
   const { isCollapsed } = useSidebarStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -47,6 +48,13 @@ export default function DashboardLayout({
     init();
   }, [isHydrated, isAuthenticated, fetchUser, fetchProjects, router]);
 
+  // Redirect to onboarding if no projects (except if already on onboarding page)
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && projects.length === 0 && pathname !== '/onboarding') {
+      router.push('/onboarding');
+    }
+  }, [isLoading, isAuthenticated, projects, pathname, router]);
+
   // Show loading while hydrating or loading data
   if (!isHydrated || isLoading) {
     return (
@@ -58,6 +66,20 @@ export default function DashboardLayout({
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  // Show onboarding page without sidebar
+  if (projects.length === 0 && pathname === '/onboarding') {
+    return <>{children}</>;
+  }
+
+  // Prevent rendering dashboard content if no projects (redirect will happen)
+  if (projects.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-secondary">
+        <PageSpinner />
+      </div>
+    );
   }
 
   return (

@@ -47,6 +47,7 @@ pub fn verify_key_hash(key: &str, hash: &str) -> bool {
 pub async fn create_key(
     pool: &DbPool,
     project_id: Uuid,
+    user_id: Option<Uuid>,
     input: CreateApiKey,
     prefix: &str,
 ) -> Result<ApiKeyCreated> {
@@ -58,12 +59,13 @@ pub async fn create_key(
 
     sqlx::query(
         r#"
-        INSERT INTO sys_api_keys (id, project_id, name, key_hash, key_prefix, scopes, rate_limit, expires_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO sys_api_keys (id, project_id, user_id, name, key_hash, key_prefix, scopes, rate_limit, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         "#,
     )
     .bind(id)
     .bind(project_id)
+    .bind(user_id)
     .bind(&input.name)
     .bind(&key_hash)
     .bind(&key_prefix)

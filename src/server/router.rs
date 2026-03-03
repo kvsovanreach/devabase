@@ -51,6 +51,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // ─────────────────────────────────────────
         .route("/health", get(api::health::health_check))
         .route("/ready", get(api::health::ready_check))
+        // API metadata for AI coding agents
+        .route("/vibe-metadata", get(api::metadata::get_metadata))
 
         // ─────────────────────────────────────────
         // Authentication (Admin/Developer)

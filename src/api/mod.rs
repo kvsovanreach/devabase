@@ -11,6 +11,7 @@ pub mod files;
 pub mod health;
 pub mod keys;
 pub mod knowledge_graph;
+pub mod metadata;
 pub mod pagination;
 pub mod prompts;
 pub mod projects;

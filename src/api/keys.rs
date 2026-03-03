@@ -38,6 +38,7 @@ pub async fn create_key(
     let key = auth::create_key(
         &state.pool,
         project_id,
+        auth.user_id,
         input,
         &state.config.auth.api_key_prefix,
     )

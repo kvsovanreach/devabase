@@ -171,17 +171,17 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-2 px-3">
-          <ul className="space-y-0.5">
+          <ul>
             {navigation.map((item, index) => {
               if (isNavGroup(item)) {
                 // Render group
                 const GroupIcon = item.icon;
                 return (
-                  <li key={item.label} className={cn(index > 0 && 'mt-3')}>
+                  <li key={item.label} className={cn(index > 0 && 'mt-2')}>
                     {/* Group Label */}
                     <div
                       className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold text-text-tertiary uppercase tracking-wider',
+                        'flex items-center gap-2 px-3 py-1 text-[11px] font-semibold text-text-tertiary uppercase tracking-wider',
                         isCollapsed && 'lg:justify-center lg:px-0'
                       )}
                     >
@@ -191,7 +191,7 @@ export function Sidebar() {
                       <span className={cn(isCollapsed && 'lg:hidden')}>{item.label}</span>
                     </div>
                     {/* Group Items */}
-                    <ul className="mt-1 space-y-0.5">
+                    <ul className="mt-0.5">
                       {item.items.map((subItem) => {
                         const isActive = pathname === subItem.href || pathname.startsWith(subItem.href + '/');
                         return (
@@ -200,7 +200,7 @@ export function Sidebar() {
                               href={subItem.href}
                               title={isCollapsed ? subItem.name : undefined}
                               className={cn(
-                                'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[14px] font-medium transition-all duration-150',
+                                'flex items-center gap-3 px-3 py-[5px] rounded-lg text-[14px] font-medium transition-all duration-150',
                                 isActive
                                   ? 'bg-primary text-white shadow-sm'
                                   : 'text-text-secondary hover:text-foreground hover:bg-surface-hover',
@@ -221,12 +221,12 @@ export function Sidebar() {
               // Render single item
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (
-                <li key={item.name} className={cn(index > 0 && navigation[index - 1] && isNavGroup(navigation[index - 1]) && 'mt-4')}>
+                <li key={item.name} className={cn(index > 0 && navigation[index - 1] && isNavGroup(navigation[index - 1]) && 'mt-2')}>
                   <Link
                     href={item.href}
                     title={isCollapsed ? item.name : undefined}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-all duration-150',
+                      'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[15px] font-medium transition-all duration-150',
                       isActive
                         ? 'bg-primary text-white shadow-sm'
                         : 'text-text-secondary hover:text-foreground hover:bg-surface-hover',
