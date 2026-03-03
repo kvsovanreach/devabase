@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devabase Documentation - Backend for RAG/LLM Applications</title>
+    <meta name="description" content="Complete documentation for Devabase SDK. Learn how to build AI-powered applications with vector storage, RAG chat, and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-tertiary: #18181b;
+            --bg-code: #1e1e22;
+            --border-color: #27272a;
+            --border-hover: #3f3f46;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-subtle: rgba(59, 130, 246, 0.1);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --sidebar-width: 280px;
+            --header-height: 64px;
+            --content-max-width: 900px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: calc(var(--header-height) + 24px);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: rgba(10, 10, 11, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .header-nav a:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .header-nav a.active {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .btn-github {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .btn-github:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-secondary);
+        }
+
+        /* Layout */
+        .layout {
+            display: flex;
+            padding-top: var(--header-height);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - var(--header-height));
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 24px 0;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .sidebar-section {
+            margin-bottom: 24px;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            padding: 0 24px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-links {
+            list-style: none;
+        }
+
+        .sidebar-links a {
+            display: block;
+            padding: 8px 24px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.15s;
+            border-left: 2px solid transparent;
+        }
+
+        .sidebar-links a:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .sidebar-links a.active {
+            color: var(--accent);
+            background: var(--accent-subtle);
+            border-left-color: var(--accent);
+        }
+
+        /* Main Content */
+        .main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        .content {
+            max-width: var(--content-max-width);
+            margin: 0 auto;
+            padding: 48px 48px 120px;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--text-primary);
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-top: 64px;
+            margin-bottom: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        h2:first-of-type {
+            margin-top: 48px;
+            border-top: none;
+            padding-top: 0;
+        }
+
+        h3 {
+            font-size: 18px;
+            margin-top: 40px;
+            margin-bottom: 16px;
+        }
+
+        h4 {
+            font-size: 15px;
+            margin-top: 32px;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .lead {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Code */
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        :not(pre) > code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        pre {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            margin: 16px 0 24px;
+        }
+
+        pre code {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .code-block {
+            position: relative;
+        }
+
+        .code-block-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            padding: 12px 16px;
+            margin-top: 16px;
+        }
+
+        .code-block-header + pre {
+            margin-top: 0;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .code-block-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .copy-btn.copied {
+            color: var(--success);
+        }
+
+        /* Syntax Highlighting */
+        .token-keyword { color: #c678dd; }
+        .token-string { color: #98c379; }
+        .token-comment { color: #5c6370; font-style: italic; }
+        .token-function { color: #61afef; }
+        .token-number { color: #d19a66; }
+        .token-boolean { color: #d19a66; }
+        .token-property { color: #e06c75; }
+        .token-type { color: #e5c07b; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: 14px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        td {
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background: var(--bg-secondary);
+        }
+
+        /* Callouts */
+        .callout {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 16px 0 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .callout-icon {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+        }
+
+        .callout-content {
+            flex: 1;
+        }
+
+        .callout-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .callout-info {
+            background: var(--accent-subtle);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .callout-info .callout-icon { color: var(--accent); }
+        .callout-info .callout-title { color: var(--accent); }
+
+        .callout-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .callout-warning .callout-icon { color: var(--warning); }
+        .callout-warning .callout-title { color: var(--warning); }
+
+        .callout-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .callout-success .callout-icon { color: var(--success); }
+        .callout-success .callout-title { color: var(--success); }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.15s;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-subtle);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            margin-bottom: 16px;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .card p {
+            margin-bottom: 0;
+            font-size: 14px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-secondary);
+            padding: 4px;
+            border-radius: 10px;
+            margin: 24px 0 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--accent-subtle);
+            color: var(--accent);
+        }
+
+        .badge-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        /* Params table */
+        .params {
+            margin: 16px 0 24px;
+        }
+
+        .param {
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .param:last-child {
+            border-bottom: none;
+        }
+
+        .param-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .param-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .param-type {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .param-required {
+            font-size: 11px;
+            color: var(--error);
+            font-weight: 500;
+        }
+
+        .param-optional {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .param-desc {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Quick nav */
+        .quick-nav {
+            position: fixed;
+            right: 24px;
+            top: calc(var(--header-height) + 48px);
+            width: 200px;
+            font-size: 13px;
+        }
+
+        .quick-nav-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .quick-nav a {
+            display: block;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 6px 0;
+            transition: color 0.15s;
+        }
+
+        .quick-nav a:hover {
+            color: var(--text-primary);
+        }
+
+        .quick-nav a.active {
+            color: var(--accent);
+        }
+
+        /* Mobile */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1200px) {
+            .quick-nav {
+                display: none;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+                z-index: 99;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main {
+                margin-left: 0;
+            }
+
+            .content {
+                padding: 32px 24px 80px;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            h2 {
+                font-size: 22px;
+            }
+        }
+
+        /* Print */
+        @media print {
+            .header, .sidebar, .quick-nav {
+                display: none;
+            }
+
+            .main {
+                margin-left: 0;
+            }
+
+            .content {
+                max-width: 100%;
+                padding: 0;
+            }
+        }
+
+        /* Hero section for docs */
+        .docs-hero {
+            padding: 48px 0 32px;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .docs-hero h1 {
+            margin-bottom: 12px;
+        }
+
+        .version-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .version-badge strong {
+            color: var(--text-primary);
+        }
+
+        /* Install box */
+        .install-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .install-tabs {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .install-tab {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 0;
+            transition: color 0.15s;
+        }
+
+        .install-tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .install-tab.active {
+            color: var(--text-primary);
+        }
+
+        .install-cmd {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-code);
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+
+        .install-cmd code {
+            color: var(--text-primary);
+        }
+
+        /* Section anchors */
+        h2[id], h3[id] {
+            position: relative;
+        }
+
+        h2[id]:hover .anchor, h3[id]:hover .anchor {
+            opacity: 1;
+        }
+
+        .anchor {
+            position: absolute;
+            left: -24px;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: opacity 0.15s;
+            text-decoration: none;
+        }
+
+        .anchor:hover {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div style="display: flex; align-items: center; gap: 32px;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+                <a href="index.html" class="logo">
+                    <span class="logo-icon">⚡</span>
+                    <span>Devabase</span>
+                </a>
+                <nav class="header-nav">
+                    <a href="docs.html" class="active">Docs</a>
+                    <a href="#api-reference">API</a>
+                    <a href="#examples">Examples</a>
+                </nav>
+            </div>
+            <a href="https://github.com/kvsovanreach/devabase" target="_blank" class="btn-github">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <span>GitHub</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Getting Started</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#introduction" class="active">Introduction</a></li>
+                    <li><a href="#installation">Installation</a></li>
+                    <li><a href="#quickstart">Quick Start</a></li>
+                    <li><a href="#authentication">Authentication</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Core Concepts</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#collections">Collections</a></li>
+                    <li><a href="#documents">Documents</a></li>
+                    <li><a href="#search">Search</a></li>
+                    <li><a href="#rag-chat">RAG Chat</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Data</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#tables">Tables</a></li>
+                    <li><a href="#row-operations">Row Operations</a></li>
+                    <li><a href="#filtering">Filtering</a></li>
+                    <li><a href="#pagination">Pagination</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">User Management</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#app-auth">App Authentication</a></li>
+                    <li><a href="#user-management">User Management</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Reference</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#error-handling">Error Handling</a></li>
+                    <li><a href="#typescript">TypeScript</a></li>
+                    <li><a href="#examples">Examples</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="content">
+                <!-- Introduction -->
+                <section id="introduction">
+                    <div class="docs-hero">
+                        <div class="version-badge">
+                            <span>SDK Version</span>
+                            <strong>0.5.0</strong>
+                        </div>
+                        <h1>Devabase Documentation</h1>
+                        <p class="lead">
+                            The complete backend SDK for building AI-powered applications.
+                            Vector storage, document processing, semantic search, RAG chat, and more.
+                        </p>
+                    </div>
+
+                    <div class="card-grid">
+                        <div class="card">
+                            <div class="card-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                                </svg>
+                            </div>
+                            <h3>Vector Storage</h3>
+                            <p>Store and query millions of embeddings with sub-millisecond latency using pgvector.</p>
+                        </div>
+                        <div class="card">
+                            <div class="card-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                            </div>
+                            <h3>Document Processing</h3>
+                            <p>Upload PDFs, DOCX, and more. Automatic chunking, embedding, and indexing.</p>
+                        </div>
+                        <div class="card">
+                            <div class="card-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                </svg>
+                            </div>
+                            <h3>RAG Chat</h3>
+                            <p>Production-ready conversational AI with source attribution and streaming.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Installation -->
+                <section id="installation">
+                    <h2><a href="#installation" class="anchor">#</a>Installation</h2>
+                    <p>Install the Devabase SDK using your preferred package manager.</p>
+
+                    <div class="install-box">
+                        <div class="install-tabs">
+                            <button class="install-tab active" data-pkg="npm">npm</button>
+                            <button class="install-tab" data-pkg="yarn">yarn</button>
+                            <button class="install-tab" data-pkg="pnpm">pnpm</button>
+                        </div>
+                        <div class="install-cmd">
+                            <code id="install-cmd">npm install devabase-sdk</code>
+                            <button class="copy-btn" onclick="copyInstall()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                                </svg>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+
+                    <p><strong>Requirements:</strong> Node.js 18 or higher. TypeScript 4.7+ recommended.</p>
+                </section>
+
+                <!-- Quick Start -->
+                <section id="quickstart">
+                    <h2><a href="#quickstart" class="anchor">#</a>Quick Start</h2>
+                    <p>Get up and running with Devabase in just a few lines of code.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">app.ts</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
+
+<span class="token-comment">// 1. Initialize the client</span>
+<span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
+  baseUrl: <span class="token-string">'https://your-server.com'</span>,
+  apiKey: <span class="token-string">'dvb_your_api_key'</span>
+});
+
+<span class="token-comment">// 2. Set project context (required)</span>
+client.<span class="token-function">useProject</span>(<span class="token-string">'your-project-id'</span>);
+
+<span class="token-comment">// 3. Create a collection</span>
+<span class="token-keyword">await</span> client.collections.<span class="token-function">create</span>({
+  name: <span class="token-string">'knowledge-base'</span>,
+  dimensions: <span class="token-number">1536</span>
+});
+
+<span class="token-comment">// 4. Upload a document</span>
+<span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'knowledge-base'</span>, {
+  file: pdfBuffer,
+  filename: <span class="token-string">'manual.pdf'</span>
+});
+
+<span class="token-comment">// 5. Search your documents</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">query</span>({
+  collection: <span class="token-string">'knowledge-base'</span>,
+  query: <span class="token-string">'How do I get started?'</span>,
+  rerank: <span class="token-boolean">true</span>
+});
+
+<span class="token-comment">// 6. Chat with your documents (RAG)</span>
+<span class="token-keyword">const</span> response = <span class="token-keyword">await</span> client.chat.<span class="token-function">send</span>({
+  collection: <span class="token-string">'knowledge-base'</span>,
+  message: <span class="token-string">'Summarize the main features'</span>
+});
+
+console.<span class="token-function">log</span>(response.answer);
+console.<span class="token-function">log</span>(response.sources);</code></pre>
+                    </div>
+
+                    <div class="callout callout-info">
+                        <svg class="callout-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                        </svg>
+                        <div class="callout-content">
+                            <div class="callout-title">Project Context Required</div>
+                            <p>Always call <code>useProject()</code> before making any API calls. All resources are scoped to a project.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Authentication -->
+                <section id="authentication">
+                    <h2><a href="#authentication" class="anchor">#</a>Authentication</h2>
+                    <p>Devabase uses API keys for authentication. Get your API key from the dashboard.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">Configuration</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
+  baseUrl: <span class="token-string">'https://your-server.com'</span>,  <span class="token-comment">// Required</span>
+  apiKey: <span class="token-string">'dvb_your_api_key'</span>,         <span class="token-comment">// Required: starts with 'dvb_'</span>
+  timeout: <span class="token-number">30000</span>,                     <span class="token-comment">// Optional: request timeout in ms</span>
+  headers: { <span class="token-string">'X-Custom'</span>: <span class="token-string">'value'</span> }   <span class="token-comment">// Optional: custom headers</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Request Headers</h3>
+                    <p>All requests automatically include these headers:</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Header</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Authorization</code></td>
+                                <td><code>Bearer dvb_your_api_key</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>X-Project-ID</code></td>
+                                <td>Your project ID</td>
+                            </tr>
+                            <tr>
+                                <td><code>Content-Type</code></td>
+                                <td><code>application/json</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Collections -->
+                <section id="collections">
+                    <h2><a href="#collections" class="anchor">#</a>Collections</h2>
+                    <p>Collections are containers for your documents and their vector embeddings. Each collection has a fixed dimension that must match your embedding model.</p>
+
+                    <h3>Create Collection</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> collection = <span class="token-keyword">await</span> client.collections.<span class="token-function">create</span>({
+  name: <span class="token-string">'my-docs'</span>,        <span class="token-comment">// Unique name</span>
+  dimensions: <span class="token-number">1536</span>,      <span class="token-comment">// Must match embedding model</span>
+  metric: <span class="token-string">'cosine'</span>        <span class="token-comment">// 'cosine' | 'l2' | 'ip'</span>
+});</code></pre>
+                    </div>
+
+                    <h4>Parameters</h4>
+                    <div class="params">
+                        <div class="param">
+                            <div class="param-header">
+                                <span class="param-name">name</span>
+                                <span class="param-type">string</span>
+                                <span class="param-required">required</span>
+                            </div>
+                            <div class="param-desc">Unique identifier for the collection. Use lowercase letters, numbers, and hyphens.</div>
+                        </div>
+                        <div class="param">
+                            <div class="param-header">
+                                <span class="param-name">dimensions</span>
+                                <span class="param-type">number</span>
+                                <span class="param-optional">optional</span>
+                            </div>
+                            <div class="param-desc">Vector dimensions. Must match your embedding model (1536 for OpenAI, 384 for MiniLM). Defaults to 1536.</div>
+                        </div>
+                        <div class="param">
+                            <div class="param-header">
+                                <span class="param-name">metric</span>
+                                <span class="param-type">'cosine' | 'l2' | 'ip'</span>
+                                <span class="param-optional">optional</span>
+                            </div>
+                            <div class="param-desc">Distance metric for similarity search. Defaults to <code>cosine</code>.</div>
+                        </div>
+                    </div>
+
+                    <h3>Embedding Dimensions Reference</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Model</th>
+                                <th>Dimensions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>OpenAI</td>
+                                <td>text-embedding-3-small</td>
+                                <td><code>1536</code></td>
+                            </tr>
+                            <tr>
+                                <td>OpenAI</td>
+                                <td>text-embedding-3-large</td>
+                                <td><code>3072</code></td>
+                            </tr>
+                            <tr>
+                                <td>Cohere</td>
+                                <td>embed-english-v3.0</td>
+                                <td><code>1024</code></td>
+                            </tr>
+                            <tr>
+                                <td>Local</td>
+                                <td>all-MiniLM-L6-v2</td>
+                                <td><code>384</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Other Operations</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// List all collections</span>
+<span class="token-keyword">const</span> { data, pagination } = <span class="token-keyword">await</span> client.collections.<span class="token-function">list</span>({ limit: <span class="token-number">50</span> });
+
+<span class="token-comment">// Get a single collection</span>
+<span class="token-keyword">const</span> collection = <span class="token-keyword">await</span> client.collections.<span class="token-function">get</span>(<span class="token-string">'my-docs'</span>);
+
+<span class="token-comment">// Get collection statistics</span>
+<span class="token-keyword">const</span> stats = <span class="token-keyword">await</span> client.collections.<span class="token-function">stats</span>(<span class="token-string">'my-docs'</span>);
+<span class="token-comment">// { name, document_count, chunk_count, total_size_bytes }</span>
+
+<span class="token-comment">// Delete collection (and all documents)</span>
+<span class="token-keyword">await</span> client.collections.<span class="token-function">delete</span>(<span class="token-string">'my-docs'</span>);
+
+<span class="token-comment">// Clear collection (keep collection, remove documents)</span>
+<span class="token-keyword">await</span> client.collections.<span class="token-function">clear</span>(<span class="token-string">'my-docs'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Documents -->
+                <section id="documents">
+                    <h2><a href="#documents" class="anchor">#</a>Documents</h2>
+                    <p>Upload and manage documents for RAG. Supported formats: <strong>PDF, DOCX, TXT, Markdown</strong>.</p>
+
+                    <h3>Upload Document</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> { readFileSync } <span class="token-keyword">from</span> <span class="token-string">'fs'</span>;
+
+<span class="token-keyword">const</span> doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, {
+  file: <span class="token-function">readFileSync</span>(<span class="token-string">'document.pdf'</span>),  <span class="token-comment">// Buffer, Blob, or ReadableStream</span>
+  filename: <span class="token-string">'document.pdf'</span>,           <span class="token-comment">// Original filename</span>
+  metadata: { author: <span class="token-string">'John'</span> }        <span class="token-comment">// Optional metadata</span>
+});
+
+<span class="token-comment">// Document status: 'pending' | 'processing' | 'processed' | 'failed'</span>
+console.<span class="token-function">log</span>(doc.status);</code></pre>
+                    </div>
+
+                    <div class="callout callout-warning">
+                        <svg class="callout-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <div class="callout-content">
+                            <div class="callout-title">Async Processing</div>
+                            <p>Document processing happens in the background. Poll the document status or use webhooks to know when processing completes.</p>
+                        </div>
+                    </div>
+
+                    <h3>Wait for Processing</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Poll until processed</span>
+<span class="token-keyword">let</span> doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, { file, filename });
+
+<span class="token-keyword">while</span> (doc.status === <span class="token-string">'pending'</span> || doc.status === <span class="token-string">'processing'</span>) {
+  <span class="token-keyword">await</span> <span class="token-keyword">new</span> <span class="token-type">Promise</span>(r => <span class="token-function">setTimeout</span>(r, <span class="token-number">2000</span>));
+  doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">get</span>(doc.id);
+}
+
+<span class="token-keyword">if</span> (doc.status === <span class="token-string">'failed'</span>) {
+  <span class="token-keyword">throw new</span> <span class="token-type">Error</span>(doc.error_message);
+}
+
+console.<span class="token-function">log</span>(<span class="token-string">'Processed!'</span>, doc.chunk_count, <span class="token-string">'chunks'</span>);</code></pre>
+                    </div>
+
+                    <h3>Other Operations</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Upload multiple documents</span>
+<span class="token-keyword">const</span> docs = <span class="token-keyword">await</span> client.documents.<span class="token-function">uploadMany</span>(<span class="token-string">'my-docs'</span>, [
+  { file: buffer1, filename: <span class="token-string">'doc1.pdf'</span> },
+  { file: buffer2, filename: <span class="token-string">'doc2.pdf'</span> }
+]);
+
+<span class="token-comment">// List documents</span>
+<span class="token-keyword">const</span> { data } = <span class="token-keyword">await</span> client.documents.<span class="token-function">list</span>(<span class="token-string">'my-docs'</span>, {
+  status: <span class="token-string">'processed'</span>,
+  limit: <span class="token-number">50</span>
+});
+
+<span class="token-comment">// Get document chunks</span>
+<span class="token-keyword">const</span> chunks = <span class="token-keyword">await</span> client.documents.<span class="token-function">chunks</span>(<span class="token-string">'document-id'</span>);
+
+<span class="token-comment">// Update metadata</span>
+<span class="token-keyword">await</span> client.documents.<span class="token-function">updateMetadata</span>(<span class="token-string">'document-id'</span>, {
+  category: <span class="token-string">'technical'</span>
+});
+
+<span class="token-comment">// Reprocess document</span>
+<span class="token-keyword">await</span> client.documents.<span class="token-function">reprocess</span>(<span class="token-string">'document-id'</span>);
+
+<span class="token-comment">// Delete document</span>
+<span class="token-keyword">await</span> client.documents.<span class="token-function">delete</span>(<span class="token-string">'document-id'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Search -->
+                <section id="search">
+                    <h2><a href="#search" class="anchor">#</a>Search</h2>
+                    <p>Semantic search with multiple retrieval modes: vector search, keyword search, and hybrid.</p>
+
+                    <h3>Vector Search</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">query</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'authentication best practices'</span>,
+  top_k: <span class="token-number">10</span>,
+  rerank: <span class="token-boolean">true</span>,
+  filter: { category: <span class="token-string">'security'</span> }
+});
+
+<span class="token-comment">// Results: Array&lt;{ id, content, score, document_id, document_name, metadata }&gt;</span></code></pre>
+                    </div>
+
+                    <h3>Hybrid Search</h3>
+                    <p>Combine vector similarity with keyword matching for best results.</p>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">hybrid</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'JWT refresh tokens'</span>,
+  vector_weight: <span class="token-number">0.7</span>,    <span class="token-comment">// 70% vector similarity</span>
+  keyword_weight: <span class="token-number">0.3</span>,   <span class="token-comment">// 30% keyword matching</span>
+  rerank: <span class="token-boolean">true</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Keyword Search (BM25)</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">keyword</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'authentication'</span>,
+  top_k: <span class="token-number">10</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Multi-Collection Search</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Search across ALL collections in the project</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">global</span>(<span class="token-string">'authentication'</span>, {
+  top_k: <span class="token-number">20</span>,
+  rerank: <span class="token-boolean">true</span>
+});</code></pre>
+                    </div>
+                </section>
+
+                <!-- RAG Chat -->
+                <section id="rag-chat">
+                    <h2><a href="#rag-chat" class="anchor">#</a>RAG Chat</h2>
+                    <p>Conversational AI with document context, source attribution, and streaming support.</p>
+
+                    <h3>Basic Chat</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> response = <span class="token-keyword">await</span> client.chat.<span class="token-function">send</span>({
+  collection: <span class="token-string">'my-docs'</span>,              <span class="token-comment">// string or string[]</span>
+  message: <span class="token-string">'How do I implement OAuth?'</span>,
+  include_sources: <span class="token-boolean">true</span>,
+  top_k: <span class="token-number">5</span>
+});
+
+console.<span class="token-function">log</span>(response.answer);
+console.<span class="token-function">log</span>(response.sources);
+console.<span class="token-function">log</span>(response.tokens_used);</code></pre>
+                    </div>
+
+                    <h3>Streaming Response</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">await</span> client.chat.<span class="token-function">stream</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  message: <span class="token-string">'Explain the architecture in detail'</span>
+}, {
+  <span class="token-function">onSources</span>: (sources) => {
+    console.<span class="token-function">log</span>(<span class="token-string">'Found'</span>, sources.length, <span class="token-string">'sources'</span>);
+  },
+  <span class="token-function">onThinking</span>: (text) => {
+    console.<span class="token-function">log</span>(<span class="token-string">'Thinking:'</span>, text);
+  },
+  <span class="token-function">onContent</span>: (chunk) => {
+    process.stdout.<span class="token-function">write</span>(chunk);
+  },
+  <span class="token-function">onDone</span>: (conversationId, tokensUsed) => {
+    console.<span class="token-function">log</span>(<span class="token-string">'\nDone!'</span>, tokensUsed, <span class="token-string">'tokens'</span>);
+  },
+  <span class="token-function">onError</span>: (error) => {
+    console.<span class="token-function">error</span>(<span class="token-string">'Error:'</span>, error);
+  }
+});</code></pre>
+                    </div>
+
+                    <h3>Multi-Turn Conversation</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Start a conversation</span>
+<span class="token-keyword">const</span> response1 = <span class="token-keyword">await</span> client.chat.<span class="token-function">send</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  message: <span class="token-string">'What is authentication?'</span>
+});
+
+<span class="token-comment">// Continue the conversation</span>
+<span class="token-keyword">const</span> response2 = <span class="token-keyword">await</span> client.chat.<span class="token-function">continue</span>(
+  response1.conversation_id,
+  <span class="token-string">'How do I implement it in Node.js?'</span>
+);
+
+<span class="token-comment">// List all conversations</span>
+<span class="token-keyword">const</span> conversations = <span class="token-keyword">await</span> client.chat.<span class="token-function">listConversations</span>({ limit: <span class="token-number">20</span> });
+
+<span class="token-comment">// Delete a conversation</span>
+<span class="token-keyword">await</span> client.chat.<span class="token-function">deleteConversation</span>(<span class="token-string">'conversation-id'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Tables -->
+                <section id="tables">
+                    <h2><a href="#tables" class="anchor">#</a>Tables</h2>
+                    <p>Create PostgreSQL tables with auto-generated REST API endpoints.</p>
+
+                    <h3>Create Table</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">await</span> client.tables.<span class="token-function">create</span>({
+  name: <span class="token-string">'users'</span>,
+  columns: [
+    { name: <span class="token-string">'id'</span>, type: <span class="token-string">'uuid'</span>, primary: <span class="token-boolean">true</span>, default: <span class="token-string">'gen_random_uuid()'</span> },
+    { name: <span class="token-string">'email'</span>, type: <span class="token-string">'varchar(255)'</span>, nullable: <span class="token-boolean">false</span>, unique: <span class="token-boolean">true</span> },
+    { name: <span class="token-string">'name'</span>, type: <span class="token-string">'varchar(255)'</span> },
+    { name: <span class="token-string">'role'</span>, type: <span class="token-string">'varchar(50)'</span>, default: <span class="token-string">"'user'"</span> },  <span class="token-comment">// Note: inner quotes!</span>
+    { name: <span class="token-string">'metadata'</span>, type: <span class="token-string">'jsonb'</span> },
+    { name: <span class="token-string">'created_at'</span>, type: <span class="token-string">'timestamptz'</span>, default: <span class="token-string">'now()'</span> }
+  ]
+});</code></pre>
+                    </div>
+
+                    <div class="callout callout-warning">
+                        <svg class="callout-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <div class="callout-content">
+                            <div class="callout-title">String Defaults Need Inner Quotes</div>
+                            <p>For string default values, use <code>"'value'"</code> (with inner quotes). SQL functions like <code>now()</code> don't need them.</p>
+                        </div>
+                    </div>
+
+                    <h3>Supported Column Types</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>uuid</code></td><td>UUID identifier</td></tr>
+                            <tr><td><code>text</code>, <code>varchar(n)</code></td><td>Text/string</td></tr>
+                            <tr><td><code>integer</code>, <code>bigint</code></td><td>Integer numbers</td></tr>
+                            <tr><td><code>real</code>, <code>double</code></td><td>Floating-point numbers</td></tr>
+                            <tr><td><code>boolean</code></td><td>True/false</td></tr>
+                            <tr><td><code>jsonb</code></td><td>JSON data</td></tr>
+                            <tr><td><code>timestamptz</code></td><td>Timestamp with timezone</td></tr>
+                            <tr><td><code>date</code>, <code>time</code></td><td>Date and time</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- Row Operations -->
+                <section id="row-operations">
+                    <h2><a href="#row-operations" class="anchor">#</a>Row Operations</h2>
+                    <p>Full CRUD operations on table rows.</p>
+
+                    <h3>Insert</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> rows = client.tables.<span class="token-function">rows</span>(<span class="token-string">'users'</span>);
+
+<span class="token-comment">// Insert single row</span>
+<span class="token-keyword">const</span> user = <span class="token-keyword">await</span> rows.<span class="token-function">insert</span>({
+  email: <span class="token-string">'user@example.com'</span>,
+  name: <span class="token-string">'John Doe'</span>,
+  metadata: { plan: <span class="token-string">'pro'</span> }
+});
+
+<span class="token-comment">// Insert multiple rows</span>
+<span class="token-keyword">const</span> users = <span class="token-keyword">await</span> rows.<span class="token-function">insertMany</span>([
+  { email: <span class="token-string">'a@b.com'</span>, name: <span class="token-string">'User A'</span> },
+  { email: <span class="token-string">'c@d.com'</span>, name: <span class="token-string">'User B'</span> }
+]);</code></pre>
+                    </div>
+
+                    <h3>Query</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> { rows, pagination } = <span class="token-keyword">await</span> client.tables.<span class="token-function">rows</span>(<span class="token-string">'users'</span>).<span class="token-function">query</span>({
+  filter: <span class="token-string">'role.eq=admin&created_at.gte=2024-01-01'</span>,
+  order: <span class="token-string">'created_at:desc'</span>,
+  select: <span class="token-string">'id,name,email'</span>,
+  limit: <span class="token-number">20</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Read, Update, Delete</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> rows = client.tables.<span class="token-function">rows</span>(<span class="token-string">'users'</span>);
+
+<span class="token-comment">// Get by ID</span>
+<span class="token-keyword">const</span> user = <span class="token-keyword">await</span> rows.<span class="token-function">get</span>(<span class="token-string">'user-id'</span>);
+
+<span class="token-comment">// Find first matching</span>
+<span class="token-keyword">const</span> admin = <span class="token-keyword">await</span> rows.<span class="token-function">findFirst</span>(<span class="token-string">'email.eq=admin@example.com'</span>);
+
+<span class="token-comment">// Update</span>
+<span class="token-keyword">const</span> updated = <span class="token-keyword">await</span> rows.<span class="token-function">update</span>(<span class="token-string">'user-id'</span>, {
+  name: <span class="token-string">'Jane Doe'</span>,
+  updated_at: <span class="token-keyword">new</span> <span class="token-type">Date</span>().<span class="token-function">toISOString</span>()  <span class="token-comment">// Manual timestamp</span>
+});
+
+<span class="token-comment">// Delete</span>
+<span class="token-keyword">await</span> rows.<span class="token-function">delete</span>(<span class="token-string">'user-id'</span>);
+
+<span class="token-comment">// Count</span>
+<span class="token-keyword">const</span> count = <span class="token-keyword">await</span> rows.<span class="token-function">count</span>(<span class="token-string">'role.eq=admin'</span>);
+
+<span class="token-comment">// Check existence</span>
+<span class="token-keyword">const</span> exists = <span class="token-keyword">await</span> rows.<span class="token-function">exists</span>(<span class="token-string">'user-id'</span>);
+
+<span class="token-comment">// Get all (auto-paginated)</span>
+<span class="token-keyword">const</span> allUsers = <span class="token-keyword">await</span> rows.<span class="token-function">all</span>({ filter: <span class="token-string">'role.eq=user'</span> });</code></pre>
+                    </div>
+                </section>
+
+                <!-- Filtering -->
+                <section id="filtering">
+                    <h2><a href="#filtering" class="anchor">#</a>Filtering</h2>
+                    <p>Filter rows using a simple query string syntax.</p>
+
+                    <h3>Filter Operators</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Operator</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>eq</code></td><td>Equals</td><td><code>status.eq=active</code></td></tr>
+                            <tr><td><code>neq</code></td><td>Not equals</td><td><code>status.neq=deleted</code></td></tr>
+                            <tr><td><code>gt</code></td><td>Greater than</td><td><code>age.gt=18</code></td></tr>
+                            <tr><td><code>gte</code></td><td>Greater or equal</td><td><code>age.gte=18</code></td></tr>
+                            <tr><td><code>lt</code></td><td>Less than</td><td><code>price.lt=100</code></td></tr>
+                            <tr><td><code>lte</code></td><td>Less or equal</td><td><code>price.lte=100</code></td></tr>
+                            <tr><td><code>like</code></td><td>Contains (case-insensitive)</td><td><code>name.like=john</code></td></tr>
+                            <tr><td><code>is</code></td><td>Is null/true/false</td><td><code>deleted_at.is=null</code></td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Combining Filters</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Multiple conditions with &</span>
+filter: <span class="token-string">'age.gte=18&status.eq=active&name.like=john'</span></code></pre>
+                    </div>
+                </section>
+
+                <!-- Pagination -->
+                <section id="pagination">
+                    <h2><a href="#pagination" class="anchor">#</a>Pagination</h2>
+                    <p>Multiple pagination styles supported.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Offset-based pagination</span>
+<span class="token-keyword">const</span> page1 = <span class="token-keyword">await</span> rows.<span class="token-function">query</span>({ limit: <span class="token-number">20</span>, offset: <span class="token-number">0</span> });
+<span class="token-keyword">const</span> page2 = <span class="token-keyword">await</span> rows.<span class="token-function">query</span>({ limit: <span class="token-number">20</span>, offset: <span class="token-number">20</span> });
+
+<span class="token-comment">// Cursor-based pagination (recommended for large datasets)</span>
+<span class="token-keyword">const</span> page1 = <span class="token-keyword">await</span> rows.<span class="token-function">query</span>({ limit: <span class="token-number">50</span> });
+<span class="token-keyword">const</span> page2 = <span class="token-keyword">await</span> rows.<span class="token-function">query</span>({
+  cursor: page1.pagination.next_cursor
+});
+
+<span class="token-comment">// Pagination metadata</span>
+<span class="token-comment">// { total, count, limit, offset, has_next, has_previous, next_cursor, prev_cursor }</span></code></pre>
+                    </div>
+                </section>
+
+                <!-- App Auth -->
+                <section id="app-auth">
+                    <h2><a href="#app-auth" class="anchor">#</a>App Authentication</h2>
+                    <p>Complete authentication system for your application's end-users.</p>
+
+                    <h3>User Registration & Login</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Register</span>
+<span class="token-keyword">const</span> auth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">register</span>({
+  email: <span class="token-string">'user@example.com'</span>,
+  password: <span class="token-string">'securePassword123'</span>,
+  name: <span class="token-string">'John Doe'</span>,
+  metadata: { plan: <span class="token-string">'free'</span> }
+});
+<span class="token-comment">// Returns: { user, access_token, refresh_token, expires_in }</span>
+
+<span class="token-comment">// Login</span>
+<span class="token-keyword">const</span> auth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">login</span>({
+  email: <span class="token-string">'user@example.com'</span>,
+  password: <span class="token-string">'securePassword123'</span>
+});
+
+<span class="token-comment">// Get current user</span>
+<span class="token-keyword">const</span> user = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">me</span>();
+
+<span class="token-comment">// Update profile</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">updateProfile</span>({ name: <span class="token-string">'Jane Doe'</span> });
+
+<span class="token-comment">// Logout</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">logout</span>();</code></pre>
+                    </div>
+
+                    <h3>Password Reset</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Request password reset</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">forgotPassword</span>(<span class="token-string">'user@example.com'</span>);
+
+<span class="token-comment">// Reset password with token</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">resetPassword</span>(token, <span class="token-string">'newPassword123'</span>);
+
+<span class="token-comment">// Change password (when logged in)</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">changePassword</span>({
+  current_password: <span class="token-string">'oldPassword'</span>,
+  new_password: <span class="token-string">'newPassword123'</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Token Management</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Refresh token</span>
+<span class="token-keyword">const</span> newAuth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">refresh</span>(refreshToken);
+
+<span class="token-comment">// Set token manually</span>
+client.appAuth.<span class="token-function">setToken</span>(accessToken);</code></pre>
+                    </div>
+                </section>
+
+                <!-- User Management -->
+                <section id="user-management">
+                    <h2><a href="#user-management" class="anchor">#</a>User Management (Admin)</h2>
+                    <p>Admin operations for managing your application's users.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// List users</span>
+<span class="token-keyword">const</span> { data } = <span class="token-keyword">await</span> client.appAuth.users.<span class="token-function">list</span>({ limit: <span class="token-number">20</span> });
+
+<span class="token-comment">// Get user</span>
+<span class="token-keyword">const</span> user = <span class="token-keyword">await</span> client.appAuth.users.<span class="token-function">get</span>(<span class="token-string">'user-id'</span>);
+
+<span class="token-comment">// Update user</span>
+<span class="token-keyword">await</span> client.appAuth.users.<span class="token-function">update</span>(<span class="token-string">'user-id'</span>, {
+  status: <span class="token-string">'suspended'</span>,
+  email_verified: <span class="token-boolean">true</span>
+});
+
+<span class="token-comment">// Delete user</span>
+<span class="token-keyword">await</span> client.appAuth.users.<span class="token-function">delete</span>(<span class="token-string">'user-id'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Error Handling -->
+                <section id="error-handling">
+                    <h2><a href="#error-handling" class="anchor">#</a>Error Handling</h2>
+                    <p>The SDK provides typed errors for different failure scenarios.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> {
+  <span class="token-type">DevabaseError</span>,
+  <span class="token-type">AuthenticationError</span>,
+  <span class="token-type">AuthorizationError</span>,
+  <span class="token-type">NotFoundError</span>,
+  <span class="token-type">ValidationError</span>,
+  <span class="token-type">RateLimitError</span>
+} <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
+
+<span class="token-keyword">try</span> {
+  <span class="token-keyword">await</span> client.collections.<span class="token-function">get</span>(<span class="token-string">'non-existent'</span>);
+} <span class="token-keyword">catch</span> (error) {
+  <span class="token-keyword">if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">NotFoundError</span>) {
+    <span class="token-comment">// Resource not found (404)</span>
+  } <span class="token-keyword">else if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">AuthenticationError</span>) {
+    <span class="token-comment">// Invalid credentials (401)</span>
+  } <span class="token-keyword">else if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">AuthorizationError</span>) {
+    <span class="token-comment">// Insufficient permissions (403)</span>
+  } <span class="token-keyword">else if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">ValidationError</span>) {
+    <span class="token-comment">// Invalid input (400)</span>
+    console.<span class="token-function">log</span>(error.details);
+  } <span class="token-keyword">else if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">RateLimitError</span>) {
+    <span class="token-comment">// Too many requests (429)</span>
+    console.<span class="token-function">log</span>(<span class="token-string">'Retry after:'</span>, error.retryAfter);
+  } <span class="token-keyword">else if</span> (error <span class="token-keyword">instanceof</span> <span class="token-type">DevabaseError</span>) {
+    <span class="token-comment">// Other API error</span>
+    console.<span class="token-function">log</span>(error.code, error.status, error.message);
+  }
+}</code></pre>
+                    </div>
+
+                    <h3>Error Types</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Error Class</th>
+                                <th>HTTP Status</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>AuthenticationError</code></td><td>401</td><td>Invalid or expired credentials</td></tr>
+                            <tr><td><code>AuthorizationError</code></td><td>403</td><td>Insufficient permissions</td></tr>
+                            <tr><td><code>NotFoundError</code></td><td>404</td><td>Resource not found</td></tr>
+                            <tr><td><code>ValidationError</code></td><td>400</td><td>Invalid input data</td></tr>
+                            <tr><td><code>RateLimitError</code></td><td>429</td><td>Too many requests</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- TypeScript -->
+                <section id="typescript">
+                    <h2><a href="#typescript" class="anchor">#</a>TypeScript</h2>
+                    <p>The SDK includes full TypeScript definitions. Import types directly:</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import type</span> {
+  <span class="token-type">Collection</span>,
+  <span class="token-type">Document</span>,
+  <span class="token-type">SearchResult</span>,
+  <span class="token-type">RagChatResponse</span>,
+  <span class="token-type">Table</span>,
+  <span class="token-type">AppUser</span>,
+  <span class="token-type">PaginatedResponse</span>,
+  <span class="token-type">QueryOptions</span>,
+  <span class="token-type">RagStreamCallbacks</span>
+} <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;</code></pre>
+                    </div>
+                </section>
+
+                <!-- Examples -->
+                <section id="examples">
+                    <h2><a href="#examples" class="anchor">#</a>Examples</h2>
+
+                    <h3>RAG Chatbot</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">chatbot.ts</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
+<span class="token-keyword">import</span> { readFileSync } <span class="token-keyword">from</span> <span class="token-string">'fs'</span>;
+
+<span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
+  baseUrl: process.env.DEVABASE_URL!,
+  apiKey: process.env.DEVABASE_API_KEY!
+});
+client.<span class="token-function">useProject</span>(process.env.PROJECT_ID!);
+
+<span class="token-comment">// Setup: Create collection and upload docs</span>
+<span class="token-keyword">async function</span> <span class="token-function">setup</span>() {
+  <span class="token-keyword">await</span> client.collections.<span class="token-function">create</span>({
+    name: <span class="token-string">'support-docs'</span>,
+    dimensions: <span class="token-number">1536</span>
+  });
+
+  <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'support-docs'</span>, {
+    file: <span class="token-function">readFileSync</span>(<span class="token-string">'./docs/faq.pdf'</span>),
+    filename: <span class="token-string">'faq.pdf'</span>
+  });
+}
+
+<span class="token-comment">// Chat function</span>
+<span class="token-keyword">async function</span> <span class="token-function">chat</span>(message: <span class="token-type">string</span>, conversationId?: <span class="token-type">string</span>) {
+  <span class="token-keyword">return</span> client.chat.<span class="token-function">send</span>({
+    collection: <span class="token-string">'support-docs'</span>,
+    message,
+    conversation_id: conversationId,
+    include_sources: <span class="token-boolean">true</span>
+  });
+}
+
+<span class="token-comment">// Usage</span>
+<span class="token-keyword">const</span> response = <span class="token-keyword">await</span> <span class="token-function">chat</span>(<span class="token-string">'How do I reset my password?'</span>);
+console.<span class="token-function">log</span>(response.answer);</code></pre>
+                    </div>
+
+                    <h3>REST API Backend</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">api.ts</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
+
+<span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({ baseUrl: URL, apiKey: KEY });
+client.<span class="token-function">useProject</span>(PROJECT_ID);
+
+<span class="token-comment">// Create posts table</span>
+<span class="token-keyword">await</span> client.tables.<span class="token-function">create</span>({
+  name: <span class="token-string">'posts'</span>,
+  columns: [
+    { name: <span class="token-string">'id'</span>, type: <span class="token-string">'uuid'</span>, primary: <span class="token-boolean">true</span>, default: <span class="token-string">'gen_random_uuid()'</span> },
+    { name: <span class="token-string">'title'</span>, type: <span class="token-string">'text'</span>, nullable: <span class="token-boolean">false</span> },
+    { name: <span class="token-string">'content'</span>, type: <span class="token-string">'text'</span> },
+    { name: <span class="token-string">'author_id'</span>, type: <span class="token-string">'uuid'</span> },
+    { name: <span class="token-string">'published'</span>, type: <span class="token-string">'boolean'</span>, default: <span class="token-string">'false'</span> },
+    { name: <span class="token-string">'created_at'</span>, type: <span class="token-string">'timestamptz'</span>, default: <span class="token-string">'now()'</span> }
+  ]
+});
+
+<span class="token-comment">// CRUD operations</span>
+<span class="token-keyword">const</span> posts = client.tables.<span class="token-function">rows</span>(<span class="token-string">'posts'</span>);
+
+<span class="token-comment">// Create</span>
+<span class="token-keyword">const</span> post = <span class="token-keyword">await</span> posts.<span class="token-function">insert</span>({
+  title: <span class="token-string">'Hello World'</span>,
+  content: <span class="token-string">'My first post'</span>
+});
+
+<span class="token-comment">// Read</span>
+<span class="token-keyword">const</span> { rows } = <span class="token-keyword">await</span> posts.<span class="token-function">query</span>({
+  filter: <span class="token-string">'published.eq=true'</span>,
+  order: <span class="token-string">'created_at:desc'</span>,
+  limit: <span class="token-number">10</span>
+});
+
+<span class="token-comment">// Update</span>
+<span class="token-keyword">await</span> posts.<span class="token-function">update</span>(post.id, { published: <span class="token-boolean">true</span> });
+
+<span class="token-comment">// Delete</span>
+<span class="token-keyword">await</span> posts.<span class="token-function">delete</span>(post.id);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Footer -->
+                <div style="margin-top: 80px; padding-top: 40px; border-top: 1px solid var(--border-color); text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 14px;">
+                        Devabase SDK v0.5.0 · <a href="https://github.com/kvsovanreach/devabase">GitHub</a> · <a href="https://www.npmjs.com/package/devabase-sdk">npm</a> · MIT License
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // Install command tabs
+        const installCmds = {
+            npm: 'npm install devabase-sdk',
+            yarn: 'yarn add devabase-sdk',
+            pnpm: 'pnpm add devabase-sdk'
+        };
+
+        document.querySelectorAll('.install-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('install-cmd').textContent = installCmds[tab.dataset.pkg];
+            });
+        });
+
+        // Copy install command
+        function copyInstall() {
+            const cmd = document.getElementById('install-cmd').textContent;
+            navigator.clipboard.writeText(cmd);
+            const btn = event.target.closest('.copy-btn');
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg> Copy`;
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+
+        // Copy code blocks
+        function copyCode(btn) {
+            const pre = btn.closest('.code-block').querySelector('pre') ||
+                        btn.closest('.code-block-header').nextElementSibling;
+            const code = pre.textContent;
+            navigator.clipboard.writeText(code);
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+
+        // Active sidebar link
+        const sections = document.querySelectorAll('section[id]');
+        const sidebarLinks = document.querySelectorAll('.sidebar-links a');
+
+        function updateActiveLink() {
+            const scrollPos = window.scrollY + 100;
+
+            sections.forEach(section => {
+                const top = section.offsetTop;
+                const height = section.offsetHeight;
+                const id = section.getAttribute('id');
+
+                if (scrollPos >= top && scrollPos < top + height) {
+                    sidebarLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === `#${id}`) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }
+
+        window.addEventListener('scroll', updateActiveLink);
+        updateActiveLink();
+
+        // Close sidebar on link click (mobile)
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 900) {
+                    document.getElementById('sidebar').classList.remove('open');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

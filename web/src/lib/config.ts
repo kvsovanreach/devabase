@@ -9,8 +9,9 @@ const isDevelopment = process.env.NODE_ENV === 'development';
  * Get the API base URL.
  * Priority:
  * 1. NEXT_PUBLIC_API_URL environment variable (set at build time)
- * 2. Same host as frontend with backend port (for server deployments)
- * 3. Fallback to localhost:9002 (for local development)
+ * 2. Detect backend subdomain pattern (e.g., devabase.example.com -> devabase-b.example.com)
+ * 3. Same host with backend port (for local development)
+ * 4. Fallback to localhost:9002
  */
 function getApiUrl(): string {
   // If explicitly set via env var, use it
@@ -20,8 +21,24 @@ function getApiUrl(): string {
 
   // In browser, derive from current location
   if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    // Use same host with backend port
+    const { protocol, hostname, port } = window.location;
+
+    // Local development: use same host with backend port
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${protocol}//${hostname}:9002`;
+    }
+
+    // Production: try to detect backend subdomain pattern
+    // e.g., devabase.example.com -> devabase-b.example.com
+    // e.g., app.example.com -> api.example.com
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      // Try common patterns: add '-b' or '-api' suffix to first subdomain
+      const backendHost = parts[0] + '-b.' + parts.slice(1).join('.');
+      return `${protocol}//${backendHost}`;
+    }
+
+    // Fallback: same host with port
     return `${protocol}//${hostname}:9002`;
   }
 
@@ -37,6 +54,19 @@ function getWsUrl(): string {
   if (typeof window !== 'undefined') {
     const { hostname } = window.location;
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    // Local development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${wsProtocol}//${hostname}:9002`;
+    }
+
+    // Production: detect backend subdomain
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      const backendHost = parts[0] + '-b.' + parts.slice(1).join('.');
+      return `${wsProtocol}//${backendHost}`;
+    }
+
     return `${wsProtocol}//${hostname}:9002`;
   }
 
