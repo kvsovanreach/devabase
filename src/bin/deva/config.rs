@@ -28,7 +28,7 @@ pub struct Config {
 }
 
 fn default_api_url() -> String {
-    "http://localhost:8080".to_string()
+    "http://localhost:9002".to_string()
 }
 
 impl Default for Config {

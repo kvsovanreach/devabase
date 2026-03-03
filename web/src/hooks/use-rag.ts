@@ -3,17 +3,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { API_CONFIG } from '@/lib/config';
-import { RagConfig, ChatResponse, StreamEvent, StreamingSource } from '@/types';
+import { RagConfig, StreamEvent, StreamingSource } from '@/types';
 import toast from 'react-hot-toast';
 
 // Unified RAG request type - supports single or multiple collections
-export interface UnifiedRagRequest {
+export interface RagRequest {
   collection: string | string[];
   message: string;
   conversation_id?: string;
   include_sources?: boolean;
   top_k?: number;
-  stream?: boolean;
 }
 
 // Source type in RAG responses
@@ -26,7 +25,7 @@ export interface RagSource {
 }
 
 // Unified RAG response type
-export interface UnifiedRagResponse {
+export interface RagResponse {
   answer: string;
   thinking?: string;
   sources: RagSource[];
@@ -35,31 +34,18 @@ export interface UnifiedRagResponse {
   tokens_used: number;
 }
 
-// Legacy types for backward compatibility
-export interface MultiCollectionChatRequest {
-  collections: string[];
-  message: string;
-  conversation_id?: string;
-  include_sources?: boolean;
-  top_k?: number;
+// Streaming callbacks interface
+export interface StreamingCallbacks {
+  onSources?: (sources: StreamingSource[]) => void;
+  onThinking?: (thinking: string) => void;
+  onContent?: (content: string) => void;
+  onDone?: (conversationId: string | null, tokensUsed: number) => void;
+  onError?: (error: string) => void;
 }
 
-export interface MultiCollectionChatSource {
-  collection_name: string;
-  document_id: string;
-  document_name: string;
-  chunk_content: string;
-  relevance_score: number;
-}
-
-export interface MultiCollectionChatResponse {
-  answer: string;
-  sources: MultiCollectionChatSource[];
-  collections_used: string[];
-  conversation_id?: string;
-  tokens_used: number;
-}
-
+/**
+ * Enable RAG on a collection
+ */
 export function useEnableRag() {
   const queryClient = useQueryClient();
 
@@ -72,7 +58,7 @@ export function useEnableRag() {
       config: Partial<RagConfig>;
     }) => {
       const response = await api.patch<{ success: boolean }>(
-        `/collections/${encodeURIComponent(collectionName)}/rag`,
+        `/collections/${encodeURIComponent(collectionName)}/config`,
         config
       );
       return response.data;
@@ -88,13 +74,16 @@ export function useEnableRag() {
   });
 }
 
+/**
+ * Disable RAG on a collection
+ */
 export function useDisableRag() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (collectionName: string) => {
       const response = await api.patch<{ success: boolean }>(
-        `/collections/${encodeURIComponent(collectionName)}/rag`,
+        `/collections/${encodeURIComponent(collectionName)}/config`,
         { enabled: false }
       );
       return response.data;
@@ -110,41 +99,26 @@ export function useDisableRag() {
   });
 }
 
-// Streaming callbacks interface
-export interface StreamingChatCallbacks {
-  onSources?: (sources: StreamingSource[]) => void;
-  onThinking?: (thinking: string) => void;
-  onContent?: (content: string) => void;
-  onDone?: (conversationId: string | null, tokensUsed: number) => void;
-  onError?: (error: string) => void;
-}
-
-// Legacy alias
-export type MultiStreamingChatCallbacks = StreamingChatCallbacks;
-
 /**
- * Unified streaming RAG chat function
- * Uses /v1/rag endpoint with collection (string or array) and stream: true
+ * Streaming RAG chat
+ * Uses /v1/rag endpoint with collection (string or array)
  */
 export async function streamRag(
-  request: UnifiedRagRequest,
-  callbacks: StreamingChatCallbacks
+  request: RagRequest,
+  callbacks: StreamingCallbacks
 ): Promise<void> {
-  const response = await fetch(
-    `${API_CONFIG.baseUrl}/v1/rag`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${api.getStoredToken()}`,
-        'X-Project-ID': api.getStoredProjectId() || '',
-      },
-      body: JSON.stringify({
-        ...request,
-        stream: true,
-      }),
-    }
-  );
+  const response = await fetch(`${API_CONFIG.baseUrl}/v1/rag`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${api.getStoredToken()}`,
+      'X-Project-ID': api.getStoredProjectId() || '',
+    },
+    body: JSON.stringify({
+      ...request,
+      stream: true,
+    }),
+  });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -172,7 +146,6 @@ export async function streamRag(
         const trimmed = line.trim();
         if (!trimmed || trimmed === 'keep-alive') continue;
 
-        // SSE format: "data: {...}"
         if (trimmed.startsWith('data: ')) {
           const jsonStr = trimmed.slice(6);
           try {
@@ -207,160 +180,31 @@ export async function streamRag(
 }
 
 /**
- * Legacy function for single collection streaming RAG chat
- * @deprecated Use streamRag instead
- */
-export async function streamRagChat(
-  collectionName: string,
-  request: { message: string; conversation_id?: string; include_sources?: boolean; top_k?: number },
-  callbacks: StreamingChatCallbacks
-): Promise<void> {
-  return streamRag(
-    {
-      collection: collectionName,
-      message: request.message,
-      conversation_id: request.conversation_id,
-      include_sources: request.include_sources,
-      top_k: request.top_k,
-    },
-    callbacks
-  );
-}
-
-/**
- * Legacy function for multi-collection streaming RAG chat
- * @deprecated Use streamRag instead
- */
-export async function streamMultiRagChat(
-  request: MultiCollectionChatRequest,
-  callbacks: StreamingChatCallbacks
-): Promise<void> {
-  return streamRag(
-    {
-      collection: request.collections,
-      message: request.message,
-      conversation_id: request.conversation_id,
-      include_sources: request.include_sources,
-      top_k: request.top_k,
-    },
-    callbacks
-  );
-}
-
-/**
- * Unified RAG chat hook (non-streaming)
- * Uses /v1/rag endpoint with stream: false
+ * Non-streaming RAG chat hook
+ * Uses /v1/rag endpoint
  */
 export function useRag() {
   return useMutation({
-    mutationFn: async (request: UnifiedRagRequest) => {
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/v1/rag`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${api.getStoredToken()}`,
-            'X-Project-ID': api.getStoredProjectId() || '',
-          },
-          body: JSON.stringify({
-            ...request,
-            stream: false,
-          }),
-        }
-      );
+    mutationFn: async (request: RagRequest) => {
+      const response = await fetch(`${API_CONFIG.baseUrl}/v1/rag`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${api.getStoredToken()}`,
+          'X-Project-ID': api.getStoredProjectId() || '',
+        },
+        body: JSON.stringify({
+          ...request,
+          stream: false,
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.message || 'RAG chat request failed');
       }
 
-      return response.json() as Promise<UnifiedRagResponse>;
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Chat failed');
-    },
-  });
-}
-
-/**
- * Legacy hook for single collection RAG chat
- * @deprecated Use useRag instead
- */
-export function useRagChat() {
-  return useMutation({
-    mutationFn: async ({
-      collectionName,
-      request,
-    }: {
-      collectionName: string;
-      request: { message: string; conversation_id?: string; include_sources?: boolean };
-    }) => {
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/v1/rag`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${api.getStoredToken()}`,
-            'X-Project-ID': api.getStoredProjectId() || '',
-          },
-          body: JSON.stringify({
-            collection: collectionName,
-            message: request.message,
-            conversation_id: request.conversation_id,
-            include_sources: request.include_sources,
-            stream: false,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || 'Chat request failed');
-      }
-
-      return response.json() as Promise<ChatResponse>;
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Chat failed');
-    },
-  });
-}
-
-/**
- * Legacy hook for multi-collection RAG chat
- * @deprecated Use useRag instead
- */
-export function useMultiCollectionRagChat() {
-  return useMutation({
-    mutationFn: async (request: MultiCollectionChatRequest) => {
-      const response = await fetch(
-        `${API_CONFIG.baseUrl}/v1/rag`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${api.getStoredToken()}`,
-            'X-Project-ID': api.getStoredProjectId() || '',
-          },
-          body: JSON.stringify({
-            collection: request.collections,
-            message: request.message,
-            conversation_id: request.conversation_id,
-            include_sources: request.include_sources,
-            top_k: request.top_k,
-            stream: false,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || 'Multi-collection chat request failed');
-      }
-
-      return response.json() as Promise<MultiCollectionChatResponse>;
+      return response.json() as Promise<RagResponse>;
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Chat failed');

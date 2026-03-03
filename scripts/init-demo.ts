@@ -8,7 +8,7 @@
  */
 
 // Configuration
-const BASE_URL = process.env.DEVABASE_URL || "http://localhost:8080";
+const BASE_URL = process.env.DEVABASE_URL || "http://localhost:9002";
 const DEMO_EMAIL = process.env.DEMO_EMAIL || "demo@devabase.dev";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "demo123456";
 const DEMO_NAME = process.env.DEMO_NAME || "Demo User";
@@ -53,7 +53,7 @@ cd web && npm install && npm run dev
 
 ## Quick Start
 
-1. Register an account at http://localhost:3000/register
+1. Register an account at http://localhost:9001/register
 2. Create a project - this isolates your data
 3. Configure providers - add your OpenAI/Anthropic API keys
 4. Create a collection - where your documents live
@@ -318,7 +318,7 @@ Devabase uses JWT-based authentication for API access.
 
 ### Login
 \`\`\`bash
-curl -X POST http://localhost:8080/v1/auth/login \\
+curl -X POST http://localhost:9002/v1/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{"email": "user@example.com", "password": "secret"}'
 \`\`\`
@@ -338,7 +338,7 @@ Include the token in the Authorization header:
 \`\`\`bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \\
      -H "X-Project-ID: YOUR_PROJECT_ID" \\
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 \`\`\`
 
 ## API Keys
@@ -347,7 +347,7 @@ For production, use API keys instead of JWT tokens:
 \`\`\`bash
 curl -H "Authorization: Bearer dvb_your_api_key" \\
      -H "X-Project-ID: YOUR_PROJECT_ID" \\
-     http://localhost:8080/v1/collections
+     http://localhost:9002/v1/collections
 \`\`\`
 
 Create API keys in the dashboard under Project Settings > API Keys.`,
@@ -543,12 +543,30 @@ async function main() {
   // Step 1: Register/Login
   log("Step 1: Setting up demo user...", "info");
 
-  // Try to register
-  await apiCall("POST", "/v1/auth/register", {
+  // Check if backend is ready
+  try {
+    const health = await fetch(`${BASE_URL}/v1/health`);
+    if (!health.ok) {
+      log(`Backend not ready at ${BASE_URL}. Make sure the server is running.`, "error");
+      process.exit(1);
+    }
+  } catch (e) {
+    log(`Cannot connect to backend at ${BASE_URL}. Make sure the server is running.`, "error");
+    process.exit(1);
+  }
+
+  // Try to register (may fail if user exists, that's ok)
+  const registerResult = await apiCall("POST", "/v1/auth/register", {
     email: DEMO_EMAIL,
     password: DEMO_PASSWORD,
     name: DEMO_NAME,
   });
+
+  if (registerResult.error) {
+    log(`Registration: ${registerResult.error} (may already exist, continuing...)`, "warning");
+  } else if (registerResult.user) {
+    log(`Registered new user: ${DEMO_EMAIL}`, "success");
+  }
 
   // Login
   const loginResult = await apiCall("POST", "/v1/auth/login", {
@@ -558,6 +576,7 @@ async function main() {
 
   if (!loginResult.token) {
     log(`Failed to login: ${JSON.stringify(loginResult)}`, "error");
+    log("Make sure the backend is running and the database is initialized.", "error");
     process.exit(1);
   }
 
@@ -685,7 +704,7 @@ async function main() {
   console.log(`  \x1b[32m✓\x1b[0m ${SAMPLE_CUSTOMERS.length + SAMPLE_PRODUCTS.length + SAMPLE_ORDERS.length} Sample records`);
 
   console.log("\nNext Steps:");
-  console.log("  1. Open \x1b[33mhttp://localhost:3000\x1b[0m in your browser");
+  console.log("  1. Open \x1b[33mhttp://localhost:9001\x1b[0m in your browser");
   console.log("  2. Login with the demo credentials");
   console.log("  3. Configure your AI providers in Settings > Providers");
   console.log("  4. Upload documents to collections");

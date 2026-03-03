@@ -4,11 +4,11 @@
  * Run this script with: npx tsx scripts/seed-expense-tables.ts
  *
  * Make sure you have:
- * 1. Backend running at localhost:8080
+ * 1. Backend running at localhost:9002
  * 2. Valid API key set in API_KEY environment variable
  */
 
-const API_URL = process.env.API_URL || 'http://localhost:8080/v1';
+const API_URL = process.env.API_URL || 'http://localhost:9002/v1';
 const API_KEY = process.env.API_KEY || '';
 
 if (!API_KEY) {

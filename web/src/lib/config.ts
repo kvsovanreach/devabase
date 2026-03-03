@@ -5,10 +5,48 @@
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+/**
+ * Get the API base URL.
+ * Priority:
+ * 1. NEXT_PUBLIC_API_URL environment variable (set at build time)
+ * 2. Same host as frontend with backend port (for server deployments)
+ * 3. Fallback to localhost:9002 (for local development)
+ */
+function getApiUrl(): string {
+  // If explicitly set via env var, use it
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // In browser, derive from current location
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    // Use same host with backend port
+    return `${protocol}//${hostname}:9002`;
+  }
+
+  // SSR fallback
+  return 'http://localhost:9002';
+}
+
+function getWsUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${hostname}:9002`;
+  }
+
+  return 'ws://localhost:9002';
+}
+
 // API Configuration
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-  wsUrl: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080',
+  get baseUrl() { return getApiUrl(); },
+  get wsUrl() { return getWsUrl(); },
   timeout: 60000, // 60 seconds for regular requests
   uploadTimeout: 300000, // 5 minutes for file uploads
   longRunningTimeout: 300000, // 5 minutes for long-running operations (knowledge extraction, etc.)

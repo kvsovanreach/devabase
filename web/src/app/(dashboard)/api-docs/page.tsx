@@ -391,36 +391,39 @@ export default function ApiDocsPage() {
         ],
       },
       {
-        name: 'RAG Retrieval',
-        icon: <Zap className="w-5 h-5" />,
+        name: 'Search',
+        icon: <Search className="w-5 h-5" />,
         description: 'Semantic search with automatic embedding generation, hybrid search, and optional reranking',
         endpoints: [
           {
             method: 'POST',
-            path: '/retrieve',
-            name: 'Retrieve',
-            description: 'Search using natural language. Automatically generates embeddings. Enable reranking for better relevance.',
+            path: '/search',
+            name: 'Unified Search',
+            description: 'Search across one or multiple collections. Automatically generates embeddings from your query. Supports vector, keyword, or hybrid search modes with optional reranking.',
             requestBody: {
-              collection: exampleCollection,
+              collections: [exampleCollection],
               query: 'What is the return policy?',
               top_k: 5,
+              mode: 'hybrid',
+              vector_weight: 0.7,
+              keyword_weight: 0.3,
               rerank: true,
-              filter: {},
             },
             responseExample: {
               results: [
                 {
-                  id: 'chunk_id',
+                  id: 'chunk_uuid',
+                  collection: exampleCollection,
+                  document_id: 'doc_uuid',
                   content: 'Our return policy allows...',
-                  score: 0.92,
+                  score: 0.94,
+                  vector_score: 0.92,
+                  keyword_score: 0.88,
                   rerank_score: 0.97,
                   metadata: { document_name: 'policy.pdf' },
                 },
               ],
             },
-            queryParams: [
-              { name: 'rerank', description: 'Enable cross-encoder reranking (requires reranking provider)' },
-            ],
           },
           {
             method: 'POST',
@@ -452,96 +455,19 @@ export default function ApiDocsPage() {
               ],
             },
           },
-          {
-            method: 'POST',
-            path: '/retrieve/hybrid',
-            name: 'Hybrid Search',
-            description: 'Combine vector similarity and keyword (BM25) search with configurable weights using Reciprocal Rank Fusion.',
-            requestBody: {
-              collection: exampleCollection,
-              query: 'OAuth2 implementation guide',
-              top_k: 5,
-              vector_weight: 0.7,
-              keyword_weight: 0.3,
-              rerank: true,
-            },
-            responseExample: {
-              results: [
-                {
-                  id: 'chunk_id',
-                  content: 'OAuth2 implementation requires...',
-                  score: 0.91,
-                  vector_score: 0.89,
-                  keyword_score: 0.85,
-                  metadata: { document_name: 'auth-docs.pdf' },
-                },
-              ],
-            },
-          },
-          {
-            method: 'POST',
-            path: '/retrieve/with-context',
-            name: 'Retrieve with Context',
-            description: 'Retrieve chunks with surrounding context for better RAG responses. Useful when you need more context around matched chunks.',
-            requestBody: {
-              collection: exampleCollection,
-              query: 'How do I reset my password?',
-              top_k: 5,
-              context_chunks: 1,
-            },
-            responseExample: {
-              results: [
-                {
-                  id: 'chunk_id',
-                  content: 'To reset your password...',
-                  context_before: 'Account Security Settings...',
-                  context_after: 'Password requirements include...',
-                  score: 0.93,
-                },
-              ],
-            },
-          },
-          {
-            method: 'POST',
-            path: '/retrieve/multi',
-            name: 'Multi-Collection Retrieve',
-            description: 'Search across multiple collections simultaneously. Results are merged and ranked by relevance.',
-            requestBody: {
-              collections: [exampleCollection, 'faq', 'support_docs'],
-              query: 'Product specifications',
-              top_k: 10,
-              rerank: true,
-            },
-            responseExample: {
-              results: [
-                {
-                  id: 'chunk_id',
-                  collection: 'faq',
-                  content: 'Product specifications include...',
-                  score: 0.95,
-                },
-                {
-                  id: 'chunk_id2',
-                  collection: exampleCollection,
-                  content: 'Technical details...',
-                  score: 0.92,
-                },
-              ],
-            },
-          },
         ],
       },
       {
         name: 'RAG Chat',
         icon: <MessageSquare className="w-5 h-5" />,
-        description: 'Chat with your documents using RAG-enabled collections',
+        description: 'Chat with your documents using RAG-enabled collections. Unified endpoint supports single or multiple collections.',
         endpoints: [
           {
             method: 'POST',
             path: '/rag',
-            name: 'Unified RAG Chat',
+            name: 'Single Collection Chat',
             description:
-              'Send a message and get an AI response grounded in your documents. Supports single or multiple collections, and streaming or non-streaming responses. Requires RAG to be enabled on the collection(s).',
+              'Send a message and get an AI response grounded in your documents. Pass collection as a string for single collection. Requires RAG to be enabled on the collection.',
             requestBody: {
               collection: exampleCollection,
               message: 'What products do you offer?',
@@ -572,7 +498,7 @@ export default function ApiDocsPage() {
             path: '/rag',
             name: 'Multi-Collection Chat',
             description:
-              'Chat across multiple collections by passing an array of collection names. Results are merged and ranked by relevance.',
+              'Chat across multiple collections by passing collection as an array. Sources from all collections are retrieved and merged by relevance.',
             requestBody: {
               collection: [exampleCollection, 'faq', 'support_docs'],
               message: 'How do I reset my password?',
@@ -606,17 +532,17 @@ export default function ApiDocsPage() {
           {
             method: 'POST',
             path: '/rag',
-            name: 'Streaming Chat',
+            name: 'Streaming Chat (SSE)',
             description:
-              'Enable real-time streaming responses using Server-Sent Events (SSE). Set stream: true to receive incremental content, thinking blocks, and sources as they are generated.',
+              'Enable real-time streaming responses using Server-Sent Events. Set stream: true to receive incremental content. Works with both single and multiple collections.',
             requestBody: {
-              collection: exampleCollection,
+              collection: [exampleCollection, 'faq'],
               message: 'Explain our pricing tiers',
               include_sources: true,
               stream: true,
             },
             responseExample: {
-              _note: 'SSE stream events',
+              _note: 'Server-Sent Events stream',
               events: [
                 { type: 'sources', sources: [{ document_name: 'pricing.pdf', score: 0.95 }] },
                 { type: 'thinking', content: 'Analyzing pricing documentation...' },
@@ -624,6 +550,25 @@ export default function ApiDocsPage() {
                 { type: 'content', content: 'Basic, Pro, and Enterprise...' },
                 { type: 'done', conversation_id: 'conv_789', tokens_used: 380 },
               ],
+            },
+          },
+          {
+            method: 'POST',
+            path: '/collections/:name/chat',
+            name: 'Collection Chat',
+            description: 'Chat with a specific collection. Alternative to /rag for single-collection use.',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              message: 'What are the key features?',
+              conversation_id: 'conv_123',
+              include_sources: true,
+              top_k: 5,
+            },
+            responseExample: {
+              answer: 'The key features include...',
+              sources: [{ document_name: 'features.pdf', relevance_score: 0.94 }],
+              conversation_id: 'conv_123',
+              tokens_used: 320,
             },
           },
           {
@@ -641,13 +586,6 @@ export default function ApiDocsPage() {
             path: '/conversations/:id',
             name: 'Get Conversation',
             description: 'Get conversation details with all messages',
-            pathParams: [{ name: 'id', description: 'Conversation UUID' }],
-          },
-          {
-            method: 'GET',
-            path: '/conversations/:id/messages',
-            name: 'Get Conversation Messages',
-            description: 'Retrieve all messages in a conversation',
             pathParams: [{ name: 'id', description: 'Conversation UUID' }],
           },
           {

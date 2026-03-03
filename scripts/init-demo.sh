@@ -14,7 +14,7 @@
 set -e
 
 # Configuration
-BASE_URL="${DEVABASE_URL:-http://localhost:8080}"
+BASE_URL="${DEVABASE_URL:-http://localhost:9002}"
 DEMO_EMAIL="${DEMO_EMAIL:-demo@devabase.dev}"
 DEMO_PASSWORD="${DEMO_PASSWORD:-demo123456}"
 DEMO_NAME="${DEMO_NAME:-Demo User}"

@@ -18,6 +18,7 @@ export class HttpClient {
   private config: HttpClientConfig;
   private token: string | null = null;
   private apiKey: string | null = null;
+  private projectId: string | null = null;
 
   constructor(config: HttpClientConfig) {
     this.config = config;
@@ -31,9 +32,17 @@ export class HttpClient {
     this.apiKey = apiKey;
   }
 
+  setProjectId(projectId: string | null): void {
+    this.projectId = projectId;
+  }
+
+  getProjectId(): string | null {
+    return this.projectId;
+  }
+
   private getAuthHeader(): string | null {
     if (this.apiKey) {
-      return this.apiKey;
+      return `Bearer ${this.apiKey}`;
     }
     if (this.token) {
       return `Bearer ${this.token}`;
@@ -108,6 +117,10 @@ export class HttpClient {
     const auth = this.getAuthHeader();
     if (auth) {
       headers.set('Authorization', auth);
+    }
+
+    if (this.projectId) {
+      headers.set('X-Project-ID', this.projectId);
     }
 
     return headers;
