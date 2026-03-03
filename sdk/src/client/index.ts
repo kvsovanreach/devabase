@@ -85,6 +85,7 @@ export class DevabaseClient {
    */
   useProject(projectId: string): this {
     this.projects.use(projectId);
+    this.http.setProjectId(projectId);
     return this;
   }
 
@@ -92,7 +93,7 @@ export class DevabaseClient {
    * Get the current project ID
    */
   getCurrentProjectId(): string | null {
-    return this.projects.getCurrentId();
+    return this.http.getProjectId();
   }
 }
 
