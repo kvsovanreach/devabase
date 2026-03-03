@@ -12,7 +12,7 @@ use crate::db::models::{Chunk, ChunkResponse, Document, DocumentResponse, Projec
 use crate::rag::{Chunker, EmbeddingProvider, get_project_embedding_provider};
 use crate::server::AppState;
 use crate::vector;
-use crate::{Error, Result};
+use crate::{Error, ErrorInfo, Result};
 
 // ─────────────────────────────────────────
 // New Collection-Scoped Document Endpoints
@@ -901,7 +901,12 @@ fn extract_text(content_type: &str, content: &[u8]) -> Result<String> {
             // Try as plain text for unknown types
             let text = String::from_utf8_lossy(content).to_string();
             if text.chars().filter(|c| !c.is_ascii_graphic() && !c.is_whitespace()).count() > text.len() / 10 {
-                Err(Error::BadRequest(format!("Unsupported file type: {}. Only text-based files and PDFs are supported.", content_type)))
+                Err(Error::BadRequestDetailed(
+                    ErrorInfo::new(
+                        format!("Unsupported file type: {}", content_type),
+                        "UNSUPPORTED_FILE_TYPE"
+                    ).with_fix("Supported formats: PDF (.pdf), Word (.docx), Text (.txt), Markdown (.md), JSON (.json). Convert your file to a supported format.")
+                ))
             } else {
                 Ok(text)
             }

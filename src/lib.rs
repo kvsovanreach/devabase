@@ -14,4 +14,4 @@ pub mod storage;
 pub mod vector;
 
 pub use config::Config;
-pub use error::{Error, Result};
+pub use error::{Error, ErrorInfo, Result};

@@ -1,4 +1,4 @@
-use crate::{Config, Error, Result};
+use crate::{Config, Error, ErrorInfo, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -54,13 +54,19 @@ pub fn get_project_embedding_provider(
     let embedding_providers = settings
         .get("embedding_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::Config(
-            "No embedding providers configured. Add an embedding provider in project settings.".to_string()
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No embedding providers configured",
+                "EMBEDDING_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an embedding provider in Project Settings > Embedding Providers. Supported types: openai, ollama, custom.")
         ))?;
 
     if embedding_providers.is_empty() {
-        return Err(Error::Config(
-            "No embedding providers configured. Add an embedding provider in project settings.".to_string()
+        return Err(Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No embedding providers configured",
+                "EMBEDDING_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an embedding provider in Project Settings > Embedding Providers. Supported types: openai, ollama, custom.")
         ));
     }
 
@@ -74,17 +80,22 @@ pub fn get_project_embedding_provider(
         embedding_providers
             .iter()
             .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id))
-            .ok_or_else(|| Error::Config(format!(
-                "Default embedding provider '{}' not found in project settings",
-                id
-            )))?
+            .ok_or_else(|| Error::ConfigDetailed(
+                ErrorInfo::new(
+                    format!("Default embedding provider '{}' not found", id),
+                    "EMBEDDING_PROVIDER_NOT_FOUND"
+                ).with_fix(format!("Either add an embedding provider with id '{}' in Project Settings, or change the default_embedding_provider setting.", id))
+            ))?
     } else {
         // Use the first active provider
         embedding_providers
             .iter()
             .find(|p| p.get("is_active").and_then(|v| v.as_bool()).unwrap_or(false))
-            .ok_or_else(|| Error::Config(
-                "No active embedding providers found. Enable an embedding provider in project settings.".to_string()
+            .ok_or_else(|| Error::ConfigDetailed(
+                ErrorInfo::new(
+                    "No active embedding providers found",
+                    "EMBEDDING_PROVIDER_INACTIVE"
+                ).with_fix("Enable at least one embedding provider by setting is_active: true in Project Settings > Embedding Providers.")
             ))?
     };
 
@@ -110,7 +121,12 @@ pub struct ProjectOpenAIEmbedding {
 impl ProjectOpenAIEmbedding {
     pub fn new(config: &EmbeddingProviderConfig) -> Result<Self> {
         let api_key = config.api_key.clone().ok_or_else(|| {
-            Error::Config("OpenAI API key required for embedding provider".to_string())
+            Error::ConfigDetailed(
+                ErrorInfo::new(
+                    format!("OpenAI API key required for embedding provider '{}'", config.name),
+                    "EMBEDDING_API_KEY_MISSING"
+                ).with_fix("Add api_key to the embedding provider configuration in Project Settings. Get your API key from https://platform.openai.com/api-keys")
+            )
         })?;
 
         let base_url = config
@@ -157,10 +173,24 @@ impl EmbeddingProvider for ProjectOpenAIEmbedding {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Embedding(format!(
-                "OpenAI API error ({}): {}",
-                status, error_text
-            )));
+
+            // Parse error for actionable message
+            let fix = if status.as_u16() == 401 {
+                "Check that api_key is correct in Project Settings > Embedding Providers. Get a valid key from https://platform.openai.com/api-keys"
+            } else if status.as_u16() == 429 {
+                "Rate limit exceeded. Wait and retry, or upgrade your OpenAI plan."
+            } else if status.as_u16() == 404 {
+                "Model not found. Check that the model name is correct (e.g., text-embedding-3-small)."
+            } else {
+                "Check OpenAI API status at https://status.openai.com"
+            };
+
+            return Err(Error::EmbeddingDetailed(
+                ErrorInfo::new(
+                    format!("OpenAI embedding API error ({}): {}", status, error_text),
+                    "OPENAI_EMBEDDING_API_ERROR"
+                ).with_fix(fix)
+            ));
         }
 
         let data: OpenAIResponse = response.json().await?;
@@ -221,10 +251,21 @@ impl EmbeddingProvider for ProjectOllamaEmbedding {
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(Error::Embedding(format!(
-                    "Ollama API error ({}): {}",
-                    status, error_text
-                )));
+
+                let fix = if status.as_u16() == 404 || error_text.contains("model") {
+                    format!("Model '{}' not found. Run: ollama pull {}", self.model, self.model)
+                } else if error_text.contains("connection refused") || status.as_u16() == 0 {
+                    format!("Cannot connect to Ollama at {}. Ensure Ollama is running: ollama serve", self.base_url)
+                } else {
+                    "Check Ollama logs for details: ollama logs".to_string()
+                };
+
+                return Err(Error::EmbeddingDetailed(
+                    ErrorInfo::new(
+                        format!("Ollama embedding API error ({}): {}", status, error_text),
+                        "OLLAMA_EMBEDDING_API_ERROR"
+                    ).with_fix(fix)
+                ));
             }
 
             let data: OllamaResponse = response.json().await?;
@@ -255,7 +296,12 @@ pub struct ProjectCustomEmbedding {
 impl ProjectCustomEmbedding {
     pub fn new(config: &EmbeddingProviderConfig) -> Result<Self> {
         let base_url = config.base_url.clone().ok_or_else(|| {
-            Error::Config("Base URL required for custom embedding provider".to_string())
+            Error::ConfigDetailed(
+                ErrorInfo::new(
+                    format!("Base URL required for custom embedding provider '{}'", config.name),
+                    "EMBEDDING_BASE_URL_MISSING"
+                ).with_fix("Add base_url to the custom embedding provider in Project Settings (e.g., http://localhost:8000/v1/embeddings)")
+            )
         })?;
 
         Ok(Self {
@@ -408,8 +454,11 @@ impl DisabledEmbedding {
 #[async_trait]
 impl EmbeddingProvider for DisabledEmbedding {
     async fn embed(&self, _texts: &[String]) -> Result<Vec<Vec<f32>>> {
-        Err(Error::Config(
-            "Embedding provider is disabled. Configure an embedding provider (openai, ollama, custom) to use this feature.".to_string()
+        Err(Error::ConfigDetailed(
+            ErrorInfo::new(
+                "Embedding provider is disabled",
+                "EMBEDDING_PROVIDER_DISABLED"
+            ).with_fix("Configure an embedding provider in Project Settings > Embedding Providers. Options: openai (requires API key), ollama (local), or custom (your own endpoint).")
         ))
     }
 

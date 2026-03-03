@@ -15,7 +15,7 @@ use crate::db::models::RagConfig;
 use crate::rag::{self, count_tokens, get_project_embedding_provider, RetrievalQuery};
 use crate::server::AppState;
 use crate::vector;
-use crate::{Error, Result};
+use crate::{Error, ErrorInfo, Result};
 
 // ─────────────────────────────────────────
 // Unified Chat Request/Response Types
@@ -158,7 +158,12 @@ async fn rag_chat_json_internal(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     // Get RAG config from first valid collection
     let mut rag_config: Option<RagConfig> = None;
@@ -213,15 +218,35 @@ async fn rag_chat_json_internal(
     }
 
     if collections_used.is_empty() {
-        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+        return Err(Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No RAG-enabled collections found",
+                "RAG_NOT_ENABLED"
+            ).with_fix("Enable RAG on at least one collection. Use: PATCH /v1/collections/{name} with {\"rag_enabled\": true, \"rag_config\": {...}}. RAG config requires: llm_provider_id, model, system_prompt.")
+        ));
     }
 
-    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
-    let (provider, provider_type, base_url) = provider_info.ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No valid RAG configuration found",
+                "RAG_CONFIG_INVALID"
+            ).with_fix("Update collection RAG config with valid settings: {\"llm_provider_id\": \"<provider-id>\", \"model\": \"gpt-4\", \"system_prompt\": \"You are a helpful assistant.\", \"temperature\": 0.7, \"max_tokens\": 1000, \"top_k\": 5}")
+        ))?;
+    let (provider, provider_type, base_url) = provider_info.ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider specified in RAG config not found",
+                "LLM_PROVIDER_NOT_FOUND"
+            ).with_fix("The llm_provider_id in the collection's RAG config references a provider that doesn't exist. Add the provider in Project Settings > LLM Providers, or update the collection's RAG configuration.")
+        ))?;
 
     let api_key = provider.get("api_key")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider API key not configured",
+                "LLM_API_KEY_MISSING"
+            ).with_fix("Add api_key to the LLM provider in Project Settings > LLM Providers.")
+        ))?;
 
     // Sort and truncate results
     all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
@@ -321,7 +346,12 @@ async fn rag_chat_stream_internal(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     // Get RAG config from first valid collection
     let mut rag_config: Option<RagConfig> = None;
@@ -378,12 +408,27 @@ async fn rag_chat_stream_internal(
     }
 
     if collections_used.is_empty() {
-        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+        return Err(Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No RAG-enabled collections found",
+                "RAG_NOT_ENABLED"
+            ).with_fix("Enable RAG on at least one collection. Use: PATCH /v1/collections/{name} with {\"rag_enabled\": true, \"rag_config\": {...}}. RAG config requires: llm_provider_id, model, system_prompt.")
+        ));
     }
 
-    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No valid RAG configuration found",
+                "RAG_CONFIG_INVALID"
+            ).with_fix("Update collection RAG config with valid settings: {\"llm_provider_id\": \"<provider-id>\", \"model\": \"gpt-4\", \"system_prompt\": \"You are a helpful assistant.\", \"temperature\": 0.7, \"max_tokens\": 1000, \"top_k\": 5}")
+        ))?;
     let provider_type = provider_type_str.ok_or_else(|| Error::BadRequest("LLM provider type not found".to_string()))?;
-    let api_key = api_key_str.ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+    let api_key = api_key_str.ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider API key not configured",
+                "LLM_API_KEY_MISSING"
+            ).with_fix("Add api_key to the LLM provider in Project Settings > LLM Providers.")
+        ))?;
 
     // Sort and truncate results
     all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
@@ -622,11 +667,21 @@ pub async fn collection_chat_stream(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     let provider = llm_providers.iter()
         .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&rag_config.llm_provider_id))
-        .ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider specified in RAG config not found",
+                "LLM_PROVIDER_NOT_FOUND"
+            ).with_fix("The llm_provider_id in the collection's RAG config references a provider that doesn't exist. Add the provider in Project Settings > LLM Providers, or update the collection's RAG configuration.")
+        ))?;
 
     let api_key = provider.get("api_key")
         .and_then(|v| v.as_str())
@@ -921,7 +976,12 @@ pub async fn unified_chat_stream(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     // We'll use the RAG config from the first valid collection
     let mut rag_config: Option<RagConfig> = None;
@@ -979,12 +1039,27 @@ pub async fn unified_chat_stream(
     }
 
     if collections_used.is_empty() {
-        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+        return Err(Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No RAG-enabled collections found",
+                "RAG_NOT_ENABLED"
+            ).with_fix("Enable RAG on at least one collection. Use: PATCH /v1/collections/{name} with {\"rag_enabled\": true, \"rag_config\": {...}}. RAG config requires: llm_provider_id, model, system_prompt.")
+        ));
     }
 
-    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No valid RAG configuration found",
+                "RAG_CONFIG_INVALID"
+            ).with_fix("Update collection RAG config with valid settings: {\"llm_provider_id\": \"<provider-id>\", \"model\": \"gpt-4\", \"system_prompt\": \"You are a helpful assistant.\", \"temperature\": 0.7, \"max_tokens\": 1000, \"top_k\": 5}")
+        ))?;
     let provider_type = provider_type_str.ok_or_else(|| Error::BadRequest("LLM provider type not found".to_string()))?;
-    let api_key = api_key_str.ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+    let api_key = api_key_str.ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider API key not configured",
+                "LLM_API_KEY_MISSING"
+            ).with_fix("Add api_key to the LLM provider in Project Settings > LLM Providers.")
+        ))?;
 
     // Sort and truncate results
     all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
@@ -1237,15 +1312,30 @@ async fn chat_internal(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     let provider = llm_providers.iter()
         .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(&rag_config.llm_provider_id))
-        .ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider specified in RAG config not found",
+                "LLM_PROVIDER_NOT_FOUND"
+            ).with_fix("The llm_provider_id in the collection's RAG config references a provider that doesn't exist. Add the provider in Project Settings > LLM Providers, or update the collection's RAG configuration.")
+        ))?;
 
     let api_key = provider.get("api_key")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider API key not configured",
+                "LLM_API_KEY_MISSING"
+            ).with_fix("Add api_key to the LLM provider in Project Settings > LLM Providers.")
+        ))?;
 
     let provider_type = provider.get("type")
         .and_then(|v| v.as_str())
@@ -1394,7 +1484,12 @@ async fn chat_multi_internal(
     let settings: serde_json::Value = project.settings.unwrap_or_default();
     let llm_providers = settings.get("llm_providers")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| Error::BadRequest("No LLM providers configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "No LLM providers configured",
+                "LLM_PROVIDER_NOT_CONFIGURED"
+            ).with_fix("Add an LLM provider in Project Settings > LLM Providers. Supported: openai, anthropic, google, or custom (OpenAI-compatible).")
+        ))?;
 
     // We'll use the RAG config from the first valid collection
     let mut rag_config: Option<RagConfig> = None;
@@ -1452,15 +1547,35 @@ async fn chat_multi_internal(
     }
 
     if collections_used.is_empty() {
-        return Err(Error::BadRequest("No RAG-enabled collections found".to_string()));
+        return Err(Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No RAG-enabled collections found",
+                "RAG_NOT_ENABLED"
+            ).with_fix("Enable RAG on at least one collection. Use: PATCH /v1/collections/{name} with {\"rag_enabled\": true, \"rag_config\": {...}}. RAG config requires: llm_provider_id, model, system_prompt.")
+        ));
     }
 
-    let rag_config = rag_config.ok_or_else(|| Error::BadRequest("No valid RAG configuration found".to_string()))?;
-    let (provider, provider_type, base_url) = provider_info.ok_or_else(|| Error::BadRequest("LLM provider not found".to_string()))?;
+    let rag_config = rag_config.ok_or_else(|| Error::BadRequestDetailed(
+            ErrorInfo::new(
+                "No valid RAG configuration found",
+                "RAG_CONFIG_INVALID"
+            ).with_fix("Update collection RAG config with valid settings: {\"llm_provider_id\": \"<provider-id>\", \"model\": \"gpt-4\", \"system_prompt\": \"You are a helpful assistant.\", \"temperature\": 0.7, \"max_tokens\": 1000, \"top_k\": 5}")
+        ))?;
+    let (provider, provider_type, base_url) = provider_info.ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider specified in RAG config not found",
+                "LLM_PROVIDER_NOT_FOUND"
+            ).with_fix("The llm_provider_id in the collection's RAG config references a provider that doesn't exist. Add the provider in Project Settings > LLM Providers, or update the collection's RAG configuration.")
+        ))?;
 
     let api_key = provider.get("api_key")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::BadRequest("LLM provider API key not configured".to_string()))?;
+        .ok_or_else(|| Error::ConfigDetailed(
+            ErrorInfo::new(
+                "LLM provider API key not configured",
+                "LLM_API_KEY_MISSING"
+            ).with_fix("Add api_key to the LLM provider in Project Settings > LLM Providers.")
+        ))?;
 
     all_results.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
     all_results.truncate(top_k as usize);
@@ -1597,12 +1712,49 @@ async fn call_llm(
     };
 
     if !response.status().is_success() {
+        let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        return Err(Error::Internal(format!("LLM API error: {}", error_text)));
+
+        // Parse error for actionable message
+        let (error_code, fix) = match status.as_u16() {
+            401 => ("LLM_AUTH_FAILED", format!(
+                "Authentication failed. Verify api_key is correct for {} provider in Project Settings.",
+                provider_type
+            )),
+            403 => ("LLM_ACCESS_DENIED", format!(
+                "Access denied. Check API key permissions for {} provider.",
+                provider_type
+            )),
+            404 => ("LLM_MODEL_NOT_FOUND", format!(
+                "Model '{}' not found. Verify model name is correct for {} provider.",
+                model, provider_type
+            )),
+            429 => ("LLM_RATE_LIMIT", "Rate limit exceeded. Wait and retry, or upgrade your API plan.".to_string()),
+            500..=599 => ("LLM_PROVIDER_ERROR", format!(
+                "{} API is experiencing issues. Check provider status page.",
+                provider_type
+            )),
+            _ => ("LLM_API_ERROR", format!(
+                "Check {} provider configuration in Project Settings.",
+                provider_type
+            )),
+        };
+
+        return Err(Error::LlmProvider(
+            ErrorInfo::new(
+                format!("{} API error ({}): {}", provider_type, status, error_text),
+                error_code
+            ).with_fix(fix)
+        ));
     }
 
     let json: serde_json::Value = response.json().await
-        .map_err(|e| Error::Internal(format!("Failed to parse LLM response: {}", e)))?;
+        .map_err(|e| Error::LlmProvider(
+            ErrorInfo::new(
+                format!("Failed to parse {} response: {}", provider_type, e),
+                "LLM_RESPONSE_PARSE_ERROR"
+            ).with_fix("The LLM provider returned an unexpected response format. Check provider compatibility.")
+        ))?;
 
     // Log the response for debugging
     tracing::debug!("LLM response for provider {}: {}", provider_type, json);
@@ -1755,8 +1907,31 @@ async fn call_llm_stream(
     };
 
     if !response.status().is_success() {
+        let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        return Err(Error::Internal(format!("LLM API error: {}", error_text)));
+
+        let (error_code, fix) = match status.as_u16() {
+            401 => ("LLM_AUTH_FAILED", format!(
+                "Authentication failed. Verify api_key is correct for {} provider in Project Settings.",
+                provider_type
+            )),
+            404 => ("LLM_MODEL_NOT_FOUND", format!(
+                "Model '{}' not found. Verify model name is correct for {} provider.",
+                model, provider_type
+            )),
+            429 => ("LLM_RATE_LIMIT", "Rate limit exceeded. Wait and retry.".to_string()),
+            _ => ("LLM_API_ERROR", format!(
+                "Check {} provider configuration in Project Settings.",
+                provider_type
+            )),
+        };
+
+        return Err(Error::LlmProvider(
+            ErrorInfo::new(
+                format!("{} streaming API error ({}): {}", provider_type, status, error_text),
+                error_code
+            ).with_fix(fix)
+        ));
     }
 
     let provider = provider_type.to_string();
