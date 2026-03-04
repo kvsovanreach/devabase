@@ -12,7 +12,7 @@ use crate::db::models::{Chunk, ChunkResponse, Document, DocumentResponse, Projec
 use crate::rag::{Chunker, EmbeddingProvider, get_project_embedding_provider};
 use crate::server::AppState;
 use crate::vector;
-use crate::{Error, Result};
+use crate::{Error, ErrorInfo, Result};
 
 // ─────────────────────────────────────────
 // New Collection-Scoped Document Endpoints
@@ -837,14 +837,24 @@ pub async fn reprocess_document(
     .await?
     .ok_or_else(|| Error::NotFound("Document not found".to_string()))?;
 
-    // Get collection name
-    let _collection = vector::get_collection_by_id(&state.pool, document.collection_id).await?;
+    // Get the current chunk count before deleting
+    let old_chunk_count = document.chunk_count;
 
-    // Delete existing chunks and vectors
+    // Delete existing chunks (vectors cascade delete via foreign key)
     sqlx::query("DELETE FROM sys_chunks WHERE document_id = $1")
         .bind(id)
         .execute(state.pool.inner())
         .await?;
+
+    // Update collection vector count (decrement by old chunk count)
+    if old_chunk_count > 0 {
+        vector::update_vector_count(
+            &state.pool,
+            document.collection_id,
+            -(old_chunk_count as i64),
+        )
+        .await?;
+    }
 
     // Reset document status
     sqlx::query("UPDATE sys_documents SET status = 'pending', chunk_count = 0, error_message = NULL WHERE id = $1")
@@ -857,6 +867,7 @@ pub async fn reprocess_document(
     let state_clone = state.clone();
     tokio::spawn(async move {
         if let Err(e) = process_document(state_clone.clone(), doc_id_clone).await {
+            tracing::error!("Failed to reprocess document {}: {}", doc_id_clone, e);
             let _ = sqlx::query(
                 "UPDATE sys_documents SET status = 'failed', error_message = $2 WHERE id = $1"
             )
@@ -901,7 +912,12 @@ fn extract_text(content_type: &str, content: &[u8]) -> Result<String> {
             // Try as plain text for unknown types
             let text = String::from_utf8_lossy(content).to_string();
             if text.chars().filter(|c| !c.is_ascii_graphic() && !c.is_whitespace()).count() > text.len() / 10 {
-                Err(Error::BadRequest(format!("Unsupported file type: {}. Only text-based files and PDFs are supported.", content_type)))
+                Err(Error::BadRequestDetailed(
+                    ErrorInfo::new(
+                        format!("Unsupported file type: {}", content_type),
+                        "UNSUPPORTED_FILE_TYPE"
+                    ).with_fix("Supported formats: PDF (.pdf), Word (.docx), Text (.txt), Markdown (.md), JSON (.json). Convert your file to a supported format.")
+                ))
             } else {
                 Ok(text)
             }

@@ -1,8 +1,8 @@
 use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::user_table::{
-    CreateTableRequest, PaginationMeta, RowQuery, RowResponse, RowsResponse, TableInfo,
-    decode_cursor,
+    CreateTableRequest, PaginationMeta, RowQuery, RowResponse, RowsResponse, TableColumnInfo,
+    TableInfo, decode_cursor,
 };
 use crate::rest_gen;
 use crate::server::AppState;
@@ -273,20 +273,14 @@ pub async fn get_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists
-    let exists: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
-    )
-    .bind(project_id)
-    .bind(&table_name)
-    .fetch_optional(state.pool.inner())
-    .await?;
+    // Get table info including column schema
+    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
+        .await?
+        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
 
-    if exists.is_none() {
-        return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
-    }
+    let pk_column = get_primary_key_column(&table_info.columns);
 
-    let (sql, params) = rest_gen::build_select_one_query(project_id, &table_name, &row_id);
+    let (sql, params) = rest_gen::build_select_one_query(project_id, &table_name, pk_column, &row_id);
 
     let rows = execute_select_query(state.pool.inner(), &sql, &params).await?;
 
@@ -295,6 +289,60 @@ pub async fn get_row(
     }
 
     Ok(Json(RowResponse { row: rows[0].clone() }))
+}
+
+/// Get the primary key column name from table columns
+/// Returns "id" as fallback if no explicit primary key is found
+fn get_primary_key_column(columns: &[TableColumnInfo]) -> &str {
+    columns
+        .iter()
+        .find(|c| c.is_primary)
+        .map(|c| c.name.as_str())
+        .unwrap_or("id")
+}
+
+/// Preprocess row data before insertion
+/// - Auto-generate UUIDs for primary key columns of type 'uuid' if not provided
+/// - Convert empty strings to null for timestamp/date/uuid columns
+fn preprocess_row_data(
+    data: &Value,
+    columns: &[TableColumnInfo],
+) -> Result<Value> {
+    let mut obj = data
+        .as_object()
+        .ok_or_else(|| Error::Validation("Request body must be a JSON object".into()))?
+        .clone();
+
+    for col in columns {
+        let col_type_lower = col.data_type.to_lowercase();
+
+        // Auto-generate UUID for primary key uuid columns if not provided
+        if col.is_primary
+            && (col_type_lower == "uuid" || col_type_lower.contains("uuid"))
+            && !obj.contains_key(&col.name)
+        {
+            obj.insert(
+                col.name.clone(),
+                Value::String(uuid::Uuid::new_v4().to_string()),
+            );
+        }
+
+        // Convert empty strings to null for timestamp/date/uuid types
+        if let Some(Value::String(s)) = obj.get(&col.name) {
+            if s.is_empty() {
+                let needs_null = col_type_lower.contains("timestamp")
+                    || col_type_lower.contains("date")
+                    || col_type_lower.contains("time")
+                    || col_type_lower == "uuid";
+
+                if needs_null {
+                    obj.insert(col.name.clone(), Value::Null);
+                }
+            }
+        }
+    }
+
+    Ok(Value::Object(obj))
 }
 
 /// Insert a new row
@@ -309,20 +357,15 @@ pub async fn create_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists
-    let exists: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
-    )
-    .bind(project_id)
-    .bind(&table_name)
-    .fetch_optional(state.pool.inner())
-    .await?;
+    // Get table info including column schema
+    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
+        .await?
+        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
 
-    if exists.is_none() {
-        return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
-    }
+    // Process the data: auto-generate UUIDs and handle empty values
+    let processed_data = preprocess_row_data(&data, &table_info.columns)?;
 
-    let (sql, params) = rest_gen::build_insert_query(project_id, &table_name, &data)?;
+    let (sql, params) = rest_gen::build_insert_query(project_id, &table_name, &processed_data)?;
 
     let rows = execute_returning_query(state.pool.inner(), &sql, &params).await?;
 
@@ -330,19 +373,23 @@ pub async fn create_row(
         return Err(Error::Internal("Insert failed to return row".into()));
     }
 
-    // Emit event
-    if let Some(id) = rows[0].get("id") {
-        let event = crate::events::Event::new(
-            crate::events::EventType::TableRowCreated,
-            project_id,
-            &id.to_string(),
-            serde_json::json!({
-                "table": table_name,
-                "row": rows[0],
-            }),
-        );
-        let _ = state.events.publish(event);
-    }
+    // Emit event using the actual primary key column
+    let pk_column = get_primary_key_column(&table_info.columns);
+    let pk_value = rows[0]
+        .get(pk_column)
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let event = crate::events::Event::new(
+        crate::events::EventType::TableRowCreated,
+        project_id,
+        &pk_value,
+        serde_json::json!({
+            "table": table_name,
+            "row": rows[0],
+        }),
+    );
+    let _ = state.events.publish(event);
 
     Ok((StatusCode::CREATED, Json(RowResponse { row: rows[0].clone() })))
 }
@@ -359,20 +406,14 @@ pub async fn update_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists
-    let exists: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
-    )
-    .bind(project_id)
-    .bind(&table_name)
-    .fetch_optional(state.pool.inner())
-    .await?;
+    // Get table info including column schema
+    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
+        .await?
+        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
 
-    if exists.is_none() {
-        return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
-    }
+    let pk_column = get_primary_key_column(&table_info.columns);
 
-    let (sql, params) = rest_gen::build_update_query(project_id, &table_name, &row_id, &data)?;
+    let (sql, params) = rest_gen::build_update_query(project_id, &table_name, pk_column, &row_id, &data)?;
 
     let rows = execute_returning_query(state.pool.inner(), &sql, &params).await?;
 
@@ -406,20 +447,14 @@ pub async fn delete_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists
-    let exists: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
-    )
-    .bind(project_id)
-    .bind(&table_name)
-    .fetch_optional(state.pool.inner())
-    .await?;
+    // Get table info including column schema
+    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
+        .await?
+        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
 
-    if exists.is_none() {
-        return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
-    }
+    let pk_column = get_primary_key_column(&table_info.columns);
 
-    let (sql, params) = rest_gen::build_delete_query(project_id, &table_name, &row_id);
+    let (sql, params) = rest_gen::build_delete_query(project_id, &table_name, pk_column, &row_id);
 
     let rows = execute_returning_query(state.pool.inner(), &sql, &params).await?;
 
@@ -522,6 +557,11 @@ fn bind_json_value<'q>(
             }
         }
         Value::String(s) => {
+            // Empty strings should be treated as NULL for most column types
+            // (especially timestamps, dates, uuids, numbers)
+            if s.is_empty() {
+                return query.bind(Option::<String>::None);
+            }
             // Try to parse as UUID first (for project_id and id columns)
             if let Ok(uuid) = uuid::Uuid::parse_str(s) {
                 query.bind(uuid)

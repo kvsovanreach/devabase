@@ -454,7 +454,7 @@ pub fn generate_synthetic_dataset(
     ];
 
     for i in 0..num_docs {
-        let topic = topics.choose(&mut rng).unwrap();
+        let topic = topics.choose(&mut rng).unwrap_or(&"general");
         dataset.corpus.push(BenchmarkDocument {
             id: format!("doc_{}", i),
             title: Some(format!("Document about {}", topic)),
@@ -469,7 +469,7 @@ pub fn generate_synthetic_dataset(
 
     // Generate queries with relevance judgments
     for i in 0..num_queries {
-        let topic = topics.choose(&mut rng).unwrap();
+        let topic = topics.choose(&mut rng).unwrap_or(&"general");
         let num_relevant = rng.gen_range(1..=avg_relevant_per_query * 2);
 
         // Find documents about this topic

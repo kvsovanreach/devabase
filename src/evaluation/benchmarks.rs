@@ -194,7 +194,11 @@ impl BenchmarkRunner {
         // Find best config by NDCG
         let best_config = results
             .iter()
-            .max_by(|a, b| a.metrics.ndcg_at_k.partial_cmp(&b.metrics.ndcg_at_k).unwrap())
+            .max_by(|a, b| {
+                a.metrics.ndcg_at_k
+                    .partial_cmp(&b.metrics.ndcg_at_k)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|r| r.config.name.clone())
             .unwrap_or_default();
 
@@ -301,7 +305,7 @@ fn compute_latency_stats(latencies: &[f64]) -> LatencyStats {
     }
 
     let mut sorted = latencies.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let total: f64 = latencies.iter().sum();
     let n = latencies.len();

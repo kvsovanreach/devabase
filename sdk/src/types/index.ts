@@ -694,42 +694,76 @@ export interface CreateWebhookInput {
 // Error Types
 // ============================================================================
 
+/**
+ * Base error class for all Devabase errors.
+ * Contains machine-readable error codes and actionable fix hints.
+ */
 export class DevabaseError extends Error {
   constructor(
     message: string,
+    /** Machine-readable error code (e.g., 'DUPLICATE_VALUE', 'FOREIGN_KEY_VIOLATION') */
     public readonly code: string,
+    /** HTTP status code */
     public readonly status: number,
+    /** Actionable hint on how to fix this error */
+    public readonly fix?: string,
+    /** Additional error details */
     public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'DevabaseError';
   }
+
+  /**
+   * Returns a formatted error message including the fix hint if available
+   */
+  toDetailedString(): string {
+    let result = `[${this.code}] ${this.message}`;
+    if (this.fix) {
+      result += `\n\nHow to fix: ${this.fix}`;
+    }
+    return result;
+  }
+
+  /**
+   * Returns the error as a plain object for logging/debugging
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      status: this.status,
+      fix: this.fix,
+      details: this.details,
+    };
+  }
 }
 
 export class AuthenticationError extends DevabaseError {
-  constructor(message: string = 'Authentication failed') {
-    super(message, 'AUTHENTICATION_ERROR', 401);
+  constructor(message: string = 'Authentication failed', fix?: string) {
+    super(message, 'AUTHENTICATION_ERROR', 401, fix);
     this.name = 'AuthenticationError';
   }
 }
 
 export class AuthorizationError extends DevabaseError {
-  constructor(message: string = 'Access denied') {
-    super(message, 'AUTHORIZATION_ERROR', 403);
+  constructor(message: string = 'Access denied', fix?: string) {
+    super(message, 'AUTHORIZATION_ERROR', 403, fix);
     this.name = 'AuthorizationError';
   }
 }
 
 export class NotFoundError extends DevabaseError {
-  constructor(message: string = 'Resource not found') {
-    super(message, 'NOT_FOUND', 404);
+  constructor(message: string = 'Resource not found', fix?: string) {
+    super(message, 'NOT_FOUND', 404, fix);
     this.name = 'NotFoundError';
   }
 }
 
 export class ValidationError extends DevabaseError {
-  constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'VALIDATION_ERROR', 400, details);
+  constructor(message: string, code?: string, fix?: string, details?: Record<string, unknown>) {
+    super(message, code || 'VALIDATION_ERROR', 400, fix, details);
     this.name = 'ValidationError';
   }
 }
@@ -737,9 +771,40 @@ export class ValidationError extends DevabaseError {
 export class RateLimitError extends DevabaseError {
   constructor(
     message: string = 'Rate limit exceeded',
-    public readonly retryAfter?: number
+    public readonly retryAfter?: number,
+    fix?: string
   ) {
-    super(message, 'RATE_LIMIT_ERROR', 429);
+    super(message, 'RATE_LIMIT_ERROR', 429, fix);
     this.name = 'RateLimitError';
+  }
+}
+
+/**
+ * Database operation error with specific error codes for constraints, types, etc.
+ */
+export class DatabaseError extends DevabaseError {
+  constructor(message: string, code: string, fix?: string) {
+    super(message, code, 400, fix);
+    this.name = 'DatabaseError';
+  }
+}
+
+/**
+ * Configuration error (e.g., missing embedding provider, invalid LLM settings)
+ */
+export class ConfigurationError extends DevabaseError {
+  constructor(message: string, code: string, fix?: string) {
+    super(message, code, 422, fix);
+    this.name = 'ConfigurationError';
+  }
+}
+
+/**
+ * External service error (e.g., LLM provider unreachable, embedding API failure)
+ */
+export class ExternalServiceError extends DevabaseError {
+  constructor(message: string, code: string, fix?: string) {
+    super(message, code, 502, fix);
+    this.name = 'ExternalServiceError';
   }
 }

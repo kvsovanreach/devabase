@@ -201,6 +201,7 @@ pub fn build_insert_query(
 pub fn build_update_query(
     project_id: Uuid,
     table_name: &str,
+    pk_column: &str,
     row_id: &str,
     data: &serde_json::Value,
 ) -> Result<(String, Vec<serde_json::Value>)> {
@@ -212,6 +213,16 @@ pub fn build_update_query(
 
     if obj.is_empty() {
         return Err(crate::Error::Validation("No fields to update".into()));
+    }
+
+    // Block modifications to system columns
+    for key in obj.keys() {
+        if key == "project_id" || key == pk_column {
+            return Err(crate::Error::Validation(format!(
+                "Cannot modify system column '{}'",
+                key
+            )));
+        }
     }
 
     let mut set_clauses = Vec::new();
@@ -233,9 +244,10 @@ pub fn build_update_query(
     }
 
     let query = format!(
-        "UPDATE \"{}\" SET {} WHERE project_id = $1 AND id = $2 RETURNING *",
+        "UPDATE \"{}\" SET {} WHERE project_id = $1 AND \"{}\" = $2 RETURNING *",
         full_table_name,
-        set_clauses.join(", ")
+        set_clauses.join(", "),
+        pk_column
     );
 
     Ok((query, params))
@@ -245,13 +257,14 @@ pub fn build_update_query(
 pub fn build_delete_query(
     project_id: Uuid,
     table_name: &str,
+    pk_column: &str,
     row_id: &str,
 ) -> (String, Vec<serde_json::Value>) {
     let full_table_name = super::schema::get_full_table_name(project_id, table_name);
 
     let query = format!(
-        "DELETE FROM \"{}\" WHERE project_id = $1 AND id = $2 RETURNING id",
-        full_table_name
+        "DELETE FROM \"{}\" WHERE project_id = $1 AND \"{}\" = $2 RETURNING \"{}\"",
+        full_table_name, pk_column, pk_column
     );
     let params = vec![
         serde_json::json!(project_id.to_string()),
@@ -265,13 +278,14 @@ pub fn build_delete_query(
 pub fn build_select_one_query(
     project_id: Uuid,
     table_name: &str,
+    pk_column: &str,
     row_id: &str,
 ) -> (String, Vec<serde_json::Value>) {
     let full_table_name = super::schema::get_full_table_name(project_id, table_name);
 
     let query = format!(
-        "SELECT * FROM \"{}\" WHERE project_id = $1 AND id = $2",
-        full_table_name
+        "SELECT * FROM \"{}\" WHERE project_id = $1 AND \"{}\" = $2",
+        full_table_name, pk_column
     );
     let params = vec![
         serde_json::json!(project_id.to_string()),

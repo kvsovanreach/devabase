@@ -112,7 +112,7 @@ pub async fn current(config: &Config, format: OutputFormat) -> Result<(), Box<dy
     }
 
     match (&config.current_project, &config.current_project_name) {
-        (Some(id), Some(name)) => {
+        (Some(id), Some(_name)) => {
             let client = ApiClient::new(config);
             let project: Project = client.get(&format!("/projects/{}", id)).await?;
             output::print_data(&project, format);

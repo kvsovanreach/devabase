@@ -46,7 +46,7 @@ impl ReportGenerator {
                 .enumerate()
                 .map(|(i, r)| (i, getter(&r.metrics)))
                 .collect();
-            values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
             best_indices.push((values[0].0, values.get(1).map(|v| v.0).unwrap_or(values[0].0)));
         }
 

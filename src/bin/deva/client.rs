@@ -64,6 +64,7 @@ impl ApiClient {
     }
 
     /// Make a POST request without expecting a response body
+    #[allow(dead_code)]
     pub async fn post_empty<B: Serialize>(&self, path: &str, body: B) -> Result<(), ApiError> {
         let response = self.request(reqwest::Method::POST, path, Some(body)).await?;
         self.handle_empty_response(response).await
@@ -76,6 +77,7 @@ impl ApiClient {
     }
 
     /// Make a PATCH request
+    #[allow(dead_code)]
     pub async fn patch<T: DeserializeOwned, B: Serialize>(
         &self,
         path: &str,
@@ -245,5 +247,6 @@ pub enum ApiError {
     NotFound,
 
     #[error("No project selected. Run 'deva project use <id>' first.")]
+    #[allow(dead_code)]
     NoProject,
 }
