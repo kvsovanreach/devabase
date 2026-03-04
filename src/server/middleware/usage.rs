@@ -4,10 +4,40 @@ use axum::{
     http::{header, Request, Response},
     middleware::Next,
 };
+use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Instant;
 
 use crate::server::AppState;
+
+/// Log usage with token counts (call this from handlers that track tokens)
+pub async fn log_usage_with_tokens(
+    pool: &PgPool,
+    endpoint: &str,
+    method: &str,
+    status_code: i16,
+    latency_ms: i32,
+    request_tokens: Option<i32>,
+    response_tokens: Option<i32>,
+) {
+    if let Err(e) = sqlx::query(
+        r#"
+        INSERT INTO sys_usage_logs (endpoint, method, status_code, latency_ms, request_tokens, response_tokens)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        "#,
+    )
+    .bind(endpoint)
+    .bind(method)
+    .bind(status_code)
+    .bind(latency_ms)
+    .bind(request_tokens)
+    .bind(response_tokens)
+    .execute(pool)
+    .await
+    {
+        tracing::error!("Failed to log usage with tokens: {} for endpoint {}", e, endpoint);
+    }
+}
 
 /// Middleware to log API usage to sys_usage_logs table.
 /// Only logs requests authenticated via API key (not session/cookie auth).
@@ -37,7 +67,7 @@ pub async fn log_usage(
     // Log asynchronously to not block the response
     let pool = state.pool.clone();
     tokio::spawn(async move {
-        let _ = sqlx::query(
+        if let Err(e) = sqlx::query(
             r#"
             INSERT INTO sys_usage_logs (endpoint, method, status_code, latency_ms)
             VALUES ($1, $2, $3, $4)
@@ -48,7 +78,10 @@ pub async fn log_usage(
         .bind(status_code)
         .bind(latency_ms)
         .execute(pool.inner())
-        .await;
+        .await
+        {
+            tracing::error!("Failed to log usage: {} for endpoint {}", e, path);
+        }
     });
 
     response

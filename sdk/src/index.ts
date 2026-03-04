@@ -99,3 +99,25 @@ export { TablesResource, TableRowsClient } from './resources/tables';
 export { SearchResource } from './resources/search';
 export { ChatResource } from './resources/chat';
 export { KnowledgeResource } from './resources/knowledge';
+export { ChunksResource } from './resources/chunks';
+export { EvaluationResource } from './resources/evaluation';
+export { PromptsResource } from './resources/prompts';
+export { WebhooksResource } from './resources/webhooks';
+export { SqlResource } from './resources/sql';
+export { StorageResource } from './resources/storage';
+export { ProvidersResource } from './resources/providers';
+
+// Provider types
+export type {
+  LLMProvider,
+  EmbeddingProvider,
+  RerankProvider,
+  LLMProviderType,
+  EmbeddingProviderType,
+  RerankProviderType,
+  CreateLLMProviderInput,
+  CreateEmbeddingProviderInput,
+  CreateRerankProviderInput,
+  TestProviderResponse,
+  ProjectSettings,
+} from './resources/providers';

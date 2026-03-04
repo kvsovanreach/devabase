@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Header } from '@/components/layout/header';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageSpinner } from '@/components/ui/spinner';
 import { useUsageAnalytics, useStorageStats, UsageByEndpoint } from '@/hooks/use-analytics';
@@ -17,6 +18,7 @@ import {
   FolderOpen,
   TrendingUp,
   Server,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,10 +41,16 @@ export default function AnalyticsPage() {
     };
   }, [period]);
 
-  const { data: usage, isLoading: usageLoading } = useUsageAnalytics(dateRange);
-  const { data: storage, isLoading: storageLoading } = useStorageStats();
+  const { data: usage, isLoading: usageLoading, isFetching: usageFetching, refetch: refetchUsage } = useUsageAnalytics(dateRange);
+  const { data: storage, isLoading: storageLoading, isFetching: storageFetching, refetch: refetchStorage } = useStorageStats();
 
   const isLoading = usageLoading || storageLoading;
+  const isRefreshing = (usageFetching || storageFetching) && !isLoading;
+
+  const handleRefresh = () => {
+    refetchUsage();
+    refetchStorage();
+  };
 
   // Calculate error rate
   const errorRate = usage?.summary.total_requests
@@ -69,12 +77,23 @@ export default function AnalyticsPage() {
               Monitor API usage, performance, and resource consumption.
             </p>
           </div>
-          <div className="w-[180px]">
-            <Select
-              options={periodOptions}
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn('w-4 h-4 mr-2', isRefreshing && 'animate-spin')} />
+              Refresh
+            </Button>
+            <div className="w-[180px]">
+              <Select
+                options={periodOptions}
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 

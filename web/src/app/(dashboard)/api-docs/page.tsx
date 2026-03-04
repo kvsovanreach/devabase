@@ -295,6 +295,21 @@ export default function ApiDocsPage() {
             description: 'Delete a collection and all its vectors',
             pathParams: [{ name: 'name', description: 'Collection name' }],
           },
+          {
+            method: 'GET',
+            path: `/collections/:name/stats`,
+            name: 'Get Collection Stats',
+            description: 'Get detailed statistics for a collection including vector count and storage usage',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            responseExample: {
+              name: 'my_collection',
+              vector_count: 1500,
+              document_count: 75,
+              storage_bytes: 4500000,
+              dimensions: 1536,
+              metric: 'cosine',
+            },
+          },
         ],
       },
       {
@@ -346,32 +361,44 @@ export default function ApiDocsPage() {
             description: 'Delete a document and its associated vectors',
             pathParams: [{ name: 'id', description: 'Document UUID' }],
           },
-        ],
-      },
-      {
-        name: 'Vector Search',
-        icon: <Search className="w-5 h-5" />,
-        description: 'Search vectors using embeddings or text queries',
-        endpoints: [
           {
             method: 'POST',
-            path: '/vectors/search',
-            name: 'Search by Embedding',
-            description: 'Search vectors using a raw embedding array. Use this for low-level vector operations.',
-            requestBody: {
-              collection: exampleCollection,
-              embedding: [0.1, 0.2, '...', 0.3],
-              top_k: 10,
-              filter: { category: 'docs' },
+            path: '/documents/:id/reprocess',
+            name: 'Reprocess Document',
+            description: 'Re-chunk and re-embed a document with updated settings',
+            pathParams: [{ name: 'id', description: 'Document UUID' }],
+            responseExample: {
+              id: 'uuid',
+              status: 'processing',
+              message: 'Document reprocessing started',
             },
           },
           {
+            method: 'GET',
+            path: '/collections/:name/documents',
+            name: 'List Collection Documents',
+            description: 'List all documents in a specific collection',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            queryParams: [
+              { name: 'status', description: 'Filter by status (pending, processing, processed, failed)' },
+              { name: 'limit', description: 'Number of results (default: 50)' },
+              { name: 'offset', description: 'Pagination offset' },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Vectors (Low-Level)',
+        icon: <Database className="w-5 h-5" />,
+        description: 'Low-level vector operations for advanced users. For most use cases, use the Search endpoints instead.',
+        endpoints: [
+          {
             method: 'POST',
-            path: '/vectors/upsert',
+            path: '/collections/:name/vectors',
             name: 'Upsert Vectors',
-            description: 'Insert or update vectors with their embeddings',
+            description: 'Insert or update vectors with their embeddings directly',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
             requestBody: {
-              collection: exampleCollection,
               vectors: [
                 {
                   id: 'vec_1',
@@ -382,11 +409,40 @@ export default function ApiDocsPage() {
             },
           },
           {
+            method: 'POST',
+            path: '/collections/:name/vectors/search',
+            name: 'Search by Embedding',
+            description: 'Search vectors using a raw embedding array',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              embedding: [0.1, 0.2, '...', 0.3],
+              top_k: 10,
+              filter: { category: 'docs' },
+            },
+          },
+          {
+            method: 'POST',
+            path: '/collections/:name/vectors/hybrid-search',
+            name: 'Hybrid Search by Embedding',
+            description: 'Search using both vector similarity and keyword matching with raw embeddings',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              embedding: [0.1, 0.2, '...', 0.3],
+              query: 'search keywords',
+              top_k: 10,
+              vector_weight: 0.7,
+              keyword_weight: 0.3,
+            },
+          },
+          {
             method: 'DELETE',
-            path: '/vectors/:id',
+            path: '/collections/:name/vectors/:vid',
             name: 'Delete Vector',
             description: 'Delete a specific vector by ID',
-            pathParams: [{ name: 'id', description: 'Vector UUID' }],
+            pathParams: [
+              { name: 'name', description: 'Collection name' },
+              { name: 'vid', description: 'Vector UUID' },
+            ],
           },
         ],
       },
@@ -572,6 +628,26 @@ export default function ApiDocsPage() {
             },
           },
           {
+            method: 'POST',
+            path: '/collections/:name/chat/stream',
+            name: 'Collection Chat (Streaming)',
+            description: 'Streaming chat with a specific collection using Server-Sent Events',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              message: 'Explain the architecture',
+              include_sources: true,
+              top_k: 5,
+            },
+            responseExample: {
+              _note: 'Server-Sent Events stream',
+              events: [
+                { type: 'sources', sources: [{ document_name: 'arch.pdf', score: 0.95 }] },
+                { type: 'content', content: 'The architecture consists of...' },
+                { type: 'done', conversation_id: 'conv_123', tokens_used: 280 },
+              ],
+            },
+          },
+          {
             method: 'GET',
             path: '/conversations',
             name: 'List Conversations',
@@ -582,11 +658,31 @@ export default function ApiDocsPage() {
             ],
           },
           {
+            method: 'POST',
+            path: '/conversations',
+            name: 'Create Conversation',
+            description: 'Create a new conversation manually',
+            requestBody: {
+              collection_id: 'uuid',
+              title: 'Support Chat',
+            },
+          },
+          {
             method: 'GET',
             path: '/conversations/:id',
             name: 'Get Conversation',
             description: 'Get conversation details with all messages',
             pathParams: [{ name: 'id', description: 'Conversation UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/conversations/:id',
+            name: 'Update Conversation',
+            description: 'Update conversation title or metadata',
+            pathParams: [{ name: 'id', description: 'Conversation UUID' }],
+            requestBody: {
+              title: 'Updated Title',
+            },
           },
           {
             method: 'DELETE',
@@ -943,6 +1039,21 @@ export default function ApiDocsPage() {
             },
           },
           {
+            method: 'GET',
+            path: '/keys/:id',
+            name: 'Get API Key',
+            description: 'Get API key details (key value is not returned)',
+            pathParams: [{ name: 'id', description: 'API key UUID' }],
+            responseExample: {
+              id: 'uuid',
+              name: 'Production Key',
+              prefix: 'deva_xxxx',
+              scopes: ['read', 'write'],
+              last_used_at: '2024-01-15T10:30:00Z',
+              expires_at: '2025-12-31T23:59:59Z',
+            },
+          },
+          {
             method: 'DELETE',
             path: '/keys/:id',
             name: 'Revoke API Key',
@@ -990,6 +1101,17 @@ export default function ApiDocsPage() {
             name: 'Get Dataset',
             description: 'Get dataset details including all test cases',
             pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/evaluation/datasets/:id',
+            name: 'Update Dataset',
+            description: 'Update dataset name or description',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+            requestBody: {
+              name: 'Updated Dataset Name',
+              description: 'Updated description',
+            },
           },
           {
             method: 'POST',
@@ -1040,6 +1162,24 @@ export default function ApiDocsPage() {
             name: 'Get Run Details',
             description: 'Get detailed results for an evaluation run including per-case metrics',
             pathParams: [{ name: 'id', description: 'Run UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/evaluation/cases/:id',
+            name: 'Update Test Case',
+            description: 'Update a test case query or expected chunk IDs',
+            pathParams: [{ name: 'id', description: 'Case UUID' }],
+            requestBody: {
+              query: 'Updated test query?',
+              expected_chunk_ids: ['chunk_uuid_1', 'chunk_uuid_2', 'chunk_uuid_3'],
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/evaluation/cases/:id',
+            name: 'Delete Test Case',
+            description: 'Delete a test case from a dataset',
+            pathParams: [{ name: 'id', description: 'Case UUID' }],
           },
           {
             method: 'DELETE',

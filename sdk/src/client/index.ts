@@ -8,6 +8,13 @@ import { TablesResource } from '../resources/tables';
 import { SearchResource } from '../resources/search';
 import { ChatResource } from '../resources/chat';
 import { KnowledgeResource } from '../resources/knowledge';
+import { ChunksResource } from '../resources/chunks';
+import { EvaluationResource } from '../resources/evaluation';
+import { PromptsResource } from '../resources/prompts';
+import { WebhooksResource } from '../resources/webhooks';
+import { SqlResource } from '../resources/sql';
+import { StorageResource } from '../resources/storage';
+import { ProvidersResource } from '../resources/providers';
 import { DevabaseConfig } from '../types';
 
 export class DevabaseClient {
@@ -31,6 +38,20 @@ export class DevabaseClient {
   public readonly chat: ChatResource;
   /** Knowledge graph operations */
   public readonly knowledge: KnowledgeResource;
+  /** Chunk management */
+  public readonly chunks: ChunksResource;
+  /** RAG evaluation */
+  public readonly evaluation: EvaluationResource;
+  /** Prompt templates */
+  public readonly prompts: PromptsResource;
+  /** Webhook subscriptions */
+  public readonly webhooks: WebhooksResource;
+  /** SQL query execution */
+  public readonly sql: SqlResource;
+  /** File storage */
+  public readonly storage: StorageResource;
+  /** LLM, Embedding, and Rerank provider management */
+  public readonly providers: ProvidersResource;
 
   /**
    * Create a new Devabase client
@@ -74,6 +95,13 @@ export class DevabaseClient {
     this.search = new SearchResource(this.http);
     this.chat = new ChatResource(this.http);
     this.knowledge = new KnowledgeResource(this.http);
+    this.chunks = new ChunksResource(this.http);
+    this.evaluation = new EvaluationResource(this.http);
+    this.prompts = new PromptsResource(this.http);
+    this.webhooks = new WebhooksResource(this.http);
+    this.sql = new SqlResource(this.http);
+    this.storage = new StorageResource(this.http);
+    this.providers = new ProvidersResource(this.http);
   }
 
   /**

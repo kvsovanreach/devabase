@@ -73,18 +73,36 @@ export class CollectionsResource {
    * Get collection statistics
    * @example
    * const stats = await client.collections.stats('my-collection');
-   * console.log(`${stats.document_count} documents, ${stats.chunk_count} chunks`);
+   * console.log(`${stats.document_count} documents, ${stats.vector_count} vectors`);
    */
   async stats(name: string, options?: RequestOptions): Promise<CollectionStats> {
     return this.http.get<CollectionStats>(`/v1/collections/${name}/stats`, undefined, options);
   }
 
   /**
-   * Clear all documents from a collection
+   * Update collection RAG configuration
    * @example
-   * await client.collections.clear('my-collection');
+   * const collection = await client.collections.updateRagConfig('my-collection', {
+   *   llm_provider_id: 'openai-1',
+   *   model: 'gpt-4o-mini',
+   *   system_prompt: 'You are a helpful assistant.',
+   *   temperature: 0.7,
+   *   max_tokens: 1000,
+   *   top_k: 5
+   * });
    */
-  async clear(name: string, options?: RequestOptions): Promise<void> {
-    await this.http.post<void>(`/v1/collections/${name}/clear`, undefined, options);
+  async updateRagConfig(
+    name: string,
+    config: {
+      llm_provider_id: string;
+      model: string;
+      system_prompt: string;
+      temperature?: number;
+      max_tokens?: number;
+      top_k?: number;
+    },
+    options?: RequestOptions
+  ): Promise<Collection> {
+    return this.http.patch<Collection>(`/v1/collections/${name}/config`, config, options);
   }
 }
