@@ -20,7 +20,7 @@ export type ExportFormat = 'csv' | 'json';
 
 export function useExportTable() {
   return useMutation({
-    mutationFn: async ({ tableName, format }: { tableName: string; format: ExportFormat }) => {
+    mutationFn: async ({ tableName, format, projectName }: { tableName: string; format: ExportFormat; projectName?: string }) => {
       const response = await fetch(
         `${API_CONFIG.baseUrl}/v1/tables/${encodeURIComponent(tableName)}/export?format=${format}`,
         {
@@ -36,7 +36,14 @@ export function useExportTable() {
       }
 
       const blob = await response.blob();
-      const filename = `${tableName}.${format}`;
+
+      // Generate filename: project_name.table_name_timestamp.format
+      // Convert to lowercase and replace spaces/special chars with underscores
+      const sanitize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const sanitizedTable = sanitize(tableName);
+      const prefix = projectName ? `${sanitize(projectName)}.` : '';
+      const filename = `${prefix}${sanitizedTable}_${timestamp}.${format}`;
 
       // Trigger download
       const url = window.URL.createObjectURL(blob);

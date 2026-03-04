@@ -129,6 +129,8 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
     // Ensure queries are invalidated to trigger polling
     await queryClient.invalidateQueries({ queryKey: ['documents', selectedCollection] });
     await queryClient.invalidateQueries({ queryKey: ['documents'] });
+    // Also invalidate collections to update vector counts after processing
+    await queryClient.invalidateQueries({ queryKey: ['collections'] });
 
     if (errorCount === 0 && successCount > 0) {
       toast.success(`${successCount} file(s) uploaded successfully. Processing...`);

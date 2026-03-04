@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Download, FileJson, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useExportTable, ExportFormat } from '@/hooks/use-import-export';
+import { useProjectStore } from '@/stores/project-store';
 import { cn } from '@/lib/utils';
 
 interface ExportButtonProps {
@@ -14,6 +15,7 @@ export function ExportButton({ tableName }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const exportMutation = useExportTable();
+  const { currentProject } = useProjectStore();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -28,7 +30,7 @@ export function ExportButton({ tableName }: ExportButtonProps) {
 
   const handleExport = (format: ExportFormat) => {
     setIsOpen(false);
-    exportMutation.mutate({ tableName, format });
+    exportMutation.mutate({ tableName, format, projectName: currentProject?.name });
   };
 
   return (

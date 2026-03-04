@@ -306,14 +306,13 @@ class ApiClient {
     onProgress?: (progress: number) => void
   ): Promise<Document> {
     const formData = new FormData();
-    formData.append('collection', collection);
     formData.append('file', file);
     if (name) {
       formData.append('name', name);
     }
 
     const response = await this.client.post<Document>(
-      '/documents/upload',
+      `/collections/${collection}/documents`,
       formData,
       {
         headers: {
@@ -347,14 +346,17 @@ class ApiClient {
 
   // Search/Retrieve endpoint
   async search(data: SearchRequest): Promise<SearchResult[]> {
-    const response = await this.client.post<SearchResult[]>('/retrieve', {
-      collection: data.collection,
+    if (!data.collection) {
+      throw new Error('Collection is required for search');
+    }
+    const collection = encodeURIComponent(data.collection);
+    const response = await this.client.post<{ results: SearchResult[]; total: number; query: string }>(`/collections/${collection}/search`, {
       query: data.query,
       top_k: data.limit,
       filter: data.filter,
       rerank: data.rerank,
     });
-    return response.data;
+    return response.data.results;
   }
 
   // Hybrid search endpoint (vector + keyword/BM25)
@@ -437,6 +439,19 @@ class ApiClient {
   }): Promise<{ success: boolean; message: string; response?: string }> {
     const response = await this.client.post<{ success: boolean; message: string; response?: string }>(
       '/providers/test-embedding',
+      data
+    );
+    return response.data;
+  }
+
+  async testRerankProvider(data: {
+    provider_type: string;
+    api_key: string;
+    base_url?: string;
+    model: string;
+  }): Promise<{ success: boolean; message: string; response?: string }> {
+    const response = await this.client.post<{ success: boolean; message: string; response?: string }>(
+      '/providers/test-rerank',
       data
     );
     return response.data;

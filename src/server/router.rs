@@ -242,6 +242,13 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/sql/schema", get(api::sql::get_schema))
 
         // ─────────────────────────────────────────
+        // Provider Testing
+        // ─────────────────────────────────────────
+        .route("/providers/test-llm", post(api::providers::test_llm))
+        .route("/providers/test-embedding", post(api::providers::test_embedding))
+        .route("/providers/test-rerank", post(api::providers::test_rerank))
+
+        // ─────────────────────────────────────────
         // Storage (Generic File Storage)
         // ─────────────────────────────────────────
         .route("/storage", post(api::files::upload_file))

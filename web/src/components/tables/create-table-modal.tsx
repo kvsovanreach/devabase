@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InlineSelect } from '@/components/ui/inline-select';
 import { useCreateTable, useTables, ColumnDefinition } from '@/hooks/use-tables';
+import toast from 'react-hot-toast';
 
 interface CreateTableModalProps {
   isOpen: boolean;
@@ -103,6 +104,60 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
     const table = existingTables?.find((t) => t.name === tableName);
     if (!table) return [{ value: 'id', label: 'id' }];
     return table.columns.map((c) => ({ value: c.name, label: c.name }));
+  };
+
+  // Get the type of a column from a referenced table
+  const getReferencedColumnType = (tableName: string, columnName: string): string | null => {
+    const table = existingTables?.find((t) => t.name === tableName);
+    if (!table) return null;
+    const column = table.columns.find((c) => c.name === columnName);
+    return column?.data_type || null;
+  };
+
+  // Handle foreign key table selection - auto-set column type to match referenced column
+  const handleForeignKeyTableChange = (index: number, tableName: string) => {
+    if (!tableName) {
+      updateColumn(index, {
+        references_table: undefined,
+        references_column: undefined,
+      });
+      return;
+    }
+
+    const refColumnName = 'id'; // Default to 'id'
+    const refColumnType = getReferencedColumnType(tableName, refColumnName);
+
+    if (refColumnType) {
+      updateColumn(index, {
+        references_table: tableName,
+        references_column: refColumnName,
+        type: refColumnType,
+      });
+      toast.success(`Column type set to "${refColumnType}" to match ${tableName}.${refColumnName}`);
+    } else {
+      updateColumn(index, {
+        references_table: tableName,
+        references_column: refColumnName,
+      });
+    }
+  };
+
+  // Handle foreign key column selection - auto-set column type to match
+  const handleForeignKeyColumnChange = (index: number, columnName: string) => {
+    const column = columns[index];
+    if (!column.references_table) return;
+
+    const refColumnType = getReferencedColumnType(column.references_table, columnName);
+
+    if (refColumnType) {
+      updateColumn(index, {
+        references_column: columnName,
+        type: refColumnType,
+      });
+      toast.success(`Column type set to "${refColumnType}" to match ${column.references_table}.${columnName}`);
+    } else {
+      updateColumn(index, { references_column: columnName });
+    }
   };
 
   return (
@@ -216,12 +271,7 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                             <InlineSelect
                               options={tableOptions}
                               value={column.references_table || ''}
-                              onChange={(value) =>
-                                updateColumn(index, {
-                                  references_table: value || undefined,
-                                  references_column: value ? 'id' : undefined,
-                                })
-                              }
+                              onChange={(value) => handleForeignKeyTableChange(index, value)}
                               placeholder="Table"
                             />
                             <InlineSelect
@@ -231,9 +281,7 @@ export function CreateTableModal({ isOpen, onClose }: CreateTableModalProps) {
                                   : [{ value: 'id', label: 'id' }]
                               }
                               value={column.references_column || 'id'}
-                              onChange={(value) =>
-                                updateColumn(index, { references_column: value })
-                              }
+                              onChange={(value) => handleForeignKeyColumnChange(index, value)}
                               placeholder="Column"
                             />
                             <InlineSelect

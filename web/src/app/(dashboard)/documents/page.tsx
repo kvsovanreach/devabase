@@ -300,6 +300,62 @@ export default function DocumentsPage() {
             }
           />
         )}
+
+        {/* API Reference Section */}
+        {hasCollections && (
+          <Card className="mt-8 p-4 md:p-6">
+            <h3 className="text-[14px] md:text-[15px] font-semibold text-foreground mb-3 md:mb-4">
+              API Reference
+            </h3>
+            <p className="text-[12px] md:text-[13px] text-text-secondary mb-3 md:mb-4">
+              Manage documents via REST API. Replace <code className="px-1.5 py-0.5 bg-surface-secondary rounded text-[10px] md:text-xs font-mono">:name</code> with collection name and <code className="px-1.5 py-0.5 bg-surface-secondary rounded text-[10px] md:text-xs font-mono">:id</code> with document ID.
+            </p>
+            <div className="space-y-2 md:space-y-2.5 font-mono text-[11px] md:text-[13px] overflow-x-auto">
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  GET
+                </span>
+                <span className="text-text-secondary">/v1/collections/:name/documents</span>
+                <span className="text-text-tertiary hidden sm:inline">— List documents</span>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  POST
+                </span>
+                <span className="text-text-secondary">/v1/collections/:name/documents</span>
+                <span className="text-text-tertiary hidden sm:inline">— Upload document</span>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  GET
+                </span>
+                <span className="text-text-secondary">/v1/documents/:id</span>
+                <span className="text-text-tertiary hidden sm:inline">— Get document</span>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  GET
+                </span>
+                <span className="text-text-secondary">/v1/documents/:id/chunks</span>
+                <span className="text-text-tertiary hidden sm:inline">— Get chunks</span>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  POST
+                </span>
+                <span className="text-text-secondary">/v1/documents/:id/reprocess</span>
+                <span className="text-text-tertiary hidden sm:inline">— Reprocess document</span>
+              </div>
+              <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                <span className="px-2 py-1 bg-error/10 text-error rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                  DELETE
+                </span>
+                <span className="text-text-secondary">/v1/documents/:id</span>
+                <span className="text-text-tertiary hidden sm:inline">— Delete document</span>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
       <UploadModal

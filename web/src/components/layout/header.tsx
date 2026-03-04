@@ -8,6 +8,7 @@ import { ProjectSwitcher } from './project-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useProjectStore } from '@/stores/project-store';
 import { useSidebarStore } from '@/stores/sidebar-store';
+import { cn } from '@/lib/utils';
 
 // Map of path segments to display names
 const pathNames: Record<string, string> = {
@@ -36,7 +37,7 @@ const pathNames: Record<string, string> = {
 export function Header() {
   const pathname = usePathname();
   const { currentProject } = useProjectStore();
-  const { setMobileOpen } = useSidebarStore();
+  const { isCollapsed, setMobileOpen } = useSidebarStore();
 
   // Generate breadcrumb items from pathname
   const generateBreadcrumbs = () => {
@@ -72,7 +73,12 @@ export function Header() {
   const hasMultipleBreadcrumbs = breadcrumbs.length > 0;
 
   return (
-    <header className="h-[60px] border-b border-border-light bg-surface flex items-center justify-between px-4 md:px-8">
+    <>
+    <header className={cn(
+      "h-[60px] border-b border-border-light bg-surface flex items-center justify-between px-4 md:px-8 fixed top-0 right-0 left-0 z-30 transition-all duration-300 ease-in-out",
+      "lg:left-[260px]",
+      isCollapsed && "lg:left-[72px]"
+    )}>
       <nav className="flex items-center min-w-0 flex-1">
         {/* Mobile menu button */}
         <button
@@ -133,5 +139,8 @@ export function Header() {
         <UserMenu />
       </div>
     </header>
+    {/* Spacer to push content below fixed header */}
+    <div className="h-[60px]" />
+    </>
   );
 }

@@ -316,11 +316,11 @@ export default function ApiDocsPage() {
           },
           {
             method: 'POST',
-            path: '/documents/upload',
+            path: '/collections/:name/documents',
             name: 'Upload Document',
             description: 'Upload a document to be processed and embedded. Supports PDF, TXT, MD, DOCX, and more.',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
             requestBody: {
-              collection: exampleCollection,
               file: '(multipart file upload)',
               metadata: { source: 'api' },
             },

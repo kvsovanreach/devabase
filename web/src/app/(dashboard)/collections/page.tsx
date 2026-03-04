@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { Pagination } from '@/components/ui/pagination';
+import { Card } from '@/components/ui/card';
 import { CollectionCard } from '@/components/collections/collection-card';
 import { CreateCollectionModal } from '@/components/collections/create-collection-modal';
 import { EditCollectionModal } from '@/components/collections/edit-collection-modal';
@@ -22,17 +23,13 @@ import {
   AlertCircle,
   Settings,
   Search,
-  LayoutGrid,
-  List,
 } from 'lucide-react';
 import { ProjectSettings } from '@/types';
-import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 const ITEMS_PER_PAGE = 12;
 
 type SortOption = 'updated' | 'name' | 'vectors';
-type ViewMode = 'grid' | 'list';
 
 const sortOptions = [
   { value: 'updated', label: 'Recently Updated' },
@@ -52,7 +49,6 @@ export default function CollectionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('updated');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Check if embedding providers are configured
   const projectSettings = currentProject?.settings as unknown as ProjectSettings | undefined;
@@ -220,44 +216,14 @@ export default function CollectionsPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-3">
-                {/* Sort Dropdown */}
-                <div className="w-[180px]">
-                  <Select
-                    options={sortOptions}
-                    value={sortBy}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="!py-2"
-                  />
-                </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center bg-surface border border-border-light rounded-xl p-1">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-150',
-                      viewMode === 'grid'
-                        ? 'bg-primary text-white'
-                        : 'text-text-secondary hover:text-foreground hover:bg-surface-hover'
-                    )}
-                    title="Grid view"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-150',
-                      viewMode === 'list'
-                        ? 'bg-primary text-white'
-                        : 'text-text-secondary hover:text-foreground hover:bg-surface-hover'
-                    )}
-                    title="List view"
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
+              {/* Sort Dropdown */}
+              <div className="w-[180px]">
+                <Select
+                  options={sortOptions}
+                  value={sortBy}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  className="!py-2"
+                />
               </div>
             </div>
 
@@ -275,14 +241,8 @@ export default function CollectionsPage() {
               />
             ) : (
               <>
-                {/* Collections Grid/List */}
-                <div
-                  className={cn(
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                      : 'flex flex-col gap-3'
-                  )}
-                >
+                {/* Collections Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {paginatedCollections.map((collection) => (
                     <CollectionCard
                       key={collection.name}
@@ -308,6 +268,67 @@ export default function CollectionsPage() {
                 )}
               </>
             )}
+
+            {/* API Reference Section */}
+            <Card className="mt-8 p-4 md:p-6">
+              <h3 className="text-[14px] md:text-[15px] font-semibold text-foreground mb-3 md:mb-4">
+                API Reference
+              </h3>
+              <p className="text-[12px] md:text-[13px] text-text-secondary mb-3 md:mb-4">
+                Each collection provides REST APIs for documents and vector search. Replace <code className="px-1.5 py-0.5 bg-surface-secondary rounded text-[10px] md:text-xs font-mono">:name</code> with your collection name.
+              </p>
+              <div className="space-y-2 md:space-y-2.5 font-mono text-[11px] md:text-[13px] overflow-x-auto">
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    GET
+                  </span>
+                  <span className="text-text-secondary">/v1/collections</span>
+                  <span className="text-text-tertiary hidden sm:inline">— List collections</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    POST
+                  </span>
+                  <span className="text-text-secondary">/v1/collections</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Create collection</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    GET
+                  </span>
+                  <span className="text-text-secondary">/v1/collections/:name</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Get collection</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    POST
+                  </span>
+                  <span className="text-text-secondary">/v1/collections/:name/documents</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Upload document</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    POST
+                  </span>
+                  <span className="text-text-secondary">/v1/collections/:name/search</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Vector search</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    POST
+                  </span>
+                  <span className="text-text-secondary">/v1/collections/:name/chat</span>
+                  <span className="text-text-tertiary hidden sm:inline">— RAG chat</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-error/10 text-error rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    DELETE
+                  </span>
+                  <span className="text-text-secondary">/v1/collections/:name</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Delete collection</span>
+                </div>
+              </div>
+            </Card>
           </>
         ) : (
           <EmptyState

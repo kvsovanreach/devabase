@@ -5,7 +5,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   Node,
@@ -44,6 +43,7 @@ import {
   ToggleLeft,
   Braces,
   Link2,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -528,6 +528,7 @@ export default function SchemaPage() {
   const [showCollections, setShowCollections] = useState(true);
   const [showRelationships, setShowRelationships] = useState(true);
   const [layout, setLayout] = useState<'hierarchical' | 'grid'>('hierarchical');
+  const [showSettings, setShowSettings] = useState(false);
 
   const isLoading = tablesLoading || collectionsLoading;
 
@@ -616,6 +617,7 @@ export default function SchemaPage() {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onPaneClick={() => setShowSettings(false)}
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.2 }}
@@ -628,127 +630,147 @@ export default function SchemaPage() {
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--color-border-light)" />
-            <Controls className="!bg-surface !border-border-light !shadow-lg" />
-            <MiniMap
-              className="!bg-surface !border-border-light"
-              nodeColor={(node) => (node.data.type === 'table' ? '#8b5cf6' : '#6366f1')}
-              maskColor="rgba(0, 0, 0, 0.2)"
-            />
 
-            {/* Control Panel */}
-            <Panel position="top-left" className="!m-4">
-              <Card className="p-2 space-y-1 min-w-[140px]">
-                <Button
-                  variant={showTables ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setShowTables(!showTables)}
-                  className="w-full justify-start"
-                >
-                  <Table2 className="w-4 h-4 mr-2" />
-                  Tables ({tables?.length || 0})
-                </Button>
-                <Button
-                  variant={showCollections ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setShowCollections(!showCollections)}
-                  className="w-full justify-start"
-                >
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Collections ({collections?.length || 0})
-                </Button>
-
-                <div className="border-t border-border-light my-1" />
-
-                <div className="flex gap-1">
-                  <Button
-                    variant={layout === 'hierarchical' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setLayout('hierarchical')}
-                    className="flex-1"
-                  >
-                    Auto
-                  </Button>
-                  <Button
-                    variant={layout === 'grid' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setLayout('grid')}
-                    className="flex-1"
-                  >
-                    Grid
-                  </Button>
-                </div>
-
-                <div className="border-t border-border-light my-1" />
-
-                <Button
-                  variant={showRelationships ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setShowRelationships(!showRelationships)}
-                  className="w-full justify-start"
-                >
-                  <Link2 className="w-4 h-4 mr-2" />
-                  {showRelationships ? 'Hide' : 'Show'} ({relationshipCount})
-                </Button>
-
-                <Button variant="ghost" size="sm" onClick={handleAutoLayout} className="w-full justify-start text-text-secondary">
-                  Reset Layout
-                </Button>
-              </Card>
-            </Panel>
-
-            {/* Legend */}
+            {/* Controls with Settings Button */}
             <Panel position="bottom-left" className="!m-4">
-              <Card className="px-3 py-2">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-text-secondary">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-violet-500" />
-                    <span>Table</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded bg-primary" />
-                    <span>Collection</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Key className="w-3 h-3 text-warning" />
-                    <span>Primary Key</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Link2 className="w-3 h-3 text-primary" />
-                    <span>Foreign Key</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <svg width="24" height="12" className="text-violet-500">
-                      <line x1="0" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" />
-                      <polygon points="24,6 16,2 16,10" fill="currentColor" />
-                    </svg>
-                    <span>Relationship</span>
-                  </div>
+              <div className="flex items-end gap-3" style={{ position: 'relative', zIndex: 5 }}>
+                <div className="flex-shrink-0">
+                  <Controls className="!bg-surface !border-border-light !shadow-lg !relative !z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSettings(!showSettings);
+                      }}
+                      className={cn(
+                        "react-flow__controls-button",
+                        showSettings && "!bg-primary !text-white"
+                      )}
+                      title="Settings"
+                    >
+                      <Settings className="w-3.5 h-3.5" style={{ maxWidth: 12, maxHeight: 12 }} />
+                    </button>
+                  </Controls>
                 </div>
-              </Card>
+
+                {/* Settings Popup */}
+                {showSettings && (
+                  <div className="flex-shrink-0" style={{ position: 'relative', zIndex: 100 }} onClick={(e) => e.stopPropagation()}>
+                    <Card className="p-2 space-y-1 min-w-[140px] shadow-xl border border-border-light">
+                    <Button
+                      variant={showTables ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setShowTables(!showTables)}
+                      className="w-full justify-start"
+                    >
+                      <Table2 className="w-4 h-4 mr-2" />
+                      Tables ({tables?.length || 0})
+                    </Button>
+                    <Button
+                      variant={showCollections ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setShowCollections(!showCollections)}
+                      className="w-full justify-start"
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      Collections ({collections?.length || 0})
+                    </Button>
+
+                    <div className="border-t border-border-light my-1" />
+
+                    <div className="flex gap-1">
+                      <Button
+                        variant={layout === 'hierarchical' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setLayout('hierarchical')}
+                        className="flex-1"
+                      >
+                        Auto
+                      </Button>
+                      <Button
+                        variant={layout === 'grid' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setLayout('grid')}
+                        className="flex-1"
+                      >
+                        Grid
+                      </Button>
+                    </div>
+
+                    <div className="border-t border-border-light my-1" />
+
+                    <Button
+                      variant={showRelationships ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setShowRelationships(!showRelationships)}
+                      className="w-full justify-start"
+                    >
+                      <Link2 className="w-4 h-4 mr-2" />
+                      {showRelationships ? 'Hide' : 'Show'} ({relationshipCount})
+                    </Button>
+
+                    <Button variant="ghost" size="sm" onClick={handleAutoLayout} className="w-full justify-start text-text-secondary">
+                      Reset Layout
+                    </Button>
+                    </Card>
+                  </div>
+                )}
+              </div>
             </Panel>
 
-            {/* Stats */}
+            {/* Legend & Stats */}
             <Panel position="bottom-right" className="!m-4">
-              <Card className="px-3 py-2">
-                <div className="flex items-center gap-4 text-[11px] text-text-secondary">
-                  <span>
-                    <strong className="text-foreground">{tables?.length || 0}</strong> tables
-                  </span>
-                  <span>
-                    <strong className="text-foreground">{collections?.length || 0}</strong> collections
-                  </span>
-                  <span>
-                    <strong className="text-foreground">{relationshipCount}</strong> relationships
-                  </span>
-                  <span>
-                    <strong className="text-foreground">
-                      {(tables?.reduce((acc, t) => acc + t.row_count, 0) || 0) +
-                        (collections?.reduce((acc, c) => acc + c.vector_count, 0) || 0)}
-                    </strong>{' '}
-                    records
-                  </span>
-                </div>
-              </Card>
+              <div className="flex items-center gap-3">
+                {/* Legend */}
+                <Card className="px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-text-secondary">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-violet-500" />
+                      <span>Table</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-primary" />
+                      <span>Collection</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Key className="w-3 h-3 text-warning" />
+                      <span>Primary Key</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Link2 className="w-3 h-3 text-primary" />
+                      <span>Foreign Key</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <svg width="24" height="12" className="text-violet-500">
+                        <line x1="0" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" />
+                        <polygon points="24,6 16,2 16,10" fill="currentColor" />
+                      </svg>
+                      <span>Relationship</span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Stats */}
+                <Card className="px-3 py-2">
+                  <div className="flex items-center gap-4 text-[11px] text-text-secondary">
+                    <span>
+                      <strong className="text-foreground">{tables?.length || 0}</strong> tables
+                    </span>
+                    <span>
+                      <strong className="text-foreground">{collections?.length || 0}</strong> collections
+                    </span>
+                    <span>
+                      <strong className="text-foreground">{relationshipCount}</strong> relationships
+                    </span>
+                    <span>
+                      <strong className="text-foreground">
+                        {(tables?.reduce((acc, t) => acc + t.row_count, 0) || 0) +
+                          (collections?.reduce((acc, c) => acc + c.vector_count, 0) || 0)}
+                      </strong>{' '}
+                      records
+                    </span>
+                  </div>
+                </Card>
+              </div>
             </Panel>
           </ReactFlow>
         </div>

@@ -119,7 +119,7 @@ fn build_endpoints() -> Vec<EndpointInfo> {
         EndpointInfo { method: "PATCH", path: "/collections/:name", desc: "Update collection", body: None },
         EndpointInfo { method: "DELETE", path: "/collections/:name", desc: "Delete collection", body: None },
         // Documents
-        EndpointInfo { method: "POST", path: "/documents/upload", desc: "Upload document (multipart)", body: None },
+        EndpointInfo { method: "POST", path: "/collections/:name/documents", desc: "Upload document (multipart)", body: None },
         EndpointInfo { method: "GET", path: "/documents", desc: "List documents (?collection=)", body: None },
         EndpointInfo { method: "GET", path: "/documents/:id", desc: "Get document", body: None },
         EndpointInfo { method: "DELETE", path: "/documents/:id", desc: "Delete document", body: None },

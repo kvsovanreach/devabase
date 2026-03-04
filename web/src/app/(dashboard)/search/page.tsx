@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useCollections } from '@/hooks/use-collections';
 import { useSearch, useMultiCollectionSearch, useHybridSearch, MultiCollectionSearchResult } from '@/hooks/use-search';
 import { Header } from '@/components/layout/header';
@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 type SearchMode = 'single' | 'multi';
 type SearchType = 'vector' | 'hybrid';
 
-type UnifiedResult = (SearchResult & { collection_name?: string; vector_score?: number; keyword_score?: number }) | MultiCollectionSearchResult | HybridSearchResult;
+type UnifiedResult = (SearchResult & { collection?: string; collection_name?: string; vector_score?: number; keyword_score?: number }) | MultiCollectionSearchResult | HybridSearchResult;
 
 export default function SearchPage() {
   const { data: collections } = useCollections();
@@ -45,6 +45,20 @@ export default function SearchPage() {
   const [searchType, setSearchType] = useState<SearchType>('vector');
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+
+  // Get collection with most vectors for auto-selection
+  const collectionWithMostVectors = useMemo(() => {
+    if (!collections || collections.length === 0) return '';
+    const sorted = [...collections].sort((a, b) => b.vector_count - a.vector_count);
+    return sorted[0]?.name ?? '';
+  }, [collections]);
+
+  // Auto-select collection with most vectors when collections load
+  useEffect(() => {
+    if (collectionWithMostVectors && !selectedCollection) {
+      setSelectedCollection(collectionWithMostVectors);
+    }
+  }, [collectionWithMostVectors, selectedCollection]);
   const [limit, setLimit] = useState('10');
   const [results, setResults] = useState<UnifiedResult[] | null>(null);
   const [collectionsSearched, setCollectionsSearched] = useState<string[]>([]);
@@ -478,10 +492,10 @@ export default function SearchPage() {
                           <span className="text-[12px] text-text-tertiary font-mono">
                             {result.document_id.slice(0, 8)}
                           </span>
-                          {'collection_name' in result && result.collection_name && (
+                          {(('collection' in result && result.collection) || ('collection_name' in result && result.collection_name)) && (
                             <Badge variant="default" className="text-[10px]">
                               <FolderOpen className="w-3 h-3 mr-1" />
-                              {result.collection_name}
+                              {('collection' in result && result.collection) || ('collection_name' in result && result.collection_name)}
                             </Badge>
                           )}
                           {hasRerankScore ? (

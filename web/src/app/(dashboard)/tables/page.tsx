@@ -6,8 +6,6 @@ import {
   Plus,
   Table2,
   Search,
-  LayoutGrid,
-  List,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -21,12 +19,10 @@ import { Pagination } from '@/components/ui/pagination';
 import { useTables, useDeleteTable, TableInfo } from '@/hooks/use-tables';
 import { CreateTableModal } from '@/components/tables/create-table-modal';
 import { TableCard } from '@/components/tables/table-card';
-import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 12;
 
 type SortOption = 'created' | 'name' | 'rows';
-type ViewMode = 'grid' | 'list';
 
 const sortOptions = [
   { value: 'created', label: 'Recently Created' },
@@ -44,7 +40,6 @@ export default function TablesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('created');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Filter and sort tables
   const filteredTables = useMemo(() => {
@@ -179,44 +174,14 @@ export default function TablesPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-3">
-                {/* Sort Dropdown */}
-                <div className="w-[180px]">
-                  <Select
-                    options={sortOptions}
-                    value={sortBy}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="!py-2"
-                  />
-                </div>
-
-                {/* View Mode Toggle */}
-                <div className="flex items-center bg-surface border border-border-light rounded-xl p-1">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-150',
-                      viewMode === 'grid'
-                        ? 'bg-primary text-white'
-                        : 'text-text-secondary hover:text-foreground hover:bg-surface-hover'
-                    )}
-                    title="Grid view"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      'p-2 rounded-lg transition-all duration-150',
-                      viewMode === 'list'
-                        ? 'bg-primary text-white'
-                        : 'text-text-secondary hover:text-foreground hover:bg-surface-hover'
-                    )}
-                    title="List view"
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
+              {/* Sort Dropdown */}
+              <div className="w-[180px]">
+                <Select
+                  options={sortOptions}
+                  value={sortBy}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  className="!py-2"
+                />
               </div>
             </div>
 
@@ -234,14 +199,8 @@ export default function TablesPage() {
               />
             ) : (
               <>
-                {/* Tables Grid/List */}
-                <div
-                  className={cn(
-                    viewMode === 'grid'
-                      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
-                      : 'flex flex-col gap-3'
-                  )}
-                >
+                {/* Tables Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {paginatedTables.map((table: TableInfo) => (
                     <TableCard
                       key={table.name}
@@ -280,6 +239,27 @@ export default function TablesPage() {
                   <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
                     GET
                   </span>
+                  <span className="text-text-secondary">/v1/tables</span>
+                  <span className="text-text-tertiary hidden sm:inline">— List tables</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-info/10 text-info rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    POST
+                  </span>
+                  <span className="text-text-secondary">/v1/tables</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Create table</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    GET
+                  </span>
+                  <span className="text-text-secondary">/v1/tables/:table</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Get table schema</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-success/10 text-success rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    GET
+                  </span>
                   <span className="text-text-secondary">/v1/tables/:table/rows</span>
                   <span className="text-text-tertiary hidden sm:inline">— List rows</span>
                 </div>
@@ -310,6 +290,13 @@ export default function TablesPage() {
                   </span>
                   <span className="text-text-secondary">/v1/tables/:table/rows/:id</span>
                   <span className="text-text-tertiary hidden sm:inline">— Delete row</span>
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 whitespace-nowrap">
+                  <span className="px-2 py-1 bg-error/10 text-error rounded text-[10px] md:text-xs font-medium w-14 md:w-16 text-center flex-shrink-0">
+                    DELETE
+                  </span>
+                  <span className="text-text-secondary">/v1/tables/:table</span>
+                  <span className="text-text-tertiary hidden sm:inline">— Delete table</span>
                 </div>
               </div>
             </Card>

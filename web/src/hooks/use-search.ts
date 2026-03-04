@@ -35,8 +35,13 @@ export interface MultiCollectionSearchResponse {
 export function useMultiCollectionSearch() {
   return useMutation({
     mutationFn: async (data: MultiCollectionSearchRequest) => {
-      const response = await apiClient.post<MultiCollectionSearchResponse>('/retrieve/multi', data);
-      return response.data;
+      const response = await apiClient.post<{ results: MultiCollectionSearchResult[]; total: number; query: string }>('/search', data);
+      // Map backend response to expected frontend format
+      return {
+        results: response.data.results,
+        collections_searched: data.collections, // Use input collections since backend doesn't return this
+        total_results: response.data.total,
+      };
     },
   });
 }

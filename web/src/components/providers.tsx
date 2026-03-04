@@ -28,6 +28,8 @@ export function Providers({ children }: { children: ReactNode }) {
             background: 'var(--surface)',
             color: 'var(--foreground)',
             border: '1px solid var(--border)',
+            maxWidth: '420px',
+            wordBreak: 'break-word',
           },
           success: {
             iconTheme: {
@@ -40,6 +42,7 @@ export function Providers({ children }: { children: ReactNode }) {
               primary: 'var(--error)',
               secondary: 'white',
             },
+            duration: 5000,
           },
         }}
       />

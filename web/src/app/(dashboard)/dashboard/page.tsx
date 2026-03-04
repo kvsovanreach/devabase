@@ -25,6 +25,8 @@ import {
   BookOpen,
   Terminal,
   CheckCircle2,
+  ExternalLink,
+  Home,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -176,18 +178,20 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/keys">
+              <Link href="https://sovanreach.com/projects/devabase" target="_blank">
                 <Button variant="secondary" size="sm">
-                  <Terminal className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">API Reference</span>
-                  <span className="sm:hidden">API</span>
+                  <Home className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Home Page</span>
+                  <span className="sm:hidden">Home</span>
+                  <ExternalLink className="w-3 h-3 ml-1.5 opacity-50" />
                 </Button>
               </Link>
-              <Link href="https://docs.devabase.com" target="_blank">
+              <Link href="https://sovanreach.com/projects/devabase/docs" target="_blank">
                 <Button variant="secondary" size="sm">
                   <BookOpen className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Documentation</span>
                   <span className="sm:hidden">Docs</span>
+                  <ExternalLink className="w-3 h-3 ml-1.5 opacity-50" />
                 </Button>
               </Link>
             </div>
