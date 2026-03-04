@@ -74,6 +74,7 @@ export default function RagPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedBody, setCopiedBody] = useState(false);
   const [collectionsUsed, setCollectionsUsed] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -298,6 +299,23 @@ export default function RagPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getSampleBody = () => {
+    const collection = chatMode === 'single' ? selectedCollection : selectedCollections;
+    return JSON.stringify({
+      collection,
+      message: "Your question here",
+      include_sources: true,
+      stream: true,
+    }, null, 2);
+  };
+
+  const copySampleBody = () => {
+    navigator.clipboard.writeText(getSampleBody());
+    setCopiedBody(true);
+    toast.success('Sample body copied to clipboard');
+    setTimeout(() => setCopiedBody(false), 2000);
+  };
+
   const isPending = isStreaming;
   const canChat =
     chatMode === 'single'
@@ -433,22 +451,22 @@ export default function RagPage() {
           </div>
 
           {/* RAG Status / Info */}
-          <div className="p-4 flex-1 overflow-y-auto">
-            <div className="space-y-4">
+          <div className="p-3 flex-1 overflow-y-auto">
+            <div className="space-y-3">
               {/* Status Card */}
               {chatMode === 'single' && selectedCollection && (
-                <Card className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-foreground">RAG API</span>
+                <Card className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[12px] font-medium text-foreground">RAG API</span>
                     {isRagEnabled ? (
-                      <Badge variant="success">Enabled</Badge>
+                      <Badge variant="success" className="text-[10px]">Enabled</Badge>
                     ) : (
-                      <Badge variant="default">Disabled</Badge>
+                      <Badge variant="default" className="text-[10px]">Disabled</Badge>
                     )}
                   </div>
 
                   {isRagEnabled && ragConfig && (
-                    <div className="space-y-2 text-[12px] text-text-secondary">
+                    <div className="space-y-1 text-[11px] text-text-secondary">
                       <div className="flex justify-between">
                         <span>Provider:</span>
                         <span className="text-foreground">
@@ -458,7 +476,7 @@ export default function RagPage() {
                       </div>
                       <div className="flex justify-between">
                         <span>Model:</span>
-                        <span className="text-foreground">{ragConfig.model}</span>
+                        <span className="text-foreground truncate ml-2 max-w-[120px]">{ragConfig.model}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Top K:</span>
@@ -468,27 +486,27 @@ export default function RagPage() {
                   )}
 
                   {isRagEnabled ? (
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex gap-2 mt-2">
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 h-7 text-[11px]"
                         onClick={() => setIsConfigModalOpen(true)}
                       >
-                        <Settings className="w-3.5 h-3.5 mr-1.5" />
+                        <Settings className="w-3 h-3 mr-1" />
                         Configure
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-error hover:bg-error/10"
+                        className="text-error hover:bg-error/10 h-7"
                         onClick={() => disableRagMutation.mutate(selectedCollection)}
                         disabled={disableRagMutation.isPending}
                       >
                         {disableRagMutation.isPending ? (
                           <Spinner size="sm" />
                         ) : (
-                          <Power className="w-3.5 h-3.5" />
+                          <Power className="w-3 h-3" />
                         )}
                       </Button>
                     </div>
@@ -496,10 +514,10 @@ export default function RagPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      className="w-full mt-3"
+                      className="w-full mt-2 h-7 text-[11px]"
                       onClick={() => setIsConfigModalOpen(true)}
                     >
-                      <Settings className="w-3.5 h-3.5 mr-1.5" />
+                      <Settings className="w-3 h-3 mr-1" />
                       Enable RAG
                     </Button>
                   )}
@@ -507,19 +525,18 @@ export default function RagPage() {
               )}
 
               {chatMode === 'multi' && selectedCollections.length > 0 && (
-                <Card className="p-4">
-                  <div className="text-[13px] font-medium text-foreground mb-2">
+                <Card className="p-3">
+                  <div className="text-[11px] font-medium text-foreground mb-1">
                     Multi-Collection Mode
                   </div>
-                  <p className="text-[12px] text-text-secondary mb-3">
+                  <p className="text-[10px] text-text-secondary mb-2">
                     Searching across {selectedCollections.length} collection
-                    {selectedCollections.length > 1 ? 's' : ''}. The AI will combine knowledge from
-                    all selected sources.
+                    {selectedCollections.length > 1 ? 's' : ''}.
                   </p>
                   {collectionsUsed.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {collectionsUsed.map((name) => (
-                        <Badge key={name} variant="primary" className="text-[10px]">
+                        <Badge key={name} variant="primary" className="text-[9px]">
                           {name}
                         </Badge>
                       ))}
@@ -529,58 +546,80 @@ export default function RagPage() {
               )}
 
               {/* API Endpoint */}
-              {canChat && (
-                <Card className="p-4">
-                  <div className="text-[13px] font-medium text-foreground mb-2">API Endpoint</div>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-[11px] text-primary bg-primary/5 px-2 py-1.5 rounded truncate">
+              {(canChat || (chatMode === 'multi' && selectedCollections.length > 0)) && (
+                <Card className="p-3 space-y-2">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[11px] font-medium text-foreground">API Endpoint</span>
+                      <button
+                        onClick={copyEndpoint}
+                        className="p-0.5 text-text-tertiary hover:text-foreground rounded transition-colors"
+                        title="Copy endpoint"
+                      >
+                        {copied ? (
+                          <Check className="w-3 h-3 text-success" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                    <code className="block text-[10px] text-primary bg-primary/5 px-2 py-1 rounded truncate">
                       POST /v1/rag
                     </code>
-                    <button
-                      onClick={copyEndpoint}
-                      className="p-1.5 text-text-secondary hover:text-foreground rounded transition-colors"
-                      title="Copy endpoint"
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 text-success" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[11px] font-medium text-foreground">Sample Body</span>
+                      <button
+                        onClick={copySampleBody}
+                        className="p-0.5 text-text-tertiary hover:text-foreground rounded transition-colors"
+                        title="Copy sample body"
+                      >
+                        {copiedBody ? (
+                          <Check className="w-3 h-3 text-success" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                    <pre className="text-[10px] text-text-secondary bg-surface-secondary px-2 py-1.5 rounded overflow-x-auto leading-relaxed">
+                      {getSampleBody()}
+                    </pre>
                   </div>
                 </Card>
               )}
 
               {/* Sources */}
               {sources.length > 0 && (
-                <Card className="p-4">
-                  <div className="text-[13px] font-medium text-foreground mb-3">
+                <Card className="p-3">
+                  <div className="text-[11px] font-medium text-foreground mb-2">
                     Sources ({sources.length})
                   </div>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
                     {sources.map((source, index) => (
                       <div
                         key={index}
-                        className="p-2.5 bg-surface rounded-lg border border-border-light"
+                        className="p-2 bg-surface rounded border border-border-light"
                       >
-                        <div className="flex items-start gap-2">
-                          <FileText className="w-4 h-4 text-text-tertiary flex-shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-1.5">
+                          <FileText className="w-3 h-3 text-text-tertiary flex-shrink-0 mt-0.5" />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[12px] font-medium text-foreground truncate">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[10px] font-medium text-foreground truncate">
                                 {source.document_name}
                               </span>
                               {source.collection_name && (
-                                <Badge variant="default" className="text-[9px] px-1.5">
+                                <Badge variant="default" className="text-[8px] px-1">
                                   {source.collection_name}
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-[11px] text-text-tertiary line-clamp-3">
+                            <p className="text-[9px] text-text-tertiary line-clamp-2">
                               {source.chunk_content}
                             </p>
-                            <div className="text-[10px] text-primary mt-1.5">
-                              Relevance: {(source.relevance_score * 100).toFixed(0)}%
+                            <div className="text-[9px] text-primary mt-1">
+                              {(source.relevance_score * 100).toFixed(0)}% match
                             </div>
                           </div>
                         </div>
@@ -738,23 +777,23 @@ export default function RagPage() {
                           <div className="max-w-[75%] flex flex-col gap-2">
                             {/* Thinking block (collapsible) */}
                             {message.role === 'assistant' && message.thinking && (
-                              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+                              <div className="bg-warning/10 border border-warning/20 rounded-lg overflow-hidden">
                                 <button
                                   onClick={() => toggleThinking(index)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-warning/15 transition-colors"
                                 >
                                   {message.isThinkingExpanded ? (
-                                    <ChevronDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                    <ChevronDown className="w-4 h-4 text-warning" />
                                   ) : (
-                                    <ChevronRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                    <ChevronRight className="w-4 h-4 text-warning" />
                                   )}
-                                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                  <span className="text-[13px] font-medium text-amber-700 dark:text-amber-300">
+                                  <Sparkles className="w-4 h-4 text-warning" />
+                                  <span className="text-[13px] font-medium text-warning">
                                     Thinking
                                   </span>
                                 </button>
                                 {message.isThinkingExpanded && (
-                                  <div className="px-3 pb-3 pt-1 text-[13px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap border-t border-amber-200 dark:border-amber-800">
+                                  <div className="px-3 pb-3 pt-1 text-[13px] text-text-secondary whitespace-pre-wrap border-t border-warning/20">
                                     {message.thinking}
                                   </div>
                                 )}
@@ -794,15 +833,15 @@ export default function RagPage() {
                         <div className="max-w-[75%] flex flex-col gap-2">
                           {/* Streaming thinking block */}
                           {isThinkingPhase && streamingThinking && (
-                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                            <div className="bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
                               <div className="flex items-center gap-2 mb-2">
-                                <Spinner size="sm" className="text-amber-600 dark:text-amber-400" />
-                                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                <span className="text-[13px] font-medium text-amber-700 dark:text-amber-300">
+                                <Spinner size="sm" className="text-warning" />
+                                <Sparkles className="w-4 h-4 text-warning" />
+                                <span className="text-[13px] font-medium text-warning">
                                   Thinking...
                                 </span>
                               </div>
-                              <p className="text-[13px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap">
+                              <p className="text-[13px] text-text-secondary whitespace-pre-wrap">
                                 {streamingThinking}
                               </p>
                             </div>
@@ -832,22 +871,28 @@ export default function RagPage() {
 
               {/* Input */}
               <div className="p-4 border-t border-border-light">
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        chatMode === 'multi'
-                          ? 'Ask a question across all selected collections...'
-                          : 'Ask a question about your documents...'
-                      }
-                      rows={1}
-                      className="w-full px-4 py-3 pr-12 bg-surface-secondary border border-border-light rounded-xl text-[14px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-primary resize-none"
-                    />
-                  </div>
-                  <Button onClick={handleSend} disabled={!input.trim() || isPending} className="h-auto px-4">
+                <div className="flex gap-3 items-end">
+                  <textarea
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto';
+                      const lineHeight = 20; // approx line height
+                      const maxHeight = lineHeight * 5 + 24; // 5 lines + padding
+                      e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      chatMode === 'multi'
+                        ? 'Ask a question across all selected collections...'
+                        : 'Ask a question about your documents...'
+                    }
+                    rows={1}
+                    style={{ height: '44px' }}
+                    className="flex-1 px-4 py-3 bg-surface-secondary border border-border-light rounded-xl text-[14px] text-foreground placeholder:text-text-tertiary focus:outline-none focus:border-primary resize-none overflow-hidden"
+                  />
+                  <Button onClick={handleSend} disabled={!input.trim() || isPending} className="h-[44px] w-[44px] p-0 flex-shrink-0 mb-0">
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>

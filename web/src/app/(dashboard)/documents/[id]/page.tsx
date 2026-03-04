@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { PageSpinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Pagination } from '@/components/ui/pagination';
 import { useDocument, useDocumentChunks } from '@/hooks/use-documents';
 import { useExtractKnowledge } from '@/hooks/use-knowledge';
 import { ChunkEditorModal, ChunkSplitModal, ChunkMergeModal } from '@/components/chunks';
@@ -32,6 +33,8 @@ import {
 import { cn, formatFileSize, formatRelativeTime } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
+const CHUNKS_PER_PAGE = 20;
+
 export default function DocumentViewerPage() {
   const params = useParams();
   const router = useRouter();
@@ -46,6 +49,7 @@ export default function DocumentViewerPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Chunk editing state
   const [editingChunk, setEditingChunk] = useState<Chunk | null>(null);
@@ -62,6 +66,19 @@ export default function DocumentViewerPage() {
       chunk.content.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [chunks, searchQuery]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredChunks.length / CHUNKS_PER_PAGE);
+  const paginatedChunks = useMemo(() => {
+    const start = (currentPage - 1) * CHUNKS_PER_PAGE;
+    return filteredChunks.slice(start, start + CHUNKS_PER_PAGE);
+  }, [filteredChunks, currentPage]);
+
+  // Reset to page 1 when search changes
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   // Highlight search terms in content
   const highlightContent = (content: string) => {
@@ -235,7 +252,7 @@ export default function DocumentViewerPage() {
                   <Input
                     placeholder="Search chunks..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="pl-9"
                   />
                 </div>
@@ -298,7 +315,7 @@ export default function DocumentViewerPage() {
             />
           ) : (
             <div className="space-y-3">
-              {filteredChunks.map((chunk) => {
+              {paginatedChunks.map((chunk) => {
                 const isSelectedForMerge = selectedForMerge.includes(chunk.id);
                 return (
                   <Card
@@ -411,6 +428,20 @@ export default function DocumentViewerPage() {
                   </Card>
                 );
               })}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-6 pt-4 border-t border-divider">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={filteredChunks.length}
+                    itemsPerPage={CHUNKS_PER_PAGE}
+                    itemLabel="chunks"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

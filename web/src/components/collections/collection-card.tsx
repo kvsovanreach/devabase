@@ -41,9 +41,9 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
   const accent = getAccentColor(collection.name);
 
   return (
-    <Card className="group relative hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <Card className="group relative hover:shadow-md transition-all duration-200 hover:border-primary/20 overflow-hidden">
       {/* Left accent bar */}
-      <div className={cn('absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-200', accent.bg, 'opacity-60 group-hover:opacity-100')} />
+      <div className={cn('absolute left-0 top-0 bottom-0 w-1 transition-all duration-200', accent.bg, 'opacity-70 group-hover:opacity-100')} />
 
       <div className="pl-4 pr-3 py-3">
         {/* Top row: Icon + Name + RAG badge + Menu */}
@@ -163,7 +163,7 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
         </div>
 
         {/* Footer: Config + time */}
-        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-border-light/50">
+        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-divider">
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
             <span>{collection.metric}</span>
             <span className="w-1 h-1 rounded-full bg-text-tertiary/50" />

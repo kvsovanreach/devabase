@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { X, Play, History, Database, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,11 @@ export function SqlEditorPanel() {
   const [showSchema, setShowSchema] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
+  // Ref to store latest handleExecute for Monaco keybinding
+  const executeRef = useRef<() => void>(() => {});
+
   // Handle query execution
-  const handleExecute = async () => {
+  const handleExecute = useCallback(async () => {
     if (!query.trim()) return;
 
     // Clear previous results and errors
@@ -40,7 +43,12 @@ export function SqlEditorPanel() {
       setError(err.message || 'Query failed');
       setResult(null);
     }
-  };
+  }, [query, executeSql, setLastQuery]);
+
+  // Keep ref updated with latest handleExecute
+  useEffect(() => {
+    executeRef.current = handleExecute;
+  }, [handleExecute]);
 
   // Handle keyboard shortcuts (only on Tables pages where this component is mounted)
   useEffect(() => {
@@ -59,7 +67,7 @@ export function SqlEditorPanel() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, query, setOpen]);
+  }, [isOpen, setOpen, handleExecute]);
 
   // Handle resize
   const handleMouseDown = useCallback(() => {
@@ -198,6 +206,19 @@ export function SqlEditorPanel() {
             value={query}
             onChange={(value) => setQuery(value || '')}
             theme={isDark ? 'vs-dark' : 'light'}
+            onMount={(editor, monaco) => {
+              // Add Ctrl/Cmd+Enter keybinding to execute query
+              editor.addAction({
+                id: 'execute-query',
+                label: 'Execute Query',
+                keybindings: [
+                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                ],
+                run: () => {
+                  executeRef.current();
+                },
+              });
+            }}
             options={{
               minimap: { enabled: false },
               fontSize: 12,
@@ -227,9 +248,6 @@ export function SqlEditorPanel() {
             )}
             Run
           </Button>
-          <span className="text-[10px] md:text-xs text-text-tertiary">
-            {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter
-          </span>
         </div>
 
         {/* Results */}

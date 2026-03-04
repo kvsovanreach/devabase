@@ -62,42 +62,42 @@ export function ProjectSwitcher({ variant = 'default' }: ProjectSwitcherProps) {
         >
           <MenuItems
             className={cn(
-              'absolute mt-2 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50',
+              'absolute mt-2 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50 outline-none',
               isCompact ? 'right-0 min-w-[200px]' : 'left-0 right-0'
             )}
           >
-            <div className="py-1.5 max-h-64 overflow-y-auto">
+            <div className="py-1 max-h-64 overflow-y-auto">
               {projects.map((project) => (
                 <MenuItem key={project.id}>
                   {({ focus }) => (
                     <button
                       onClick={() => handleSelectProject(project)}
                       className={cn(
-                        'w-full flex items-center justify-between px-3 py-2.5 text-[15px] transition-colors',
+                        'w-full flex items-center justify-between px-3 py-1.5 text-[13px] transition-colors',
                         focus ? 'bg-surface-hover' : '',
                         currentProject?.id === project.id ? 'text-primary font-medium' : 'text-foreground'
                       )}
                     >
                       <span className="truncate">{project.name}</span>
                       {currentProject?.id === project.id && (
-                        <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+                        <Check className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
                       )}
                     </button>
                   )}
                 </MenuItem>
               ))}
             </div>
-            <div className="border-t border-border-light py-1.5">
+            <div className="border-t border-border-light py-1">
               <MenuItem>
                 {({ focus }) => (
                   <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className={cn(
-                      'w-full flex items-center gap-2.5 px-3 py-2.5 text-[15px] text-primary transition-colors',
+                      'w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-primary transition-colors',
                       focus ? 'bg-primary-muted' : ''
                     )}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3.5 h-3.5" />
                     Create Project
                   </button>
                 )}

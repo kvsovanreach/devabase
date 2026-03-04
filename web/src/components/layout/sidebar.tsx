@@ -12,7 +12,6 @@ import {
   Sparkles,
   Key,
   Settings,
-  Database,
   PanelLeftClose,
   PanelLeft,
   Webhook,
@@ -149,16 +148,19 @@ export function Sidebar() {
             className="flex items-center gap-2.5 overflow-hidden flex-1"
           >
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-              <Database className="w-[18px] h-[18px] text-white" />
+              <span className="text-[18px]">⚡</span>
             </div>
-            <span
-              className={cn(
-                'text-[17px] font-semibold text-foreground tracking-tight whitespace-nowrap',
-                isCollapsed && 'lg:hidden'
-              )}
-            >
-              Devabase
-            </span>
+            <div className={cn(
+              'flex items-center gap-2 whitespace-nowrap',
+              isCollapsed && 'lg:hidden'
+            )}>
+              <span className="text-[17px] font-semibold text-foreground tracking-tight">
+                DEVABASE
+              </span>
+              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded">
+                Beta
+              </span>
+            </div>
           </Link>
           {/* Mobile close button */}
           <button

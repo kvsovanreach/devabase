@@ -21,8 +21,8 @@ export function UserMenu() {
 
   return (
     <Menu as="div" className="relative">
-      <MenuButton className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-surface-hover transition-all duration-150">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center shadow-sm">
+      <MenuButton className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all duration-150">
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
           {user.avatar_url ? (
             <img
               src={user.avatar_url}
@@ -47,7 +47,7 @@ export function UserMenu() {
         leaveFrom="opacity-100 scale-100 translate-y-0"
         leaveTo="opacity-0 scale-95 -translate-y-1"
       >
-        <MenuItems className="absolute right-0 mt-2 w-60 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-50">
+        <MenuItems className="absolute right-0 mt-2 w-60 bg-surface border border-border rounded-xl shadow-lg overflow-hidden z-50 outline-none">
           <div className="px-4 py-3 border-b border-border-light bg-surface-secondary">
             <p className="text-[15px] font-medium text-foreground truncate">{user.name}</p>
             <p className="text-[13px] text-text-secondary truncate mt-0.5">{user.email}</p>

@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Editor, { OnMount, Monaco } from '@monaco-editor/react';
 import type { editor, languages, IDisposable, Position, CancellationToken } from 'monaco-editor';
-import { Play, History, Database, ChevronDown, ChevronUp, Table2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Play, History, Database, ChevronDown, ChevronUp, Table2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check } from 'lucide-react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -184,8 +185,8 @@ export default function SqlPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const pageSizeOptions = [25, 50, 100, 250];
+  const [pageSize, setPageSize] = useState(20);
+  const pageSizeOptions = [20, 50, 100, 250];
 
   const completionProviderRef = useRef<IDisposable | null>(null);
   const schemaRef = useRef(schema);
@@ -446,101 +447,98 @@ export default function SqlPage() {
     <div className="h-screen flex flex-col">
       <Header />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Schema Sidebar */}
-        <aside className="w-[220px] lg:w-[260px] border-r border-border-light bg-surface-secondary overflow-y-auto hidden md:block">
-          <div className="p-3 border-b border-border-light">
-            <div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-              <Database className="w-4 h-4 text-primary" />
-              Schema
-            </div>
-          </div>
-
-          {schema?.tables && schema.tables.length > 0 ? (
-            <div className="p-2">
-              {schema.tables.map((table: SqlTableInfo) => (
-                <details key={table.name} className="group">
-                  <summary className="px-2 py-1.5 rounded text-[13px] text-foreground hover:bg-surface-hover cursor-pointer flex items-center gap-1.5">
-                    <ChevronDown className="w-3 h-3 text-text-tertiary group-open:hidden flex-shrink-0" />
-                    <ChevronUp className="w-3 h-3 text-text-tertiary hidden group-open:block flex-shrink-0" />
-                    <Table2 className="w-3.5 h-3.5 text-text-secondary flex-shrink-0" />
-                    <span className="truncate">{table.name}</span>
-                  </summary>
-                  <div className="pl-7 pr-2 py-1 space-y-0.5">
-                    {table.columns.map((col: SchemaColumnInfo) => (
-                      <button
-                        key={col.name}
-                        onClick={() => setQuery(q => q + col.name)}
-                        className="w-full text-left text-[11px] text-text-secondary hover:text-foreground flex items-center gap-2 py-0.5 px-1 rounded hover:bg-surface-hover"
-                      >
-                        <span className="text-foreground truncate">{col.name}</span>
-                        <span className="text-text-tertiary text-[10px] truncate">{col.data_type}</span>
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </div>
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border-light bg-surface flex-shrink-0">
+        <Button
+          onClick={handleExecute}
+          disabled={executeSql.isPending || !query.trim()}
+          size="sm"
+        >
+          {executeSql.isPending ? (
+            <Spinner size="sm" className="mr-2" />
           ) : (
-            <div className="p-4 text-[13px] text-text-tertiary">
-              No tables found
-            </div>
+            <Play className="w-4 h-4 mr-2" />
           )}
-        </aside>
+          Run Query
+        </Button>
+        <div className="flex-1" />
+        <Button
+          variant={showHistory ? 'secondary' : 'ghost'}
+          size="sm"
+          onClick={() => setShowHistory(!showHistory)}
+        >
+          <History className="w-4 h-4 mr-1.5" />
+          <span className="hidden sm:inline">History</span>
+        </Button>
+      </div>
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col min-w-0">
-          {/* Toolbar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border-light bg-surface">
-            <Button
-              onClick={handleExecute}
-              disabled={executeSql.isPending || !query.trim()}
-              size="sm"
-            >
-              {executeSql.isPending ? (
-                <Spinner size="sm" className="mr-2" />
-              ) : (
-                <Play className="w-4 h-4 mr-2" />
-              )}
-              Run Query
-            </Button>
-            <span className="text-[11px] text-text-tertiary hidden sm:inline">
-              {navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter
-            </span>
-            <div className="flex-1" />
-            <Button
-              variant={showHistory ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              <History className="w-4 h-4 mr-1.5" />
-              <span className="hidden sm:inline">History</span>
-            </Button>
+      {/* History Dropdown */}
+      {showHistory && history && history.length > 0 && (
+        <div className="border-b border-border-light bg-surface-secondary max-h-[120px] overflow-y-auto flex-shrink-0">
+          <div className="p-2 space-y-1">
+            {history.slice(0, 15).map((entry: QueryHistoryEntry) => (
+              <button
+                key={entry.id}
+                onClick={() => {
+                  setQuery(entry.query);
+                  setShowHistory(false);
+                }}
+                className="w-full text-left px-3 py-1.5 rounded text-[12px] font-mono text-text-secondary hover:bg-surface-hover hover:text-foreground truncate"
+                title={entry.query}
+              >
+                {entry.query}
+              </button>
+            ))}
           </div>
+        </div>
+      )}
 
-          {/* History Dropdown */}
-          {showHistory && history && history.length > 0 && (
-            <div className="border-b border-border-light bg-surface-secondary max-h-[150px] overflow-y-auto">
-              <div className="p-2 space-y-1">
-                {history.slice(0, 15).map((entry: QueryHistoryEntry) => (
-                  <button
-                    key={entry.id}
-                    onClick={() => {
-                      setQuery(entry.query);
-                      setShowHistory(false);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded text-[12px] font-mono text-text-secondary hover:bg-surface-hover hover:text-foreground truncate"
-                    title={entry.query}
-                  >
-                    {entry.query}
-                  </button>
-                ))}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Row: Schema + Editor */}
+        <div className="flex h-[180px] md:h-[220px] border-b border-border-light flex-shrink-0">
+          {/* Schema Sidebar */}
+          <aside className="w-[180px] lg:w-[220px] border-r border-border-light bg-surface-secondary overflow-y-auto hidden md:block flex-shrink-0">
+            <div className="p-2 border-b border-border-light">
+              <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+                <Database className="w-3.5 h-3.5 text-primary" />
+                Schema
               </div>
             </div>
-          )}
+
+            {schema?.tables && schema.tables.length > 0 ? (
+              <div className="p-1.5">
+                {schema.tables.map((table: SqlTableInfo) => (
+                  <details key={table.name} className="group">
+                    <summary className="px-2 py-1 rounded text-[12px] text-foreground hover:bg-surface-hover cursor-pointer flex items-center gap-1.5">
+                      <ChevronDown className="w-3 h-3 text-text-tertiary group-open:hidden flex-shrink-0" />
+                      <ChevronUp className="w-3 h-3 text-text-tertiary hidden group-open:block flex-shrink-0" />
+                      <Table2 className="w-3 h-3 text-text-secondary flex-shrink-0" />
+                      <span className="truncate">{table.name}</span>
+                    </summary>
+                    <div className="pl-6 pr-2 py-0.5 space-y-0">
+                      {table.columns.map((col: SchemaColumnInfo) => (
+                        <button
+                          key={col.name}
+                          onClick={() => setQuery(q => q + col.name)}
+                          className="w-full text-left text-[10px] text-text-secondary hover:text-foreground flex items-center gap-1.5 py-0.5 px-1 rounded hover:bg-surface-hover"
+                        >
+                          <span className="text-foreground truncate">{col.name}</span>
+                          <span className="text-text-tertiary truncate">{col.data_type}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 text-[12px] text-text-tertiary">
+                No tables found
+              </div>
+            )}
+          </aside>
 
           {/* Editor */}
-          <div className="h-[200px] md:h-[250px] border-b border-border-light flex-shrink-0">
+          <div className="flex-1 min-w-0">
             <Editor
               height="100%"
               defaultLanguage="sql"
@@ -564,9 +562,10 @@ export default function SqlPage() {
               }}
             />
           </div>
+        </div>
 
-          {/* Results */}
-          <div className="flex-1 overflow-auto bg-background">
+        {/* Results - Full Width Below */}
+        <div className="flex-1 overflow-auto bg-background">
             {error && (
               <div className="p-4 bg-error/10 border-b border-error/20">
                 <div className="flex items-start gap-3">
@@ -646,28 +645,46 @@ export default function SqlPage() {
                 )}
 
                 {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="px-4 py-2 border-t border-border-light bg-surface flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] text-text-secondary">Rows per page:</span>
-                      <select
-                        value={pageSize}
-                        onChange={(e) => {
-                          setPageSize(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className="px-2 py-1 text-[12px] bg-surface-secondary border border-border-light rounded-lg text-foreground focus:outline-none focus:border-primary"
-                      >
-                        {pageSizeOptions.map((size) => (
-                          <option key={size} value={size}>{size}</option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="px-4 py-2 border-t border-border-light bg-surface flex items-center justify-between flex-shrink-0">
+                  <span className="text-sm text-text-secondary">
+                    {totalPages > 1 ? (
+                      <>Page {currentPage} of {totalPages} · </>
+                    ) : null}
+                    Showing {paginatedRows.length} of {totalRows} rows
+                  </span>
 
+                  <div className="flex items-center gap-3">
+                    <Listbox value={pageSize} onChange={(value) => { setPageSize(value); setCurrentPage(1); }}>
+                      <div className="relative">
+                        <ListboxButton className="flex items-center gap-2 pl-3 pr-2 py-1.5 text-[13px] bg-surface-secondary border border-border-light rounded-xl text-foreground cursor-pointer transition-all duration-150 hover:bg-surface-hover hover:border-border focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20">
+                          <span>{pageSize} / page</span>
+                          <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+                        </ListboxButton>
+                        <ListboxOptions className="absolute bottom-full mb-1 right-0 z-50 min-w-[120px] bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden focus:outline-none">
+                          <div className="py-1">
+                            {pageSizeOptions.map((size) => (
+                              <ListboxOption
+                                key={size}
+                                value={size}
+                                className={({ focus, selected }) => cn(
+                                  'flex items-center justify-between px-3 py-2 text-[13px] cursor-pointer transition-colors',
+                                  focus ? 'bg-surface-hover' : '',
+                                  selected ? 'text-primary font-medium' : 'text-foreground'
+                                )}
+                              >
+                                {({ selected }) => (
+                                  <>
+                                    <span>{size} / page</span>
+                                    {selected && <Check className="w-3.5 h-3.5 text-primary" />}
+                                  </>
+                                )}
+                              </ListboxOption>
+                            ))}
+                          </div>
+                        </ListboxOptions>
+                      </div>
+                    </Listbox>
                     <div className="flex items-center gap-1">
-                      <span className="text-[12px] text-text-secondary mr-2">
-                        Page {currentPage} of {totalPages}
-                      </span>
                       <button
                         onClick={() => goToPage(1)}
                         disabled={currentPage === 1}
@@ -686,7 +703,7 @@ export default function SqlPage() {
                       </button>
                       <button
                         onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
+                        disabled={totalPages <= 1 || currentPage >= totalPages}
                         className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
                         title="Next page"
                       >
@@ -694,7 +711,7 @@ export default function SqlPage() {
                       </button>
                       <button
                         onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages}
+                        disabled={totalPages <= 1 || currentPage >= totalPages}
                         className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
                         title="Last page"
                       >
@@ -702,23 +719,19 @@ export default function SqlPage() {
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {!result && !error && (
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center">
-                  <Database className="w-12 h-12 text-text-tertiary mx-auto mb-4" />
-                  <p className="text-[15px] text-text-secondary">Run a query to see results</p>
-                  <p className="text-[13px] text-text-tertiary mt-1">
-                    Press {navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to execute
-                  </p>
                 </div>
               </div>
             )}
-          </div>
-        </main>
+
+          {!result && !error && (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <Database className="w-12 h-12 text-text-tertiary mx-auto mb-4" />
+                <p className="text-[15px] text-text-secondary">Run a query to see results</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

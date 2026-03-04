@@ -39,9 +39,9 @@ export function TableCard({ table, onDelete }: TableCardProps) {
   const accent = getAccentColor(table.name);
 
   return (
-    <Card className="group relative hover:shadow-md transition-all duration-200 hover:border-primary/20">
+    <Card className="group relative hover:shadow-md transition-all duration-200 hover:border-primary/20 overflow-hidden">
       {/* Left accent bar */}
-      <div className={cn('absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-200', accent.bg, 'opacity-60 group-hover:opacity-100')} />
+      <div className={cn('absolute left-0 top-0 bottom-0 w-1 transition-all duration-200', accent.bg, 'opacity-70 group-hover:opacity-100')} />
 
       <div className="pl-4 pr-3 py-3">
         {/* Top row: Icon + Name + Menu */}
@@ -137,7 +137,7 @@ export function TableCard({ table, onDelete }: TableCardProps) {
         </div>
 
         {/* Footer: Primary key + time */}
-        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-border-light/50">
+        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-divider">
           <div className="flex items-center gap-1 text-xs text-text-tertiary">
             <Key className="w-3 h-3" />
             <span className="truncate max-w-[120px]">

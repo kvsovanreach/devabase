@@ -16,6 +16,8 @@ export function useDocuments(collection: string) {
 // Auto-polling hook for documents with processing status
 export function useDocumentsWithPolling(collection: string) {
   const [shouldPoll, setShouldPoll] = useState(false);
+  const [prevProcessingCount, setPrevProcessingCount] = useState(0);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['documents', collection],
@@ -28,7 +30,7 @@ export function useDocumentsWithPolling(collection: string) {
     staleTime: 0, // Always consider data stale to ensure fresh fetches
   });
 
-  // Update shouldPoll based on document statuses
+  // Update shouldPoll based on document statuses and refresh collections when processing completes
   useEffect(() => {
     const documents = query.data;
     if (!documents || !Array.isArray(documents)) {
@@ -36,11 +38,18 @@ export function useDocumentsWithPolling(collection: string) {
       return;
     }
 
-    const hasProcessing = documents.some(
+    const processingCount = documents.filter(
       (doc: Document) => doc.status === 'pending' || doc.status === 'processing'
-    );
-    setShouldPoll(hasProcessing);
-  }, [query.data]);
+    ).length;
+
+    // If processing count decreased (documents finished), refresh collections to update vector counts
+    if (prevProcessingCount > 0 && processingCount < prevProcessingCount) {
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    }
+
+    setPrevProcessingCount(processingCount);
+    setShouldPoll(processingCount > 0);
+  }, [query.data, prevProcessingCount, queryClient]);
 
   return query;
 }

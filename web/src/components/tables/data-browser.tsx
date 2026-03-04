@@ -1,37 +1,47 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, ChevronDown, Check } from 'lucide-react';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { TableInfo, TableColumnInfo } from '@/hooks/use-tables';
 import { useTableRows, useDeleteRow, useCreateRow, useUpdateRow } from '@/hooks/use-table-rows';
 import { RowFormModal } from './row-form-modal';
+import { cn } from '@/lib/utils';
 
 interface DataBrowserProps {
   table: TableInfo;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 250];
 
 export function DataBrowser({ table }: DataBrowserProps) {
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Only use created_at ordering if the column exists
+  const hasCreatedAt = table.columns.some((c) => c.name === 'created_at');
+  const defaultOrder = hasCreatedAt ? 'created_at:desc' : undefined;
 
   const { data, isLoading, refetch, isFetching } = useTableRows(table.name, {
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-    order: 'created_at:desc',
+    limit: pageSize,
+    offset: page * pageSize,
+    order: defaultOrder,
   });
 
   const deleteRow = useDeleteRow(table.name);
   const createRow = useCreateRow(table.name);
   const updateRow = useUpdateRow(table.name);
 
-  const handleDelete = async (rowId: string) => {
-    if (!confirm('Are you sure you want to delete this row?')) return;
-    await deleteRow.mutateAsync(rowId);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteRow.mutateAsync(deleteTarget);
+    setDeleteTarget(null);
   };
 
   const handleCreate = async (rowData: Record<string, unknown>) => {
@@ -80,22 +90,22 @@ export function DataBrowser({ table }: DataBrowserProps) {
                 {columns.map((col: TableColumnInfo) => (
                   <th
                     key={col.name}
-                    className="px-4 py-3 text-left font-medium text-text-secondary whitespace-nowrap"
+                    className="px-3 py-2 text-left font-medium text-text-secondary whitespace-nowrap"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span>{col.name}</span>
                       {col.is_primary && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded">
+                        <span className="px-1 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded">
                           PK
                         </span>
                       )}
-                    </div>
-                    <div className="text-xs text-text-tertiary font-normal">
-                      {col.data_type}
+                      <span className="text-[11px] text-text-tertiary font-normal">
+                        {col.data_type}
+                      </span>
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-3 text-right font-medium text-text-secondary w-20">
+                <th className="px-3 py-2 text-right font-medium text-text-secondary w-20">
                   Actions
                 </th>
               </tr>
@@ -120,31 +130,41 @@ export function DataBrowser({ table }: DataBrowserProps) {
                 data?.rows.map((row: Record<string, unknown>, rowIndex: number) => (
                   <tr
                     key={String(row.id ?? rowIndex)}
-                    className="border-t border-border hover:bg-surface-hover cursor-pointer"
+                    className="border-t border-border hover:bg-surface-hover cursor-pointer h-9"
                     onClick={() => setEditingRow(row)}
                   >
                     {columns.map((col: TableColumnInfo) => (
                       <td
                         key={col.name}
-                        className="px-4 py-3 text-foreground max-w-[300px] truncate"
+                        className="px-3 text-foreground max-w-[300px] truncate text-[13px]"
                         title={formatValue(row[col.name])}
                       >
                         {formatCell(row[col.name], col.data_type)}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(String(row.id));
-                        }}
-                        disabled={deleteRow.isPending}
-                        className="text-text-tertiary hover:text-error"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                    <td className="px-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingRow(row);
+                          }}
+                          className="p-1 text-text-tertiary hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                          title="Edit row"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(String(row.id));
+                          }}
+                          className="p-1 text-error hover:bg-error/10 rounded transition-colors"
+                          title="Delete row"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -155,33 +175,83 @@ export function DataBrowser({ table }: DataBrowserProps) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-secondary">
-            Page {data?.pagination.page ?? page + 1} of {totalPages}
-            {' · '}
-            Showing {data?.pagination.count ?? 0} of {totalRows} rows
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-text-secondary">
+          {totalPages > 1 ? (
+            <>
+              Page {(data?.pagination.page ?? page) + 1} of {totalPages}
+              {' · '}
+            </>
+          ) : null}
+          Showing {data?.pagination.count ?? 0} of {totalRows} rows
+        </span>
+        <div className="flex items-center gap-3">
+          <Listbox value={pageSize} onChange={(value) => { setPageSize(value); setPage(0); }}>
+            <div className="relative">
+              <ListboxButton className="flex items-center gap-2 pl-3 pr-2 py-1.5 text-[13px] bg-surface-secondary border border-border-light rounded-xl text-foreground cursor-pointer transition-all duration-150 hover:bg-surface-hover hover:border-border focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20">
+                <span>{pageSize} / page</span>
+                <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+              </ListboxButton>
+              <ListboxOptions className="absolute bottom-full mb-1 right-0 z-50 min-w-[120px] bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden focus:outline-none">
+                <div className="py-1">
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <ListboxOption
+                      key={size}
+                      value={size}
+                      className={({ focus, selected }) => cn(
+                        'flex items-center justify-between px-3 py-2 text-[13px] cursor-pointer transition-colors',
+                        focus ? 'bg-surface-hover' : '',
+                        selected ? 'text-primary font-medium' : 'text-foreground'
+                      )}
+                    >
+                      {({ selected }) => (
+                        <>
+                          <span>{size} / page</span>
+                          {selected && <Check className="w-3.5 h-3.5 text-primary" />}
+                        </>
+                      )}
+                    </ListboxOption>
+                  ))}
+                </div>
+              </ListboxOptions>
+            </div>
+          </Listbox>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(0)}
+              disabled={page === 0}
+              className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
+              title="First page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={!data?.pagination.has_previous}
+              disabled={page === 0}
+              className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
+              title="Previous page"
             >
               <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+            </button>
+            <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={!data?.pagination.has_next}
+              disabled={totalPages <= 1 || page >= totalPages - 1}
+              className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
+              title="Next page"
             >
               <ChevronRight className="w-4 h-4" />
-            </Button>
+            </button>
+            <button
+              onClick={() => setPage(totalPages - 1)}
+              disabled={totalPages <= 1 || page >= totalPages - 1}
+              className="p-1.5 rounded-lg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary hover:text-foreground"
+              title="Last page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -205,6 +275,18 @@ export function DataBrowser({ table }: DataBrowserProps) {
           isLoading={updateRow.isPending}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Row"
+        description={`Are you sure you want to delete this row? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={deleteRow.isPending}
+      />
     </div>
   );
 }
