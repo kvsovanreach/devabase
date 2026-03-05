@@ -2,6 +2,7 @@ import { HttpClient } from '../utils/http';
 import {
   AppUser,
   AppAuthResponse,
+  AppRefreshResponse,
   AppAuthSession,
   TokenIntrospectionResult,
   AppUserRegisterInput,
@@ -102,15 +103,18 @@ export class AppAuthResource {
   }
 
   /**
-   * Refresh the access token using a refresh token
+   * Refresh the access token using a refresh token.
+   * Returns new tokens only (no user object). Use `me()` if you need the user.
+   *
    * @example
-   * const newAuth = await client.appAuth.refresh(refreshToken);
+   * const tokens = await client.appAuth.refresh(refreshToken);
+   * console.log(tokens.access_token);
    */
   async refresh(
     refreshToken: string,
     options?: RequestOptions
-  ): Promise<AppAuthResponse> {
-    const response = await this.http.post<AppAuthResponse>(
+  ): Promise<AppRefreshResponse> {
+    const response = await this.http.post<AppRefreshResponse>(
       '/v1/auth/app/refresh',
       { refresh_token: refreshToken },
       options

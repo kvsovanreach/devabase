@@ -16,9 +16,14 @@ export type {
   // App Auth (for end-users of your application)
   AppUser,
   AppAuthResponse,
+  AppRefreshResponse,
+  AppAuthTokens,
   TokenIntrospectionResult,
   AppUserRegisterInput,
   AppUserLoginInput,
+  AppUserUpdateInput,
+  AppUserChangePasswordInput,
+  AppUserAdminUpdateInput,
 
   // Project
   Project,

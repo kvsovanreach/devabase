@@ -184,6 +184,8 @@ describe('Devabase SDK Integration Tests', () => {
   describe('3.5. App Auth', () => {
     let appClient: DevabaseClient;
     let appUserToken: string;
+    let appRefreshToken: string;
+    let appUserId: string;
     const APP_USER_EMAIL = `appuser_${TEST_RUN_ID}@example.com`;
     const APP_USER_PASSWORD = 'AppUserPassword123!';
 
@@ -198,11 +200,16 @@ describe('Devabase SDK Integration Tests', () => {
         email: APP_USER_EMAIL,
         password: APP_USER_PASSWORD,
         name: 'Test App User',
+        metadata: { source: 'sdk-test' },
       });
 
       expect(auth.user.email).toBe(APP_USER_EMAIL);
+      expect(auth.user.name).toBe('Test App User');
       expect(auth.access_token).toBeDefined();
+      expect(auth.refresh_token).toBeDefined();
       appUserToken = auth.access_token;
+      appRefreshToken = auth.refresh_token;
+      appUserId = auth.user.id;
     });
 
     it('should login app user', async () => {
@@ -214,6 +221,67 @@ describe('Devabase SDK Integration Tests', () => {
       expect(auth.user.email).toBe(APP_USER_EMAIL);
       expect(auth.access_token).toBeDefined();
       appUserToken = auth.access_token;
+      appRefreshToken = auth.refresh_token;
+    });
+
+    it('should refresh token', async () => {
+      const tokens = await appClient.appAuth.refresh(appRefreshToken);
+
+      expect(tokens.access_token).toBeDefined();
+      expect(tokens.token_type).toBe('Bearer');
+      expect(tokens.expires_in).toBeGreaterThan(0);
+      appUserToken = tokens.access_token;
+    });
+
+    it('should get current user (me)', async () => {
+      appClient.appAuth.setToken(appUserToken);
+      const user = await appClient.appAuth.me();
+
+      expect(user.email).toBe(APP_USER_EMAIL);
+      expect(user.name).toBe('Test App User');
+    });
+
+    it('should update profile', async () => {
+      const updated = await appClient.appAuth.updateProfile({
+        name: 'Updated App User',
+        metadata: { source: 'sdk-test', updated: true },
+      });
+
+      expect(updated.name).toBe('Updated App User');
+    });
+
+    it('should change password', async () => {
+      const newPassword = 'NewAppUserPassword456!';
+
+      await appClient.appAuth.changePassword({
+        current_password: APP_USER_PASSWORD,
+        new_password: newPassword,
+      });
+
+      // Login with new password to verify
+      const auth = await appClient.appAuth.login({
+        email: APP_USER_EMAIL,
+        password: newPassword,
+      });
+      expect(auth.access_token).toBeDefined();
+      appUserToken = auth.access_token;
+      appRefreshToken = auth.refresh_token;
+
+      // Change back for subsequent tests
+      appClient.appAuth.setToken(appUserToken);
+      await appClient.appAuth.changePassword({
+        current_password: newPassword,
+        new_password: APP_USER_PASSWORD,
+      });
+
+      // Re-login since sessions are revoked after password change
+      const reAuth = await appClient.appAuth.login({
+        email: APP_USER_EMAIL,
+        password: APP_USER_PASSWORD,
+      });
+      appUserToken = reAuth.access_token;
+      appRefreshToken = reAuth.refresh_token;
+      appClient.appAuth.setToken(appUserToken);
     });
 
     it('should verify token (introspect)', async () => {
@@ -257,6 +325,13 @@ describe('Devabase SDK Integration Tests', () => {
       expect(session.expiresWithin(999999999)).toBe(true);
       expect(session.getPayload()).toBeDefined();
       expect(session.getPayload()?.email).toBe(APP_USER_EMAIL);
+
+      const raw = session.toResponse();
+      expect(raw.access_token).toBe(session.accessToken);
+      expect(raw.user.email).toBe(APP_USER_EMAIL);
+
+      appUserToken = auth.access_token;
+      appClient.appAuth.setToken(appUserToken);
     });
 
     it('should set user context with asUser', async () => {
@@ -265,6 +340,52 @@ describe('Devabase SDK Integration Tests', () => {
 
       appClient.clearUserContext();
       expect(appClient.getUserToken()).toBeNull();
+    });
+
+    // Admin endpoints (using the JWT-authenticated client, not API key client)
+    describe('Admin operations', () => {
+      it('should list app users', async () => {
+        const result = await client.appAuth.users.list({ limit: 10 });
+
+        expect(result.data).toBeDefined();
+        expect(Array.isArray(result.data)).toBe(true);
+        expect(result.pagination).toBeDefined();
+        expect(result.data.some(u => u.email === APP_USER_EMAIL)).toBe(true);
+      });
+
+      it('should get app user by ID', async () => {
+        const user = await client.appAuth.users.get(appUserId);
+
+        expect(user.id).toBe(appUserId);
+        expect(user.email).toBe(APP_USER_EMAIL);
+      });
+
+      it('should update app user (admin)', async () => {
+        const updated = await client.appAuth.users.update(appUserId, {
+          name: 'Admin Updated Name',
+          email_verified: true,
+        });
+
+        expect(updated.name).toBe('Admin Updated Name');
+        expect(updated.email_verified).toBe(true);
+      });
+
+      it('should suspend app user', async () => {
+        const suspended = await client.appAuth.users.update(appUserId, {
+          status: 'suspended',
+        });
+        expect(suspended.status).toBe('suspended');
+
+        // Reactivate for cleanup
+        const reactivated = await client.appAuth.users.update(appUserId, {
+          status: 'active',
+        });
+        expect(reactivated.status).toBe('active');
+      });
+
+      it('should delete app user (admin)', async () => {
+        await client.appAuth.users.delete(appUserId);
+      });
     });
   });
 

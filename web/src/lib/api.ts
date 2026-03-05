@@ -23,6 +23,9 @@ import {
   CreatePromptRequest,
   Invitation,
   CreateInvitationRequest,
+  AppUser,
+  AdminUpdateAppUserRequest,
+  PaginatedResponse,
   ApiError,
 } from '@/types';
 import { API_CONFIG, SECURITY_CONFIG, logger } from './config';
@@ -415,6 +418,26 @@ class ApiClient {
 
   async deletePrompt(id: string): Promise<void> {
     await this.client.delete(`/prompts/${id}`);
+  }
+
+  // App User Auth (admin endpoints)
+  async listAppUsers(params?: { limit?: number; offset?: number }): Promise<PaginatedResponse<AppUser>> {
+    const response = await this.client.get<PaginatedResponse<AppUser>>('/auth/app/users', { params });
+    return response.data;
+  }
+
+  async getAppUser(id: string): Promise<AppUser> {
+    const response = await this.client.get<AppUser>(`/auth/app/users/${id}`);
+    return response.data;
+  }
+
+  async updateAppUser(id: string, data: AdminUpdateAppUserRequest): Promise<AppUser> {
+    const response = await this.client.patch<AppUser>(`/auth/app/users/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAppUser(id: string): Promise<void> {
+    await this.client.delete(`/auth/app/users/${id}`);
   }
 
   // Provider Testing

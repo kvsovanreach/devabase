@@ -88,6 +88,16 @@ export interface AppAuthResponse {
 }
 
 /**
+ * Response from token refresh (no user object, only tokens)
+ */
+export interface AppRefreshResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
+/**
  * Token introspection result (OAuth2-style)
  *
  * When `active: true`, all fields are present.

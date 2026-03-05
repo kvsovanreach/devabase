@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { Card } from '@/components/ui/card';
-import { User, FolderKanban, Users, ArrowRight, Bot } from 'lucide-react';
+import { User, FolderKanban, Users, ArrowRight, Bot, ShieldCheck } from 'lucide-react';
 
 const settingsLinks = [
   {
@@ -29,6 +29,14 @@ const settingsLinks = [
     icon: Users,
     color: 'text-warning',
     bgColor: 'bg-warning-muted',
+  },
+  {
+    title: 'App Users',
+    description: 'Manage end-user authentication and accounts',
+    href: '/settings/app-auth',
+    icon: ShieldCheck,
+    color: 'text-error',
+    bgColor: 'bg-error-muted',
   },
   {
     title: 'AI Providers',

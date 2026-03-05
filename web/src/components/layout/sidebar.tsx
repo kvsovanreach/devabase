@@ -28,6 +28,7 @@ import {
   BookOpen,
   FlaskConical,
   Share2,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSidebarStore } from '@/stores/sidebar-store';
@@ -82,6 +83,7 @@ const navigation: (NavItem | NavGroup)[] = [
       { name: 'Playground', href: '/playground', icon: Play },
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
       { name: 'API Keys', href: '/keys', icon: Key },
+      { name: 'App Users', href: '/settings/app-auth', icon: ShieldCheck },
       { name: 'Webhooks', href: '/webhooks', icon: Webhook },
     ],
   },

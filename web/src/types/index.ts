@@ -524,6 +524,60 @@ export interface KnowledgeStats {
   }>;
 }
 
+// App User Auth types
+export type AppUserStatus = 'pending' | 'active' | 'suspended' | 'deleted';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  status: AppUserStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AppAuthSettings {
+  id: string;
+  project_id: string;
+  allow_registration: boolean;
+  require_email_verification: boolean;
+  min_password_length: number;
+  require_uppercase: boolean;
+  require_lowercase: boolean;
+  require_numbers: boolean;
+  require_special_chars: boolean;
+  access_token_ttl_seconds: number;
+  refresh_token_ttl_seconds: number;
+  max_sessions_per_user: number;
+  max_failed_attempts: number;
+  lockout_duration_seconds: number;
+}
+
+export interface UpdateAppAuthSettingsRequest {
+  allow_registration?: boolean;
+  require_email_verification?: boolean;
+  min_password_length?: number;
+  require_uppercase?: boolean;
+  require_lowercase?: boolean;
+  require_numbers?: boolean;
+  require_special_chars?: boolean;
+  access_token_ttl_seconds?: number;
+  refresh_token_ttl_seconds?: number;
+  max_sessions_per_user?: number;
+  max_failed_attempts?: number;
+  lockout_duration_seconds?: number;
+}
+
+export interface AdminUpdateAppUserRequest {
+  name?: string;
+  status?: AppUserStatus;
+  email_verified?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
 // API response types
 export interface ApiError {
   error: string;

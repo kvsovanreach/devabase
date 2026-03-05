@@ -3146,25 +3146,30 @@ client.<span class="token-function">useProject</span>(PROJECT_ID);
         }
 
         // Active sidebar link
-        const sections = document.querySelectorAll('section[id]');
         const sidebarLinks = document.querySelectorAll('.sidebar-links a');
+        // Collect all targets referenced by sidebar links (sections, headings, etc.)
+        const navTargets = [];
+        sidebarLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                const el = document.getElementById(href.slice(1));
+                if (el) navTargets.push({ el, href });
+            }
+        });
 
         function updateActiveLink() {
             const scrollPos = window.scrollY + 100;
+            let activeHref = null;
 
-            sections.forEach(section => {
-                const top = section.offsetTop;
-                const height = section.offsetHeight;
-                const id = section.getAttribute('id');
-
-                if (scrollPos >= top && scrollPos < top + height) {
-                    sidebarLinks.forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('href') === `#${id}`) {
-                            link.classList.add('active');
-                        }
-                    });
+            // Find the last target that has been scrolled past
+            for (const { el, href } of navTargets) {
+                if (el.offsetTop <= scrollPos) {
+                    activeHref = href;
                 }
+            }
+
+            sidebarLinks.forEach(link => {
+                link.classList.toggle('active', link.getAttribute('href') === activeHref);
             });
         }
 
