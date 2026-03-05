@@ -27,6 +27,7 @@ pub struct ApiKey {
     pub project_id: Option<Uuid>,
     pub key_type: Option<ApiKeyType>,
     pub description: Option<String>,
+    pub is_active: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +51,7 @@ pub struct ApiKeyResponse {
     pub key_prefix: String,
     pub scopes: Vec<String>,
     pub rate_limit: Option<i32>,
+    pub is_active: bool,
     pub expires_at: Option<DateTime<Utc>>,
     pub last_used_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -63,6 +65,7 @@ impl From<ApiKey> for ApiKeyResponse {
             key_prefix: key.key_prefix,
             scopes: key.scopes,
             rate_limit: key.rate_limit,
+            is_active: key.is_active,
             expires_at: key.expires_at,
             last_used_at: key.last_used_at,
             created_at: key.created_at,

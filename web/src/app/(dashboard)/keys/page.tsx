@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { useApiKeys, useCreateApiKey, useDeleteApiKey } from '@/hooks/use-api-keys';
+import { useApiKeys, useCreateApiKey, useDeleteApiKey, useToggleApiKey } from '@/hooks/use-api-keys';
 import { useProjectStore } from '@/stores/project-store';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Modal, ModalFooter } from '@/components/ui/modal';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
-import { Key, Plus, Copy, Trash2, Eye, EyeOff, AlertCircle, Clock, Shield, MoreHorizontal } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Key, Plus, Copy, Trash2, Eye, EyeOff, AlertCircle, Clock, Shield, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
@@ -21,11 +23,17 @@ interface DeleteTarget {
 
 export default function ApiKeysPage() {
   const { currentProject } = useProjectStore();
-  const { data: apiKeys, isLoading } = useApiKeys();
+  const [page, setPage] = useState(0);
+  const perPage = 10;
+  const { data: keysResponse, isLoading } = useApiKeys({ limit: perPage, offset: page * perPage });
+  const apiKeys = keysResponse?.data;
+  const pagination = keysResponse?.pagination;
   const createApiKey = useCreateApiKey();
   const deleteApiKey = useDeleteApiKey();
+  const toggleApiKey = useToggleApiKey();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyExpiry, setNewKeyExpiry] = useState('');
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -51,9 +59,19 @@ export default function ApiKeysPage() {
     if (!newKeyName.trim()) return;
 
     try {
-      const result = await createApiKey.mutateAsync({ name: newKeyName.trim() });
+      const payload: Record<string, unknown> = { name: newKeyName.trim() };
+      if (newKeyExpiry) {
+        const days = parseInt(newKeyExpiry);
+        if (days > 0) {
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + days);
+          payload.expires_at = expiresAt.toISOString();
+        }
+      }
+      const result = await createApiKey.mutateAsync(payload as any);
       setCreatedSecret(result.key);
       setNewKeyName('');
+      setNewKeyExpiry('');
       toast.success('API key created');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create API key';
@@ -83,11 +101,13 @@ export default function ApiKeysPage() {
     setIsCreateModalOpen(false);
     setCreatedSecret(null);
     setNewKeyName('');
+    setNewKeyExpiry('');
     setShowSecret(false);
   };
 
   // Stats
-  const totalKeys = apiKeys?.length || 0;
+  const totalKeys = pagination?.total || 0;
+  const activeCount = apiKeys?.filter((k) => k.is_active).length || 0;
   const recentlyUsedCount = apiKeys?.filter((k) => {
     if (!k.last_used_at) return false;
     const lastUsed = new Date(k.last_used_at);
@@ -123,7 +143,7 @@ export default function ApiKeysPage() {
 
         {isLoading ? (
           <PageSpinner />
-        ) : apiKeys && apiKeys.length > 0 ? (
+        ) : apiKeys && totalKeys > 0 ? (
           <>
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -149,7 +169,7 @@ export default function ApiKeysPage() {
                     <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
                       Active
                     </p>
-                    <p className="text-[22px] font-bold text-foreground">{totalKeys}</p>
+                    <p className="text-[22px] font-bold text-foreground">{activeCount}</p>
                   </div>
                 </div>
               </div>
@@ -190,7 +210,7 @@ export default function ApiKeysPage() {
             {/* API Keys Table */}
             <div className="bg-surface border border-border-light rounded-xl overflow-hidden">
               {/* Table Header */}
-              <div className="hidden md:grid md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-5 py-3 bg-surface-secondary border-b border-border-light">
+              <div className="hidden md:grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto] gap-4 px-5 py-3 bg-surface-secondary border-b border-border-light">
                 <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
                   Name
                 </div>
@@ -203,7 +223,13 @@ export default function ApiKeysPage() {
                 <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
                   Last Used
                 </div>
-                <div className="w-20"></div>
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+                  Expires
+                </div>
+                <div className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider w-16 text-center">
+                  Active
+                </div>
+                <div className="w-10"></div>
               </div>
 
               {/* Table Rows */}
@@ -211,12 +237,18 @@ export default function ApiKeysPage() {
                 {apiKeys.map((apiKey) => (
                   <div
                     key={apiKey.id}
-                    className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-5 py-4 hover:bg-surface-hover/50 transition-colors"
+                    className={cn(
+                      "grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto] gap-2 md:gap-4 px-5 py-4 hover:bg-surface-hover/50 transition-colors",
+                      !apiKey.is_active && "opacity-50"
+                    )}
                   >
                     {/* Name */}
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
-                        <Key className="w-4 h-4 text-warning" />
+                      <div className={cn(
+                        "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                        apiKey.is_active ? "bg-warning/10" : "bg-surface-secondary"
+                      )}>
+                        <Key className={cn("w-4 h-4", apiKey.is_active ? "text-warning" : "text-text-tertiary")} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-[14px] font-medium text-foreground truncate">
@@ -249,11 +281,43 @@ export default function ApiKeysPage() {
                       </span>
                     </div>
 
+                    {/* Expires */}
+                    <div className="hidden md:flex items-center">
+                      {apiKey.expires_at ? (
+                        <span className={cn(
+                          "text-[13px]",
+                          new Date(apiKey.expires_at) < new Date() ? "text-error" :
+                          new Date(apiKey.expires_at) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) ? "text-warning" :
+                          "text-text-secondary"
+                        )}>
+                          {new Date(apiKey.expires_at) < new Date() ? 'Expired' : formatRelativeTime(apiKey.expires_at)}
+                        </span>
+                      ) : (
+                        <span className="text-[13px] text-text-tertiary">Never</span>
+                      )}
+                    </div>
+
+                    {/* Active Toggle */}
+                    <div className="hidden md:flex items-center justify-center w-16">
+                      <Switch
+                        checked={apiKey.is_active}
+                        onCheckedChange={(checked) => {
+                          toggleApiKey.mutate(
+                            { id: apiKey.id, is_active: checked },
+                            {
+                              onError: () => toast.error('Failed to update key status'),
+                            }
+                          );
+                        }}
+                        disabled={toggleApiKey.isPending}
+                      />
+                    </div>
+
                     {/* Actions */}
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end">
                       <button
                         onClick={() => setDeleteTarget({ id: apiKey.id, name: apiKey.name })}
-                        className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors"
+                        className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
                         title="Delete key"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -261,16 +325,58 @@ export default function ApiKeysPage() {
                     </div>
 
                     {/* Mobile: Additional Info */}
-                    <div className="md:hidden flex items-center gap-4 text-[12px] text-text-tertiary mt-1">
-                      <span>Created {formatRelativeTime(apiKey.created_at)}</span>
-                      {apiKey.last_used_at && (
-                        <span>Used {formatRelativeTime(apiKey.last_used_at)}</span>
-                      )}
+                    <div className="md:hidden flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-4 text-[12px] text-text-tertiary">
+                        <span>Created {formatRelativeTime(apiKey.created_at)}</span>
+                        {apiKey.last_used_at && (
+                          <span>Used {formatRelativeTime(apiKey.last_used_at)}</span>
+                        )}
+                      </div>
+                      <Switch
+                        checked={apiKey.is_active}
+                        onCheckedChange={(checked) => {
+                          toggleApiKey.mutate(
+                            { id: apiKey.id, is_active: checked },
+                            {
+                              onError: () => toast.error('Failed to update key status'),
+                            }
+                          );
+                        }}
+                        disabled={toggleApiKey.isPending}
+                      />
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Pagination */}
+            {pagination && pagination.total_pages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <span className="text-[13px] text-text-tertiary">
+                  Showing {page * perPage + 1}–{Math.min((page + 1) * perPage, pagination.total)} of {pagination.total}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={!pagination.has_previous}
+                    className="p-1.5 rounded-lg text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[13px] text-text-secondary px-2">
+                    Page {pagination.page} of {pagination.total_pages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!pagination.has_next}
+                    className="p-1.5 rounded-lg text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Usage Hint */}
             <div className="mt-6 p-4 bg-surface-secondary/50 border border-border-light rounded-xl">
@@ -340,7 +446,7 @@ export default function ApiKeysPage() {
             </ModalFooter>
           </div>
         ) : (
-          <form onSubmit={handleCreate}>
+          <form onSubmit={handleCreate} className="space-y-4">
             <Input
               label="Key Name"
               placeholder="Production, Development, CI/CD..."
@@ -348,6 +454,21 @@ export default function ApiKeysPage() {
               onChange={(e) => setNewKeyName(e.target.value)}
               helperText="Give your key a descriptive name to identify its purpose"
               required
+            />
+            <Select
+              label="Expiration"
+              options={[
+                { value: '', label: 'Never' },
+                { value: '7', label: '7 days' },
+                { value: '30', label: '30 days' },
+                { value: '60', label: '60 days' },
+                { value: '90', label: '90 days' },
+                { value: '180', label: '180 days' },
+                { value: '365', label: '1 year' },
+              ]}
+              value={newKeyExpiry}
+              onChange={(e) => setNewKeyExpiry(e.target.value)}
+              helperText="Optionally set an expiration date for the key"
             />
             <ModalFooter>
               <Button type="button" variant="secondary" onClick={handleCloseModal}>

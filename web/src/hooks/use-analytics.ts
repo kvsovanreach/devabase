@@ -13,6 +13,7 @@ export interface UsageSummary {
 }
 
 export interface UsageByEndpoint {
+  method: string;
   endpoint: string;
   request_count: number;
   total_tokens: number;
@@ -22,11 +23,16 @@ export interface UsageByEndpoint {
 export interface UsageResponse {
   summary: UsageSummary;
   by_endpoint: UsageByEndpoint[];
+  total_endpoints: number;
+  page: number;
+  per_page: number;
 }
 
 export interface UsageQueryParams {
   start_date?: string;
   end_date?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export function useUsageAnalytics(params?: UsageQueryParams) {
@@ -36,6 +42,8 @@ export function useUsageAnalytics(params?: UsageQueryParams) {
       const searchParams = new URLSearchParams();
       if (params?.start_date) searchParams.set('start_date', params.start_date);
       if (params?.end_date) searchParams.set('end_date', params.end_date);
+      if (params?.limit != null) searchParams.set('limit', params.limit.toString());
+      if (params?.offset != null) searchParams.set('offset', params.offset.toString());
 
       const queryString = searchParams.toString();
       const url = queryString ? `/admin/usage?${queryString}` : '/admin/usage';

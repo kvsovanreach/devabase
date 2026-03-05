@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/header';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
@@ -19,6 +20,8 @@ import {
   TrendingUp,
   Server,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +33,9 @@ const periodOptions = [
 
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState('30');
+  const [endpointPage, setEndpointPage] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const perPage = 10;
 
   const dateRange = useMemo(() => {
     const end = new Date();
@@ -38,19 +44,23 @@ export default function AnalyticsPage() {
     return {
       start_date: start.toISOString(),
       end_date: end.toISOString(),
+      limit: perPage,
+      offset: endpointPage * perPage,
     };
-  }, [period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, endpointPage, refreshKey]);
 
-  const { data: usage, isLoading: usageLoading, isFetching: usageFetching, refetch: refetchUsage } = useUsageAnalytics(dateRange);
-  const { data: storage, isLoading: storageLoading, isFetching: storageFetching, refetch: refetchStorage } = useStorageStats();
+  const { data: usage, isLoading: usageLoading, isFetching: usageFetching } = useUsageAnalytics(dateRange);
+  const { data: storage, isLoading: storageLoading, isFetching: storageFetching } = useStorageStats();
 
   const isLoading = usageLoading || storageLoading;
   const isRefreshing = (usageFetching || storageFetching) && !isLoading;
 
-  const handleRefresh = () => {
-    refetchUsage();
-    refetchStorage();
-  };
+  const queryClient = useQueryClient();
+  const handleRefresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    queryClient.invalidateQueries({ queryKey: ['storage-stats'] });
+  }, [queryClient]);
 
   // Calculate error rate
   const errorRate = usage?.summary.total_requests
@@ -91,7 +101,7 @@ export default function AnalyticsPage() {
               <Select
                 options={periodOptions}
                 value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+                onChange={(e) => { setPeriod(e.target.value); setEndpointPage(0); }}
               />
             </div>
           </div>
@@ -216,7 +226,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div>
                     <h3 className="text-[15px] font-semibold text-foreground">Usage by Endpoint</h3>
-                    <p className="text-[13px] text-text-secondary">Top 20 most used API endpoints</p>
+                    <p className="text-[13px] text-text-secondary">Usage by Endpoint</p>
                   </div>
                 </div>
                 <Badge variant="default">{usage?.by_endpoint.length || 0} endpoints</Badge>
@@ -227,6 +237,9 @@ export default function AnalyticsPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border-light">
+                        <th className="text-left py-3 px-4 text-[12px] font-medium text-text-secondary uppercase tracking-wider">
+                          Method
+                        </th>
                         <th className="text-left py-3 px-4 text-[12px] font-medium text-text-secondary uppercase tracking-wider">
                           Endpoint
                         </th>
@@ -252,12 +265,24 @@ export default function AnalyticsPage() {
 
                         return (
                           <tr
-                            key={endpoint.endpoint}
+                            key={`${endpoint.method}-${endpoint.endpoint}`}
                             className={cn(
                               'border-b border-border-light last:border-0',
                               index % 2 === 0 ? 'bg-surface' : 'bg-surface-secondary/30'
                             )}
                           >
+                            <td className="py-3 px-4">
+                              <span className={cn(
+                                'inline-block px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide',
+                                endpoint.method === 'GET' && 'bg-emerald-500/10 text-emerald-600',
+                                endpoint.method === 'POST' && 'bg-blue-500/10 text-blue-600',
+                                endpoint.method === 'PATCH' && 'bg-amber-500/10 text-amber-600',
+                                endpoint.method === 'DELETE' && 'bg-red-500/10 text-red-600',
+                                !['GET', 'POST', 'PATCH', 'DELETE'].includes(endpoint.method) && 'bg-gray-500/10 text-gray-600',
+                              )}>
+                                {endpoint.method}
+                              </span>
+                            </td>
                             <td className="py-3 px-4">
                               <code className="text-[13px] font-mono text-foreground">
                                 {endpoint.endpoint}
@@ -296,6 +321,32 @@ export default function AnalyticsPage() {
                       })}
                     </tbody>
                   </table>
+                  {usage.total_endpoints > perPage && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-border-light">
+                      <span className="text-[13px] text-text-tertiary">
+                        Showing {endpointPage * perPage + 1}–{Math.min((endpointPage + 1) * perPage, usage.total_endpoints)} of {usage.total_endpoints}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEndpointPage((p) => Math.max(0, p - 1))}
+                          disabled={endpointPage === 0}
+                          className="p-1.5 rounded-lg text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-[13px] text-text-secondary px-2">
+                          Page {endpointPage + 1} of {Math.ceil(usage.total_endpoints / perPage)}
+                        </span>
+                        <button
+                          onClick={() => setEndpointPage((p) => p + 1)}
+                          disabled={(endpointPage + 1) * perPage >= usage.total_endpoints}
+                          className="p-1.5 rounded-lg text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12">

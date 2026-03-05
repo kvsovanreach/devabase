@@ -263,6 +263,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/keys", get(api::keys::list_keys))
         .route("/keys", post(api::keys::create_key))
         .route("/keys/:id", get(api::keys::get_key))
+        .route("/keys/:id", patch(api::keys::toggle_key))
         .route("/keys/:id", delete(api::keys::delete_key))
 
         // ─────────────────────────────────────────

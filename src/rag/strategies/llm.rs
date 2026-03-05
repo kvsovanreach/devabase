@@ -107,7 +107,8 @@ impl ProjectLlmProvider {
             .map(|s| s.to_string());
 
         let model = provider
-            .get("model")
+            .get("default_model")
+            .or_else(|| provider.get("model"))
             .and_then(|v| v.as_str())
             .unwrap_or("gpt-4o-mini")
             .to_string();
@@ -208,7 +209,7 @@ impl ProjectLlmProvider {
     async fn call_anthropic(
         &self,
         prompt: &str,
-        _temperature: f32,
+        temperature: f32,
         max_tokens: i32,
     ) -> Result<String> {
         let url = "https://api.anthropic.com/v1/messages";
@@ -216,6 +217,7 @@ impl ProjectLlmProvider {
         let request_body = serde_json::json!({
             "model": self.model,
             "max_tokens": max_tokens,
+            "temperature": temperature,
             "messages": [{"role": "user", "content": prompt}]
         });
 

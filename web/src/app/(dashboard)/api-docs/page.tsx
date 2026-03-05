@@ -52,6 +52,36 @@ const methodColors: Record<HttpMethod, string> = {
   DELETE: 'bg-red-500/10 text-red-600 border-red-500/20',
 };
 
+function CopyableField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-surface border border-border-light rounded-xl p-4">
+      <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
+        {label}
+      </p>
+      <div className="flex items-center gap-2 mt-1">
+        <code className="text-[13px] font-mono text-primary break-all select-all flex-1">
+          {value}
+        </code>
+        <button
+          onClick={handleCopy}
+          className="p-1.5 rounded-md hover:bg-surface-hover text-text-tertiary hover:text-foreground transition-colors flex-shrink-0 cursor-pointer"
+          title={`Copy ${label}`}
+        >
+          {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CodeBlock({ code, language = 'bash' }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -1481,39 +1511,9 @@ export default function ApiDocsPage() {
         </div>
 
         {/* Quick Reference Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-surface border border-border-light rounded-xl p-4">
-            <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
-              Base URL
-            </p>
-            <p className="text-[13px] font-mono text-primary mt-1 truncate" title={baseUrl}>
-              {baseUrl}
-            </p>
-          </div>
-          <div className="bg-surface border border-border-light rounded-xl p-4">
-            <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
-              Project ID
-            </p>
-            <p className="text-[13px] font-mono text-primary mt-1 truncate" title={projectId}>
-              {projectId.slice(0, 8)}...
-            </p>
-          </div>
-          <div className="bg-surface border border-border-light rounded-xl p-4">
-            <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
-              Collections
-            </p>
-            <p className="text-[24px] font-bold text-foreground mt-1">
-              {collections?.length || 0}
-            </p>
-          </div>
-          <div className="bg-surface border border-border-light rounded-xl p-4">
-            <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium">
-              Tables
-            </p>
-            <p className="text-[24px] font-bold text-foreground mt-1">
-              {tables?.length || 0}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <CopyableField label="Base URL" value={baseUrl} />
+          <CopyableField label="Project ID" value={projectId} />
         </div>
 
         {/* Authentication - Compact */}
@@ -1529,8 +1529,9 @@ X-Project-ID: ${projectId}`}
             <div className="flex-1 space-y-2">
               {collections && collections.length > 0 && (
                 <div>
-                  <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium mb-1">
+                  <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium mb-1 flex items-center gap-1.5">
                     Your Collections
+                    <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold normal-case tracking-normal">{collections.length}</span>
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {collections.slice(0, 5).map((c) => (
@@ -1549,8 +1550,9 @@ X-Project-ID: ${projectId}`}
               )}
               {tables && tables.length > 0 && (
                 <div>
-                  <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium mb-1">
+                  <p className="text-[12px] text-text-secondary uppercase tracking-wider font-medium mb-1 flex items-center gap-1.5">
                     Your Tables
+                    <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-semibold normal-case tracking-normal">{tables.length}</span>
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {tables.slice(0, 5).map((t) => (

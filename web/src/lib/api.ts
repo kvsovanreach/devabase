@@ -379,14 +379,29 @@ class ApiClient {
   }
 
   // API Key endpoints
-  async listApiKeys(): Promise<ApiKey[]> {
-    const response = await this.client.get<{ data: ApiKey[]; pagination: unknown }>('/keys');
-    // Backend returns paginated response, extract the data array
-    return response.data.data;
+  async listApiKeys(params?: { limit?: number; offset?: number }): Promise<{
+    data: ApiKey[];
+    pagination: { total: number; page: number; total_pages: number; has_next: boolean; has_previous: boolean };
+  }> {
+    const searchParams = new URLSearchParams();
+    if (params?.limit != null) searchParams.set('limit', params.limit.toString());
+    if (params?.offset != null) searchParams.set('offset', params.offset.toString());
+    const query = searchParams.toString();
+    const url = query ? `/keys?${query}` : '/keys';
+    const response = await this.client.get<{
+      data: ApiKey[];
+      pagination: { total: number; page: number; total_pages: number; has_next: boolean; has_previous: boolean };
+    }>(url);
+    return response.data;
   }
 
   async createApiKey(data: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
     const response = await this.client.post<CreateApiKeyResponse>('/keys', data);
+    return response.data;
+  }
+
+  async toggleApiKey(id: string, is_active: boolean): Promise<ApiKey> {
+    const response = await this.client.patch<ApiKey>(`/keys/${id}`, { is_active });
     return response.data;
   }
 

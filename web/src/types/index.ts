@@ -169,6 +169,7 @@ export interface ApiKey {
   prefix: string;
   scopes: string[];
   key_type: ApiKeyType;
+  is_active: boolean;
   project_id: string | null;
   last_used_at: string | null;
   expires_at: string | null;

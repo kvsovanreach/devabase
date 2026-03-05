@@ -59,6 +59,29 @@ pub async fn get_key(
     Ok(Json(key))
 }
 
+/// Toggle an API key's active status
+pub async fn toggle_key(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Path(id): Path<Uuid>,
+    Json(input): Json<ToggleKeyInput>,
+) -> Result<Json<ApiKeyResponse>> {
+    let project_id = auth.require_project()?;
+    auth.require_write()?;
+
+    let key = auth::toggle_key_active(&state.pool, project_id, id, input.is_active).await?;
+    // Invalidate cache so deactivated keys take effect immediately
+    if !input.is_active {
+        state.api_key_cache.invalidate_by_key_id(id).await;
+    }
+    Ok(Json(key))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ToggleKeyInput {
+    pub is_active: bool,
+}
+
 /// Delete an API key
 pub async fn delete_key(
     State(state): State<Arc<AppState>>,

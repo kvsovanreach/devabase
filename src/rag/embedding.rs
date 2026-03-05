@@ -34,11 +34,13 @@ pub fn create_embedding_provider_from_config(
 
     let provider: Box<dyn EmbeddingProvider> = match config.provider_type.as_str() {
         "openai" => Box::new(ProjectOpenAIEmbedding::new(config)?),
+        "cohere" => Box::new(ProjectCohereEmbedding::new(config)?),
+        "voyage" => Box::new(ProjectVoyageEmbedding::new(config)?),
         "ollama" => Box::new(ProjectOllamaEmbedding::new(config)?),
         "custom" => Box::new(ProjectCustomEmbedding::new(config)?),
         _ => {
             return Err(Error::Config(format!(
-                "Unknown embedding provider type: '{}'. Supported: openai, ollama, custom",
+                "Unknown embedding provider type: '{}'. Supported: openai, cohere, voyage, ollama, custom",
                 config.provider_type
             )))
         }
@@ -193,6 +195,214 @@ impl EmbeddingProvider for ProjectOpenAIEmbedding {
             ));
         }
 
+        let data: OpenAIResponse = response.json().await?;
+        Ok(data.data.into_iter().map(|d| d.embedding).collect())
+    }
+
+    fn dimensions(&self) -> usize {
+        self.dimensions
+    }
+
+    fn model_name(&self) -> &str {
+        &self.model
+    }
+}
+
+/// Cohere embedding provider from project settings
+pub struct ProjectCohereEmbedding {
+    client: reqwest::Client,
+    api_key: String,
+    model: String,
+    dimensions: usize,
+}
+
+impl ProjectCohereEmbedding {
+    pub fn new(config: &EmbeddingProviderConfig) -> Result<Self> {
+        let api_key = config.api_key.clone().ok_or_else(|| {
+            Error::ConfigDetailed(
+                ErrorInfo::new(
+                    format!("Cohere API key required for embedding provider '{}'", config.name),
+                    "EMBEDDING_API_KEY_MISSING"
+                ).with_fix("Add api_key to the embedding provider configuration in Project Settings. Get your API key from https://dashboard.cohere.com/api-keys")
+            )
+        })?;
+
+        let dimensions = config.dimensions.unwrap_or_else(|| {
+            match config.model.as_str() {
+                "embed-english-v3.0" => 1024,
+                "embed-multilingual-v3.0" => 1024,
+                "embed-english-light-v3.0" => 384,
+                "embed-multilingual-light-v3.0" => 384,
+                _ => 1024,
+            }
+        });
+
+        Ok(Self {
+            client: reqwest::Client::new(),
+            api_key,
+            model: config.model.clone(),
+            dimensions,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+struct CohereEmbeddingResponse {
+    embeddings: Vec<Vec<f32>>,
+}
+
+#[async_trait]
+impl EmbeddingProvider for ProjectCohereEmbedding {
+    async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        let request = serde_json::json!({
+            "texts": texts,
+            "model": self.model,
+            "input_type": "search_document",
+            "embedding_types": ["float"]
+        });
+
+        let response = self
+            .client
+            .post("https://api.cohere.ai/v1/embed")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+
+            let fix = if status.as_u16() == 401 {
+                "Check that api_key is correct in Project Settings > Embedding Providers. Get a valid key from https://dashboard.cohere.com/api-keys"
+            } else if status.as_u16() == 429 {
+                "Rate limit exceeded. Wait and retry, or upgrade your Cohere plan."
+            } else {
+                "Check Cohere API status at https://status.cohere.com"
+            };
+
+            return Err(Error::EmbeddingDetailed(
+                ErrorInfo::new(
+                    format!("Cohere embedding API error ({}): {}", status, error_text),
+                    "COHERE_EMBEDDING_API_ERROR"
+                ).with_fix(fix)
+            ));
+        }
+
+        // Cohere v1 returns { embeddings: [[...], [...]] } for float type
+        // Cohere v2 with embedding_types returns { embeddings: { float: [[...]] } }
+        let json: serde_json::Value = response.json().await?;
+
+        // Try v2 format first (embedding_types response)
+        if let Some(embeddings) = json.get("embeddings")
+            .and_then(|e| e.get("float"))
+            .and_then(|f| f.as_array())
+        {
+            let result: Vec<Vec<f32>> = embeddings
+                .iter()
+                .filter_map(|arr| {
+                    arr.as_array().map(|a| {
+                        a.iter().filter_map(|v| v.as_f64().map(|f| f as f32)).collect()
+                    })
+                })
+                .collect();
+            return Ok(result);
+        }
+
+        // Fall back to v1 format
+        let data: CohereEmbeddingResponse = serde_json::from_value(json)
+            .map_err(|e| Error::Embedding(format!("Failed to parse Cohere response: {}", e)))?;
+        Ok(data.embeddings)
+    }
+
+    fn dimensions(&self) -> usize {
+        self.dimensions
+    }
+
+    fn model_name(&self) -> &str {
+        &self.model
+    }
+}
+
+/// Voyage AI embedding provider from project settings
+pub struct ProjectVoyageEmbedding {
+    client: reqwest::Client,
+    api_key: String,
+    model: String,
+    dimensions: usize,
+}
+
+impl ProjectVoyageEmbedding {
+    pub fn new(config: &EmbeddingProviderConfig) -> Result<Self> {
+        let api_key = config.api_key.clone().ok_or_else(|| {
+            Error::ConfigDetailed(
+                ErrorInfo::new(
+                    format!("Voyage API key required for embedding provider '{}'", config.name),
+                    "EMBEDDING_API_KEY_MISSING"
+                ).with_fix("Add api_key to the embedding provider configuration in Project Settings. Get your API key from https://dash.voyageai.com/")
+            )
+        })?;
+
+        let dimensions = config.dimensions.unwrap_or_else(|| {
+            match config.model.as_str() {
+                "voyage-3" => 1024,
+                "voyage-3-lite" => 512,
+                "voyage-large-2" => 1536,
+                "voyage-code-2" => 1536,
+                "voyage-2" => 1024,
+                _ => 1024,
+            }
+        });
+
+        Ok(Self {
+            client: reqwest::Client::new(),
+            api_key,
+            model: config.model.clone(),
+            dimensions,
+        })
+    }
+}
+
+#[async_trait]
+impl EmbeddingProvider for ProjectVoyageEmbedding {
+    async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        let request = serde_json::json!({
+            "input": texts,
+            "model": self.model,
+            "input_type": "document"
+        });
+
+        let response = self
+            .client
+            .post("https://api.voyageai.com/v1/embeddings")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+
+            let fix = if status.as_u16() == 401 {
+                "Check that api_key is correct in Project Settings > Embedding Providers. Get a valid key from https://dash.voyageai.com/"
+            } else if status.as_u16() == 429 {
+                "Rate limit exceeded. Wait and retry, or upgrade your Voyage AI plan."
+            } else {
+                "Check Voyage AI documentation at https://docs.voyageai.com"
+            };
+
+            return Err(Error::EmbeddingDetailed(
+                ErrorInfo::new(
+                    format!("Voyage embedding API error ({}): {}", status, error_text),
+                    "VOYAGE_EMBEDDING_API_ERROR"
+                ).with_fix(fix)
+            ));
+        }
+
+        // Voyage uses OpenAI-compatible response format
         let data: OpenAIResponse = response.json().await?;
         Ok(data.data.into_iter().map(|d| d.embedding).collect())
     }

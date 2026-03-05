@@ -82,6 +82,12 @@ impl ApiKeyCache {
         let mut entries = self.entries.write().await;
         entries.clear();
     }
+
+    /// Look up project_id for a raw API key from cache (no DB hit).
+    /// Returns None if the key is not cached or expired.
+    pub async fn get_project_id(&self, raw_key: &str) -> Option<Uuid> {
+        self.get(raw_key).await.map(|ctx| ctx.project_id)
+    }
 }
 
 const KEY_LENGTH: usize = 32;
@@ -182,6 +188,7 @@ pub async fn verify_key_with_cache(
         SELECT * FROM sys_api_keys
         WHERE key_prefix = $1
           AND project_id IS NOT NULL
+          AND is_active = true
           AND (expires_at IS NULL OR expires_at > NOW())
         "#,
     )
@@ -264,6 +271,20 @@ pub async fn get_key(pool: &DbPool, project_id: Uuid, id: Uuid) -> Result<ApiKey
         .fetch_optional(pool.inner())
         .await?
         .ok_or_else(|| Error::NotFound("API key not found".to_string()))?;
+
+    Ok(ApiKeyResponse::from(key))
+}
+
+pub async fn toggle_key_active(pool: &DbPool, project_id: Uuid, id: Uuid, is_active: bool) -> Result<ApiKeyResponse> {
+    let key: ApiKey = sqlx::query_as(
+        "UPDATE sys_api_keys SET is_active = $1 WHERE id = $2 AND project_id = $3 RETURNING *"
+    )
+    .bind(is_active)
+    .bind(id)
+    .bind(project_id)
+    .fetch_optional(pool.inner())
+    .await?
+    .ok_or_else(|| Error::NotFound("API key not found".to_string()))?;
 
     Ok(ApiKeyResponse::from(key))
 }

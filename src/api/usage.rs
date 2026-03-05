@@ -5,6 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use crate::auth::AuthContext;
 use crate::db::models::UsageQuery;
 use crate::server::AppState;
 use crate::Result;
@@ -21,6 +22,7 @@ pub struct UsageSummary {
 
 #[derive(Debug, Serialize)]
 pub struct UsageByEndpoint {
+    pub method: String,
     pub endpoint: String,
     pub request_count: i64,
     pub total_tokens: i64,
@@ -31,12 +33,17 @@ pub struct UsageByEndpoint {
 pub struct UsageResponse {
     pub summary: UsageSummary,
     pub by_endpoint: Vec<UsageByEndpoint>,
+    pub total_endpoints: i64,
+    pub page: i64,
+    pub per_page: i64,
 }
 
 pub async fn get_usage(
     State(state): State<Arc<AppState>>,
+    auth: AuthContext,
     Query(query): Query<UsageQuery>,
 ) -> Result<Json<UsageResponse>> {
+    let project_id = auth.require_project()?;
     let start_date = query
         .start_date
         .unwrap_or_else(|| chrono::Utc::now() - chrono::Duration::days(30));
@@ -51,9 +58,10 @@ pub async fn get_usage(
             COALESCE(AVG(latency_ms), 0)::float8 as avg_latency_ms,
             COUNT(*) FILTER (WHERE status_code >= 400)::bigint as error_count
         FROM sys_usage_logs
-        WHERE created_at BETWEEN $1 AND $2
+        WHERE project_id = $1 AND created_at BETWEEN $2 AND $3
         "#,
     )
+    .bind(project_id)
     .bind(start_date)
     .bind(end_date)
     .fetch_optional(state.pool.inner())
@@ -78,30 +86,63 @@ pub async fn get_usage(
         },
     };
 
-    // Get by endpoint using tuple query
-    let endpoint_rows: Vec<(String, i64, i64, f64)> = sqlx::query_as(
+    let per_page = query.limit.unwrap_or(10).min(100);
+    let page = (query.offset.unwrap_or(0) / per_page).max(0) + 1;
+    let offset = query.offset.unwrap_or(0).max(0);
+
+    // Get total distinct endpoints and paginated endpoint data in parallel
+    let pool = state.pool.inner();
+
+    // Normalize endpoints by replacing UUIDs with :id so that
+    // e.g. /v1/tables/notes/rows/abc-123 and /v1/tables/notes/rows/def-456
+    // are grouped together as /v1/tables/notes/rows/:id
+    let normalize_expr = "regexp_replace(endpoint, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', ':id', 'gi')";
+
+    let count_sql = format!(
+        r#"
+        SELECT COUNT(*)::bigint FROM (
+            SELECT 1 FROM sys_usage_logs
+            WHERE project_id = $1 AND created_at BETWEEN $2 AND $3
+            GROUP BY method, {normalize_expr}
+        ) sub
+        "#
+    );
+    let rows_sql = format!(
         r#"
         SELECT
-            endpoint,
+            method,
+            {normalize_expr} as endpoint,
             COUNT(*)::bigint as request_count,
             COALESCE(SUM(COALESCE(request_tokens, 0) + COALESCE(response_tokens, 0)), 0)::bigint as total_tokens,
             COALESCE(AVG(latency_ms), 0)::float8 as avg_latency_ms
         FROM sys_usage_logs
-        WHERE created_at BETWEEN $1 AND $2
-        GROUP BY endpoint
+        WHERE project_id = $1 AND created_at BETWEEN $2 AND $3
+        GROUP BY method, {normalize_expr}
         ORDER BY COUNT(*) DESC
-        LIMIT 20
-        "#,
-    )
-    .bind(start_date)
-    .bind(end_date)
-    .fetch_all(state.pool.inner())
-    .await
-    .unwrap_or_default();
+        LIMIT $4 OFFSET $5
+        "#
+    );
+
+    let count_fut = sqlx::query_scalar::<_, i64>(&count_sql)
+        .bind(project_id)
+        .bind(start_date)
+        .bind(end_date)
+        .fetch_one(pool);
+
+    let rows_fut = sqlx::query_as::<_, (String, String, i64, i64, f64)>(&rows_sql)
+        .bind(project_id)
+        .bind(start_date)
+        .bind(end_date)
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(pool);
+
+    let (total_endpoints, endpoint_rows) = tokio::try_join!(count_fut, rows_fut)?;
 
     let by_endpoint: Vec<UsageByEndpoint> = endpoint_rows
         .into_iter()
-        .map(|(endpoint, request_count, total_tokens, avg_latency_ms)| UsageByEndpoint {
+        .map(|(method, endpoint, request_count, total_tokens, avg_latency_ms)| UsageByEndpoint {
+            method,
             endpoint,
             request_count,
             total_tokens,
@@ -112,6 +153,9 @@ pub async fn get_usage(
     Ok(Json(UsageResponse {
         summary,
         by_endpoint,
+        total_endpoints,
+        page,
+        per_page,
     }))
 }
 
@@ -124,8 +168,10 @@ pub struct ExportQuery {
 
 pub async fn export_usage(
     State(state): State<Arc<AppState>>,
+    auth: AuthContext,
     Query(query): Query<ExportQuery>,
 ) -> Result<Json<Vec<serde_json::Value>>> {
+    let project_id = auth.require_project()?;
     let start_date = query
         .start_date
         .unwrap_or_else(|| chrono::Utc::now() - chrono::Duration::days(30));
@@ -144,11 +190,12 @@ pub async fn export_usage(
             'created_at', created_at
         )
         FROM sys_usage_logs
-        WHERE created_at BETWEEN $1 AND $2
+        WHERE project_id = $1 AND created_at BETWEEN $2 AND $3
         ORDER BY created_at DESC
         LIMIT 10000
         "#,
     )
+    .bind(project_id)
     .bind(start_date)
     .bind(end_date)
     .fetch_all(state.pool.inner())

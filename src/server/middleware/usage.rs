@@ -7,12 +7,14 @@ use axum::{
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Instant;
+use uuid::Uuid;
 
 use crate::server::AppState;
 
 /// Log usage with token counts (call this from handlers that track tokens)
 pub async fn log_usage_with_tokens(
     pool: &PgPool,
+    project_id: Option<Uuid>,
     endpoint: &str,
     method: &str,
     status_code: i16,
@@ -22,10 +24,11 @@ pub async fn log_usage_with_tokens(
 ) {
     if let Err(e) = sqlx::query(
         r#"
-        INSERT INTO sys_usage_logs (endpoint, method, status_code, latency_ms, request_tokens, response_tokens)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO sys_usage_logs (project_id, endpoint, method, status_code, latency_ms, request_tokens, response_tokens)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         "#,
     )
+    .bind(project_id)
     .bind(endpoint)
     .bind(method)
     .bind(status_code)
@@ -58,6 +61,16 @@ pub async fn log_usage(
         return next.run(request).await;
     }
 
+    // Extract project_id: try header first (sync), then API key cache (async)
+    let project_id = resolve_project_id_from_header(&request)
+        .or_else(|| extract_api_key(&request));
+    // If we got a raw API key string (not a UUID), resolve via cache
+    let project_id = match project_id {
+        Some(ProjectIdOrKey::ProjectId(id)) => Some(id),
+        Some(ProjectIdOrKey::ApiKey(key)) => state.api_key_cache.get_project_id(&key).await,
+        None => None,
+    };
+
     // Run the request
     let response = next.run(request).await;
 
@@ -69,10 +82,11 @@ pub async fn log_usage(
     tokio::spawn(async move {
         if let Err(e) = sqlx::query(
             r#"
-            INSERT INTO sys_usage_logs (endpoint, method, status_code, latency_ms)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO sys_usage_logs (project_id, endpoint, method, status_code, latency_ms)
+            VALUES ($1, $2, $3, $4, $5)
             "#,
         )
+        .bind(project_id)
         .bind(&path)
         .bind(&method)
         .bind(status_code)
@@ -109,6 +123,44 @@ fn has_api_key_auth(request: &Request<Body>) -> bool {
     }
 
     false
+}
+
+enum ProjectIdOrKey {
+    ProjectId(Uuid),
+    ApiKey(String),
+}
+
+/// Try to get project_id directly from the X-Project-ID header
+fn resolve_project_id_from_header(request: &Request<Body>) -> Option<ProjectIdOrKey> {
+    request
+        .headers()
+        .get("x-project-id")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| Uuid::parse_str(s).ok())
+        .map(ProjectIdOrKey::ProjectId)
+}
+
+/// Extract the raw API key string from request headers
+fn extract_api_key(request: &Request<Body>) -> Option<ProjectIdOrKey> {
+    // Check X-API-Key header
+    if let Some(key) = request.headers().get("x-api-key").and_then(|h| h.to_str().ok()) {
+        return Some(ProjectIdOrKey::ApiKey(key.to_string()));
+    }
+
+    // Check Authorization: Bearer <key> (non-JWT tokens)
+    if let Some(auth) = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+    {
+        if let Some(token) = auth.strip_prefix("Bearer ") {
+            if !token.starts_with("eyJ") {
+                return Some(ProjectIdOrKey::ApiKey(token.to_string()));
+            }
+        }
+    }
+
+    None
 }
 
 /// Determine if we should skip logging for this path

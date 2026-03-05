@@ -68,9 +68,9 @@ const defaultRerankModels: Record<RerankProviderType, string[]> = {
 };
 
 const defaultModels: Record<LLMProviderType, string[]> = {
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  google: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],
+  anthropic: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-4-6'],
+  google: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
   custom: [],
 };
 
@@ -85,8 +85,10 @@ const defaultEmbeddingModels: Record<EmbeddingProviderType, { model: string; dim
     { model: 'embed-multilingual-v3.0', dimensions: 1024 },
   ],
   voyage: [
-    { model: 'voyage-large-2', dimensions: 1536 },
+    { model: 'voyage-3', dimensions: 1024 },
+    { model: 'voyage-3-lite', dimensions: 512 },
     { model: 'voyage-code-2', dimensions: 1536 },
+    { model: 'voyage-large-2', dimensions: 1536 },
   ],
   custom: [],
 };
@@ -1139,10 +1141,10 @@ export default function ProvidersSettingsPage() {
                     ) : (
                       <XCircle className="w-5 h-5 text-error flex-shrink-0 mt-0.5" />
                     )}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <p
                         className={cn(
-                          'text-[14px] font-medium',
+                          'text-[14px] font-medium break-words',
                           testResult.success ? 'text-success' : 'text-error'
                         )}
                       >

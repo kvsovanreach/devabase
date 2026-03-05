@@ -312,21 +312,21 @@ export default function AppAuthSettingsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => setViewUser(user)}
-                        className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/5 transition-colors"
+                        className="p-2 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
                         title="View details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenEdit(user)}
-                        className="p-2 rounded-lg text-text-secondary hover:text-info hover:bg-info/5 transition-colors"
+                        className="p-2 rounded-lg text-text-secondary hover:text-info hover:bg-info/5 transition-colors cursor-pointer"
                         title="Edit user"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setDeleteTarget({ id: user.id, email: user.email })}
-                        className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors"
+                        className="p-2 rounded-lg text-text-secondary hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
                         title="Delete user"
                       >
                         <Trash2 className="w-4 h-4" />

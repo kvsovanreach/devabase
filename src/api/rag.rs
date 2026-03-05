@@ -319,6 +319,7 @@ async fn rag_chat_json_internal(
     // Log usage with token counts
     log_usage_with_tokens(
         state.pool.inner(),
+        auth.project_id,
         "/v1/rag",
         "POST",
         200,
@@ -1428,6 +1429,7 @@ async fn chat_internal(
     // Log usage with token counts
     log_usage_with_tokens(
         state.pool.inner(),
+        auth.project_id,
         &format!("/v1/collections/{}/chat", collection_name),
         "POST",
         200,
@@ -1651,6 +1653,7 @@ async fn chat_multi_internal(
     // Log usage with token counts
     log_usage_with_tokens(
         state.pool.inner(),
+        auth.project_id,
         "/v1/chat/multi",
         "POST",
         200,
