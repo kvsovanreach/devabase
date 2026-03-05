@@ -11,7 +11,7 @@
 [![PostgreSQL](https://img.shields.io/badge/postgresql-16-blue.svg)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/devabase/devabase)
 
-[Documentation](https://docs.devabase.io) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Dashboard](#-dashboard)
+[Documentation](https://sovanreach.com/projects/devabase/docs) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Dashboard](#-dashboard)
 
 <br />
 
@@ -29,22 +29,22 @@ Instead of stitching together Pinecone + LangChain + Auth0 + PostgreSQL + custom
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          YOUR APPLICATION                                │
+│                          YOUR APPLICATION                               │
 │                   (Web, Mobile, Desktop, API)                           │
 └─────────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                             DEVABASE                                     │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ │
-│  │  Vector   │ │    RAG    │ │ Knowledge │ │  Auto-API │ │   Auth    │ │
-│  │  Search   │ │  Engine   │ │   Graphs  │ │  Tables   │ │ & Teams   │ │
-│  └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘ │
+│                             DEVABASE                                    │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐  │
+│  │  Vector   │ │    RAG    │ │ Knowledge │ │  Auto-API │ │   Auth    │  │
+│  │  Search   │ │  Engine   │ │   Graphs  │ │  Tables   │ │ & Teams   │  │
+│  └───────────┘ └───────────┘ └───────────┘ └───────────┘ └───────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      PostgreSQL + pgvector                               │
+│                      PostgreSQL + pgvector                              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1147,6 +1147,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Built with ❤️ for the AI developer community**
 
-[Website](https://devabase.io) · [Documentation](https://docs.devabase.io) · [Discord](https://discord.gg/devabase) · [Twitter](https://twitter.com/devabase)
+[Website](https://sovanreach.com/projects/devabase) · [Documentation](https://sovanreach.com/projects/devabase/docs)
 
 </div>

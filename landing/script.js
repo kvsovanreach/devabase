@@ -37,8 +37,10 @@ function initNavigation() {
 
     // Mobile menu toggle
     navToggle?.addEventListener('click', () => {
-        navLinks.classList.toggle('active');
+        const isOpen = navLinks.classList.toggle('active');
         navToggle.classList.toggle('active');
+        // Prevent body scroll when menu is open
+        document.body.style.overflow = isOpen ? 'hidden' : '';
     });
 
     // Close mobile menu when clicking a link
@@ -46,7 +48,26 @@ function initNavigation() {
         link.addEventListener('click', () => {
             navLinks.classList.remove('active');
             navToggle.classList.remove('active');
+            document.body.style.overflow = '';
         });
+    });
+
+    // Close mobile menu on window resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768 && navLinks?.classList.contains('active')) {
+            navLinks.classList.remove('active');
+            navToggle?.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Close mobile menu with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks?.classList.contains('active')) {
+            navLinks.classList.remove('active');
+            navToggle?.classList.remove('active');
+            document.body.style.overflow = '';
+        }
     });
 }
 
