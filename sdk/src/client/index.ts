@@ -123,6 +123,56 @@ export class DevabaseClient {
   getCurrentProjectId(): string | null {
     return this.http.getProjectId();
   }
+
+  /**
+   * Set user context for dual-auth scenarios.
+   *
+   * When both API key and user token are set:
+   * - API key → authorizes the request (project access)
+   * - User token → identifies WHO is making the request
+   *
+   * This enables:
+   * - Row-level security (RLS) based on user ID
+   * - Audit logs with user attribution
+   * - User-scoped queries
+   *
+   * @param userToken - The app user's access token, or null to clear
+   * @returns this for chaining
+   *
+   * @example
+   * // Server-side: verify user and set context
+   * const client = createClient({ baseUrl: '...', apiKey: 'dvb_xxx' });
+   *
+   * // Verify the user's token
+   * const user = await client.appAuth.getUserFromToken(userAccessToken);
+   *
+   * // Set user context for subsequent requests
+   * client.asUser(userAccessToken);
+   *
+   * // Now queries respect RLS policies
+   * const articles = await client.tables.rows('articles').query();
+   * // Returns only articles the user has access to
+   */
+  asUser(userToken: string | null): this {
+    this.http.setUserToken(userToken);
+    return this;
+  }
+
+  /**
+   * Clear user context
+   * @returns this for chaining
+   */
+  clearUserContext(): this {
+    this.http.setUserToken(null);
+    return this;
+  }
+
+  /**
+   * Get the current user token
+   */
+  getUserToken(): string | null {
+    return this.http.getUserToken();
+  }
 }
 
 /**

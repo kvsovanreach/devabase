@@ -30,6 +30,13 @@ pub struct AuthContext {
     // Project context
     pub project_id: Option<Uuid>,
     pub project_role: Option<ProjectRole>,
+
+    // App user context (for dual-auth: API key + user token)
+    // When both API key and app_user_id are present:
+    // - API key authorizes the request (project access)
+    // - app_user_id identifies WHO is making the request (for RLS, audit logs)
+    pub app_user_id: Option<Uuid>,
+    pub app_user_email: Option<String>,
 }
 
 impl AuthContext {
@@ -42,6 +49,8 @@ impl AuthContext {
             user_id: None,
             project_id: Some(project_id),
             project_role: Some(ProjectRole::Admin), // API keys have admin access to their project
+            app_user_id: None,
+            app_user_email: None,
         }
     }
 
@@ -53,7 +62,22 @@ impl AuthContext {
             user_id: Some(user_id),
             project_id: None,
             project_role: None,
+            app_user_id: None,
+            app_user_email: None,
         }
+    }
+
+    /// Set app user context (for dual-auth scenarios)
+    pub fn with_app_user(mut self, user_id: Uuid, email: Option<String>) -> Self {
+        self.app_user_id = Some(user_id);
+        self.app_user_email = email;
+        self
+    }
+
+    /// Get the effective user ID for RLS/audit purposes
+    /// Returns app_user_id if set (dual-auth), otherwise user_id (JWT auth)
+    pub fn effective_user_id(&self) -> Option<Uuid> {
+        self.app_user_id.or(self.user_id)
     }
 
     /// Check if user has a specific scope
@@ -175,7 +199,9 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
                 }
 
                 // Try API key
-                if let Ok(ctx) = validate_api_key(&state.pool, token).await {
+                if let Ok(mut ctx) = validate_api_key(&state.pool, token).await {
+                    // Check for X-App-User-Token header (dual-auth)
+                    ctx = try_set_app_user_context(ctx, parts, state).await;
                     return Ok(ctx);
                 }
             }
@@ -185,7 +211,9 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
         if let Some(api_key) = parts.headers.get("X-API-Key").and_then(|h| h.to_str().ok()) {
             credentials_provided = true;
             is_api_key_attempt = true;
-            if let Ok(ctx) = validate_api_key(&state.pool, api_key).await {
+            if let Ok(mut ctx) = validate_api_key(&state.pool, api_key).await {
+                // Check for X-App-User-Token header (dual-auth)
+                ctx = try_set_app_user_context(ctx, parts, state).await;
                 return Ok(ctx);
             }
         }
@@ -226,6 +254,85 @@ async fn get_user_project_role(pool: &DbPool, user_id: Uuid, project_id: Uuid) -
     .ok_or_else(|| crate::Error::Auth("Not a member of this project".to_string()))?;
 
     Ok(role.0)
+}
+
+/// Try to set app user context from X-App-User-Token header
+/// This enables dual-auth: API key for project access + user token for identity
+async fn try_set_app_user_context(
+    mut ctx: AuthContext,
+    parts: &Parts,
+    state: &Arc<crate::server::AppState>,
+) -> AuthContext {
+    // Only process if we have a project (from API key)
+    let project_id = match ctx.project_id {
+        Some(id) => id,
+        None => return ctx,
+    };
+
+    // Check for X-App-User-Token header
+    let app_user_token = match parts
+        .headers
+        .get("X-App-User-Token")
+        .and_then(|h| h.to_str().ok())
+    {
+        Some(token) => token,
+        None => return ctx,
+    };
+
+    // Decode the app user token
+    let jwt_secret = match &state.config.auth.jwt_secret {
+        Some(secret) => secret,
+        None => return ctx,
+    };
+
+    // Decode the token (we have our own decoder for app tokens)
+    let claims = match decode_app_user_token(jwt_secret, app_user_token) {
+        Ok(claims) => claims,
+        Err(_) => return ctx, // Invalid token, ignore silently
+    };
+
+    // Verify project matches
+    if claims.project_id != project_id.to_string() {
+        return ctx; // Wrong project, ignore
+    }
+
+    // Parse user ID
+    let user_id = match Uuid::parse_str(&claims.sub) {
+        Ok(id) => id,
+        Err(_) => return ctx,
+    };
+
+    // Set app user context
+    ctx.app_user_id = Some(user_id);
+    ctx.app_user_email = Some(claims.email);
+    ctx
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AppUserTokenClaims {
+    sub: String,
+    project_id: String,
+    email: String,
+    exp: i64,
+    token_type: String,
+}
+
+fn decode_app_user_token(secret: &str, token: &str) -> crate::Result<AppUserTokenClaims> {
+    use jsonwebtoken::{decode, DecodingKey, Validation};
+
+    let token_data = decode::<AppUserTokenClaims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .map_err(|e| crate::Error::Auth(format!("Invalid app user token: {}", e)))?;
+
+    // Verify token type
+    if token_data.claims.token_type != "app_access" {
+        return Err(crate::Error::Auth("Invalid token type".to_string()));
+    }
+
+    Ok(token_data.claims)
 }
 
 /// Optional auth context (for endpoints that work with or without auth)

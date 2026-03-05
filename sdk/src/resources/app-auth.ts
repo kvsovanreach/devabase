@@ -2,6 +2,8 @@ import { HttpClient } from '../utils/http';
 import {
   AppUser,
   AppAuthResponse,
+  AppAuthSession,
+  TokenIntrospectionResult,
   AppUserRegisterInput,
   AppUserLoginInput,
   AppUserUpdateInput,
@@ -20,27 +22,31 @@ import {
  * their own auth system.
  *
  * @example
- * // Initialize with project-scoped API key
- * const client = createClient({
- *   baseUrl: 'http://localhost:9002',
- *   apiKey: 'dvb_your_project_api_key'
- * });
- * client.useProject('your-project-id');
+ * // Pattern 1: Admin operations (uses API key only)
+ * const admin = createClient({ baseUrl: '...', apiKey: 'dvb_xxx' });
+ * await admin.tables.rows('users').query(); // All users
  *
- * // Register a new user
- * const auth = await client.appAuth.register({
- *   email: 'user@example.com',
- *   password: 'securePassword123'
- * });
+ * @example
+ * // Pattern 2: Stateless token verification (server-side)
+ * const client = createClient({ baseUrl: '...', apiKey: 'dvb_xxx' });
+ * const result = await client.appAuth.verifyToken(userAccessToken);
+ * if (result.active) {
+ *   console.log('User:', result.user);
+ * }
  *
- * // Login
- * const auth = await client.appAuth.login({
- *   email: 'user@example.com',
- *   password: 'securePassword123'
- * });
+ * @example
+ * // Pattern 3: User-scoped operations (API key + user context)
+ * const client = createClient({ baseUrl: '...', apiKey: 'dvb_xxx' });
+ * client.asUser(userAccessToken); // Set user context
+ * await client.tables.rows('articles').query(); // Filtered by RLS policies
  *
- * // Use the access token for authenticated requests
- * client.appAuth.setToken(auth.access_token);
+ * @example
+ * // Pattern 4: Client-side auth flow
+ * const auth = await client.appAuth.login({ email, password });
+ * const session = auth.toSession(); // Get enhanced session object
+ * if (session.expiresWithin(300)) {
+ *   // Refresh soon
+ * }
  */
 export class AppAuthResource {
   private appToken: string | null = null;
@@ -265,6 +271,108 @@ export class AppAuthResource {
    */
   getToken(): string | null {
     return this.appToken;
+  }
+
+  // ============================================================================
+  // Stateless Token Verification (Server-side friendly)
+  // ============================================================================
+
+  /**
+   * Verify a token and get user information (stateless - no state change)
+   * This is the recommended method for server-side token verification.
+   *
+   * @param token - The access token to verify
+   * @param options - Request options
+   * @returns Token introspection result with user info
+   *
+   * @example
+   * // Server-side API route
+   * const result = await client.appAuth.verifyToken(userAccessToken);
+   * if (result.active) {
+   *   console.log('User ID:', result.user_id);
+   *   console.log('Email:', result.email);
+   *   console.log('Expires:', new Date(result.exp * 1000));
+   * } else {
+   *   throw new Error('Invalid token');
+   * }
+   */
+  async verifyToken(
+    token: string,
+    options?: RequestOptions
+  ): Promise<TokenIntrospectionResult> {
+    return this.http.post<TokenIntrospectionResult>(
+      '/v1/auth/app/introspect',
+      { token },
+      options
+    );
+  }
+
+  /**
+   * Get user from token (stateless - throws if invalid)
+   * Convenience method that returns user directly or throws an error.
+   *
+   * @param token - The access token to verify
+   * @param options - Request options
+   * @returns The user object
+   * @throws Error if token is invalid or expired
+   *
+   * @example
+   * try {
+   *   const user = await client.appAuth.getUserFromToken(userAccessToken);
+   *   console.log('Authenticated user:', user.email);
+   * } catch (e) {
+   *   // Token invalid, expired, or revoked
+   *   return Response.json({ error: 'Unauthorized' }, { status: 401 });
+   * }
+   */
+  async getUserFromToken(
+    token: string,
+    options?: RequestOptions
+  ): Promise<AppUser> {
+    const result = await this.verifyToken(token, options);
+    if (!result.active) {
+      throw new Error('Token is invalid or expired');
+    }
+    if (result.user) {
+      return result.user;
+    }
+    // Fetch full user if not included in introspection
+    return this.http.get<AppUser>(
+      '/v1/auth/app/me',
+      undefined,
+      {
+        ...options,
+        headers: {
+          ...options?.headers,
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+  }
+
+  /**
+   * Create a session object from auth response with helper methods
+   *
+   * @example
+   * const auth = await client.appAuth.login({ email, password });
+   * const session = client.appAuth.createSession(auth);
+   *
+   * // Check expiration
+   * if (session.isExpired()) {
+   *   // Refresh token
+   * }
+   *
+   * // Check if expiring soon (within 5 minutes)
+   * if (session.expiresWithin(300)) {
+   *   // Refresh soon
+   * }
+   *
+   * // Get decoded payload
+   * const payload = session.getPayload();
+   * console.log('User ID from JWT:', payload?.sub);
+   */
+  createSession(response: AppAuthResponse): AppAuthSession {
+    return new AppAuthSession(response);
   }
 
   // ============================================================================

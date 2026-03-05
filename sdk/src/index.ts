@@ -13,6 +13,13 @@ export type {
   LoginCredentials,
   RegisterCredentials,
 
+  // App Auth (for end-users of your application)
+  AppUser,
+  AppAuthResponse,
+  TokenIntrospectionResult,
+  AppUserRegisterInput,
+  AppUserLoginInput,
+
   // Project
   Project,
   ProjectRole,
@@ -88,6 +95,9 @@ export {
   ConfigurationError,
   ExternalServiceError,
 } from './types';
+
+// App Auth Session helper class
+export { AppAuthSession } from './types';
 
 // Resource classes (for advanced usage)
 export { AuthResource } from './resources/auth';

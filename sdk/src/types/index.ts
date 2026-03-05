@@ -87,6 +87,90 @@ export interface AppAuthResponse {
   expires_in: number;
 }
 
+/**
+ * Token introspection result (OAuth2-style)
+ *
+ * When `active: true`, all fields are present.
+ * When `active: false`, only `active` is guaranteed.
+ */
+export interface TokenIntrospectionResult {
+  /** Whether the token is valid and active */
+  active: boolean;
+  /** User ID (present when token is decodable) */
+  user_id?: string;
+  /** User email (present when token is decodable) */
+  email?: string;
+  /** User name */
+  name?: string | null;
+  /** Token expiration timestamp (Unix) */
+  exp?: number;
+  /** Token issued at timestamp (Unix) */
+  iat?: number;
+  /** Full user object (only when active: true) */
+  user?: AppUser;
+}
+
+/**
+ * Enhanced auth session with helper methods
+ */
+export class AppAuthSession {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly user: AppUser;
+  readonly expiresIn: number;
+  readonly expiresAt: Date;
+
+  constructor(response: AppAuthResponse) {
+    this.accessToken = response.access_token;
+    this.refreshToken = response.refresh_token;
+    this.user = response.user;
+    this.expiresIn = response.expires_in;
+    this.expiresAt = new Date(Date.now() + response.expires_in * 1000);
+  }
+
+  /**
+   * Check if the access token is expired
+   */
+  isExpired(): boolean {
+    return Date.now() >= this.expiresAt.getTime();
+  }
+
+  /**
+   * Check if the access token will expire within the given seconds
+   */
+  expiresWithin(seconds: number): boolean {
+    return Date.now() >= this.expiresAt.getTime() - seconds * 1000;
+  }
+
+  /**
+   * Get the decoded JWT payload (without verification)
+   * Useful for reading claims client-side
+   */
+  getPayload(): Record<string, unknown> | null {
+    try {
+      const parts = this.accessToken.split('.');
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(atob(parts[1]));
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Convert back to raw response format
+   */
+  toResponse(): AppAuthResponse {
+    return {
+      user: this.user,
+      access_token: this.accessToken,
+      refresh_token: this.refreshToken,
+      token_type: 'Bearer',
+      expires_in: this.expiresIn,
+    };
+  }
+}
+
 export interface AppUserRegisterInput {
   email: string;
   password: string;

@@ -22,6 +22,8 @@ export class HttpClient {
   private token: string | null = null;
   private apiKey: string | null = null;
   private projectId: string | null = null;
+  /** User token for dual-auth scenarios (API key + user context) */
+  private userToken: string | null = null;
 
   constructor(config: HttpClientConfig) {
     this.config = config;
@@ -41,6 +43,20 @@ export class HttpClient {
 
   getProjectId(): string | null {
     return this.projectId;
+  }
+
+  /**
+   * Set user token for dual-auth scenarios.
+   * When both API key and user token are set:
+   * - API key → authorizes the request (project access)
+   * - User token → identifies WHO is making the request (for RLS, audit logs)
+   */
+  setUserToken(token: string | null): void {
+    this.userToken = token;
+  }
+
+  getUserToken(): string | null {
+    return this.userToken;
   }
 
   private getAuthHeader(): string | null {
@@ -175,6 +191,12 @@ export class HttpClient {
 
     if (this.projectId) {
       headers.set('X-Project-ID', this.projectId);
+    }
+
+    // Add user token for dual-auth scenarios
+    // This allows API key for project auth + user token for user identification
+    if (this.userToken) {
+      headers.set('X-App-User-Token', this.userToken);
     }
 
     return headers;

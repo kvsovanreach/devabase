@@ -80,6 +80,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/auth/app/reset-password", post(api::app_auth::reset_password))
         .route("/auth/app/verify-email", post(api::app_auth::verify_email))
         .route("/auth/app/resend-verification", post(api::app_auth::resend_verification))
+        // Stateless token introspection (OAuth2-style, for server-side validation)
+        .route("/auth/app/introspect", post(api::app_auth::introspect_token))
         // Admin endpoints for managing app users
         .route("/auth/app/users", get(api::app_auth::list_users))
         .route("/auth/app/users/:id", get(api::app_auth::get_user))

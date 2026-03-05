@@ -1329,10 +1329,14 @@
                 </ul>
             </div>
             <div class="sidebar-section">
-                <h4 class="sidebar-title">User Management</h4>
+                <h4 class="sidebar-title">App Authentication</h4>
                 <ul class="sidebar-links">
-                    <li><a href="#app-auth">App Authentication</a></li>
-                    <li><a href="#user-management">User Management</a></li>
+                    <li><a href="#app-auth">Overview</a></li>
+                    <li><a href="#app-auth-register">Registration & Login</a></li>
+                    <li><a href="#app-auth-verify">Token Verification</a></li>
+                    <li><a href="#app-auth-rls">User Context (RLS)</a></li>
+                    <li><a href="#app-auth-session">Session Management</a></li>
+                    <li><a href="#user-management">Admin Operations</a></li>
                 </ul>
             </div>
             <div class="sidebar-section">
@@ -2183,15 +2187,27 @@ filter: <span class="token-string">'age.gte=18&status.eq=active&name.like=john'<
                 <!-- App Auth -->
                 <section id="app-auth">
                     <h2><a href="#app-auth" class="anchor">#</a>App Authentication</h2>
-                    <p>Complete authentication system for your application's end-users.</p>
+                    <p>Complete authentication system for your application's end-users. Add auth to your app without building your own system.</p>
 
-                    <h3>User Registration & Login</h3>
+                    <div class="info-box">
+                        <strong>Two types of users:</strong><br>
+                        • <strong>Devabase User</strong> - Developer who builds the app (uses <code>client.auth</code>)<br>
+                        • <strong>App User</strong> - End-user of your app (uses <code>client.appAuth</code>)
+                    </div>
+
+                    <h3 id="app-auth-register">User Registration & Login</h3>
                     <div class="code-block">
                         <div class="code-block-header">
                             <span class="code-block-title">TypeScript</span>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
-                        <pre><code><span class="token-comment">// Register</span>
+                        <pre><code><span class="token-comment">// Server-side: use your API key</span>
+<span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
+  baseUrl: <span class="token-string">'https://api.yourapp.com'</span>,
+  apiKey: process.env.DEVABASE_API_KEY
+});
+
+<span class="token-comment">// Register an app user</span>
 <span class="token-keyword">const</span> auth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">register</span>({
   email: <span class="token-string">'user@example.com'</span>,
   password: <span class="token-string">'securePassword123'</span>,
@@ -2216,6 +2232,79 @@ filter: <span class="token-string">'age.gte=18&status.eq=active&name.like=john'<
 <span class="token-keyword">await</span> client.appAuth.<span class="token-function">logout</span>();</code></pre>
                     </div>
 
+                    <h3 id="app-auth-verify">Server-Side Token Verification</h3>
+                    <p>Verify user tokens on your server to protect API routes.</p>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Verify token (OAuth2-style introspection)</span>
+<span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">verifyToken</span>(userToken);
+
+<span class="token-keyword">if</span> (result.active) {
+  console.<span class="token-function">log</span>(<span class="token-string">'User ID:'</span>, result.user_id);
+  console.<span class="token-function">log</span>(<span class="token-string">'Email:'</span>, result.email);
+  console.<span class="token-function">log</span>(<span class="token-string">'User:'</span>, result.user);
+} <span class="token-keyword">else</span> {
+  <span class="token-comment">// Token invalid or expired</span>
+}
+
+<span class="token-comment">// Or use convenience method that throws on invalid token</span>
+<span class="token-keyword">try</span> {
+  <span class="token-keyword">const</span> user = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">getUserFromToken</span>(userToken);
+  console.<span class="token-function">log</span>(<span class="token-string">'Authenticated:'</span>, user.email);
+} <span class="token-keyword">catch</span> (e) {
+  <span class="token-keyword">return</span> Response.<span class="token-function">json</span>({ error: <span class="token-string">'Unauthorized'</span> }, { status: <span class="token-number">401</span> });
+}</code></pre>
+                    </div>
+
+                    <h3 id="app-auth-rls">User Context for RLS</h3>
+                    <p>Set user context to enable row-level security in database queries.</p>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// API key authorizes project access</span>
+<span class="token-comment">// User token identifies WHO is making the request</span>
+
+<span class="token-comment">// Set user context for RLS</span>
+client.<span class="token-function">asUser</span>(userToken);
+
+<span class="token-comment">// Queries now respect row-level security policies</span>
+<span class="token-keyword">const</span> articles = <span class="token-keyword">await</span> client.tables.<span class="token-function">rows</span>(<span class="token-string">'articles'</span>).<span class="token-function">query</span>();
+<span class="token-comment">// Returns only articles this user can access</span>
+
+<span class="token-comment">// Clear user context</span>
+client.<span class="token-function">clearUserContext</span>();</code></pre>
+                    </div>
+
+                    <h3 id="app-auth-session">Session Management</h3>
+                    <p>Use the AppAuthSession helper for client-side session handling.</p>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">const</span> auth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">login</span>({ email, password });
+<span class="token-keyword">const</span> session = client.appAuth.<span class="token-function">createSession</span>(auth);
+
+<span class="token-comment">// Check expiration</span>
+<span class="token-keyword">if</span> (session.<span class="token-function">isExpired</span>()) {
+  <span class="token-comment">// Refresh token</span>
+}
+
+<span class="token-comment">// Check if expiring within 5 minutes</span>
+<span class="token-keyword">if</span> (session.<span class="token-function">expiresWithin</span>(<span class="token-number">300</span>)) {
+  <span class="token-keyword">const</span> newAuth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">refresh</span>(session.refreshToken);
+}
+
+<span class="token-comment">// Get decoded JWT payload (client-side)</span>
+<span class="token-keyword">const</span> payload = session.<span class="token-function">getPayload</span>();
+console.<span class="token-function">log</span>(<span class="token-string">'User ID:'</span>, payload?.sub);</code></pre>
+                    </div>
+
                     <h3>Password Reset</h3>
                     <div class="code-block">
                         <div class="code-block-header">
@@ -2235,17 +2324,44 @@ filter: <span class="token-string">'age.gte=18&status.eq=active&name.like=john'<
 });</code></pre>
                     </div>
 
-                    <h3>Token Management</h3>
+                    <h3>Complete Example: Next.js API Route</h3>
                     <div class="code-block">
                         <div class="code-block-header">
                             <span class="code-block-title">TypeScript</span>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
-                        <pre><code><span class="token-comment">// Refresh token</span>
-<span class="token-keyword">const</span> newAuth = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">refresh</span>(refreshToken);
+                        <pre><code><span class="token-comment">// app/api/articles/route.ts</span>
+<span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'@devabase/sdk'</span>;
 
-<span class="token-comment">// Set token manually</span>
-client.appAuth.<span class="token-function">setToken</span>(accessToken);</code></pre>
+<span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
+  baseUrl: process.env.DEVABASE_URL!,
+  apiKey: process.env.DEVABASE_API_KEY!
+});
+
+<span class="token-keyword">export async function</span> <span class="token-function">GET</span>(request: Request) {
+  <span class="token-keyword">const</span> token = request.headers.<span class="token-function">get</span>(<span class="token-string">'Authorization'</span>)
+    ?.<span class="token-function">replace</span>(<span class="token-string">'Bearer '</span>, <span class="token-string">''</span>);
+
+  <span class="token-keyword">if</span> (!token) {
+    <span class="token-keyword">return</span> Response.<span class="token-function">json</span>({ error: <span class="token-string">'Unauthorized'</span> }, { status: <span class="token-number">401</span> });
+  }
+
+  <span class="token-comment">// Verify user token</span>
+  <span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.appAuth.<span class="token-function">verifyToken</span>(token);
+  <span class="token-keyword">if</span> (!result.active) {
+    <span class="token-keyword">return</span> Response.<span class="token-function">json</span>({ error: <span class="token-string">'Unauthorized'</span> }, { status: <span class="token-number">401</span> });
+  }
+
+  <span class="token-comment">// Set user context for RLS</span>
+  client.<span class="token-function">asUser</span>(token);
+
+  <span class="token-comment">// Query with row-level security</span>
+  <span class="token-keyword">const</span> articles = <span class="token-keyword">await</span> client.tables.<span class="token-function">rows</span>(<span class="token-string">'articles'</span>).<span class="token-function">query</span>();
+
+  client.<span class="token-function">clearUserContext</span>();
+
+  <span class="token-keyword">return</span> Response.<span class="token-function">json</span>(articles);
+}</code></pre>
                     </div>
                 </section>
 
@@ -2286,7 +2402,7 @@ client.appAuth.<span class="token-function">setToken</span>(accessToken);</code>
                         <strong>Authentication:</strong> <code>Authorization: Bearer &lt;token&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>
                     </div>
 
-                    <h3>Authentication</h3>
+                    <h3>Authentication (Devabase Users)</h3>
                     <div class="api-table">
                         <table>
                             <thead>
@@ -2300,17 +2416,127 @@ client.appAuth.<span class="token-function">setToken</span>(accessToken);</code>
                                 <tr>
                                     <td><span class="method post">POST</span></td>
                                     <td><code>/auth/register</code></td>
-                                    <td>Register new user</td>
+                                    <td>Register new developer</td>
                                 </tr>
                                 <tr>
                                     <td><span class="method post">POST</span></td>
                                     <td><code>/auth/login</code></td>
-                                    <td>Login user</td>
+                                    <td>Login developer</td>
                                 </tr>
                                 <tr>
                                     <td><span class="method get">GET</span></td>
                                     <td><code>/auth/me</code></td>
-                                    <td>Get current user</td>
+                                    <td>Get current developer</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>App Authentication (End-Users)</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/register</code></td>
+                                    <td>Register app user</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/login</code></td>
+                                    <td>Login app user</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/logout</code></td>
+                                    <td>Logout (revoke session)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/refresh</code></td>
+                                    <td>Refresh access token</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/introspect</code></td>
+                                    <td>Verify token (OAuth2 introspection)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/auth/app/me</code></td>
+                                    <td>Get current app user</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method patch">PATCH</span></td>
+                                    <td><code>/auth/app/me</code></td>
+                                    <td>Update profile</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/auth/app/me</code></td>
+                                    <td>Delete account</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/password</code></td>
+                                    <td>Change password</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/forgot-password</code></td>
+                                    <td>Request password reset</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/reset-password</code></td>
+                                    <td>Reset password with token</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/auth/app/verify-email</code></td>
+                                    <td>Verify email address</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>App User Management (Admin)</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/auth/app/users</code></td>
+                                    <td>List app users</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/auth/app/users/:id</code></td>
+                                    <td>Get app user</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method patch">PATCH</span></td>
+                                    <td><code>/auth/app/users/:id</code></td>
+                                    <td>Update app user</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/auth/app/users/:id</code></td>
+                                    <td>Delete app user</td>
                                 </tr>
                             </tbody>
                         </table>

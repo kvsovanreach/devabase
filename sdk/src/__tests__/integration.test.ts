@@ -162,15 +162,109 @@ describe('Devabase SDK Integration Tests', () => {
   // 3. API Keys
   // ============================================================================
 
+  let testApiKey: string;
+
   describe('3. API Keys', () => {
     it('should create API key', async () => {
       const result = await client.projects.apiKeys.create({ name: `Test Key ${TEST_RUN_ID}` });
       expect(result.key.startsWith('dvb_')).toBe(true);
+      testApiKey = result.key;
     });
 
     it('should list API keys', async () => {
       const result = await client.projects.apiKeys.list();
       expect(result.data.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================================================
+  // 3.5. App Auth (Application User Authentication)
+  // ============================================================================
+
+  describe('3.5. App Auth', () => {
+    let appClient: DevabaseClient;
+    let appUserToken: string;
+    const APP_USER_EMAIL = `appuser_${TEST_RUN_ID}@example.com`;
+    const APP_USER_PASSWORD = 'AppUserPassword123!';
+
+    it('should register app user', async () => {
+      // Create a new client with the API key
+      appClient = createClient({
+        baseUrl: BASE_URL,
+        apiKey: testApiKey,
+      });
+
+      const auth = await appClient.appAuth.register({
+        email: APP_USER_EMAIL,
+        password: APP_USER_PASSWORD,
+        name: 'Test App User',
+      });
+
+      expect(auth.user.email).toBe(APP_USER_EMAIL);
+      expect(auth.access_token).toBeDefined();
+      appUserToken = auth.access_token;
+    });
+
+    it('should login app user', async () => {
+      const auth = await appClient.appAuth.login({
+        email: APP_USER_EMAIL,
+        password: APP_USER_PASSWORD,
+      });
+
+      expect(auth.user.email).toBe(APP_USER_EMAIL);
+      expect(auth.access_token).toBeDefined();
+      appUserToken = auth.access_token;
+    });
+
+    it('should verify token (introspect)', async () => {
+      const result = await appClient.appAuth.verifyToken(appUserToken);
+
+      expect(result.active).toBe(true);
+      expect(result.email).toBe(APP_USER_EMAIL);
+      expect(result.user_id).toBeDefined();
+      expect(result.user).toBeDefined();
+      expect(result.user?.email).toBe(APP_USER_EMAIL);
+    });
+
+    it('should reject invalid token', async () => {
+      const result = await appClient.appAuth.verifyToken('invalid-token');
+
+      expect(result.active).toBe(false);
+    });
+
+    it('should get user from token', async () => {
+      const user = await appClient.appAuth.getUserFromToken(appUserToken);
+
+      expect(user.email).toBe(APP_USER_EMAIL);
+    });
+
+    it('should throw on invalid token in getUserFromToken', async () => {
+      await expect(
+        appClient.appAuth.getUserFromToken('invalid-token')
+      ).rejects.toThrow();
+    });
+
+    it('should create session with helper methods', async () => {
+      const auth = await appClient.appAuth.login({
+        email: APP_USER_EMAIL,
+        password: APP_USER_PASSWORD,
+      });
+
+      const session = appClient.appAuth.createSession(auth);
+
+      expect(session.isExpired()).toBe(false);
+      expect(session.expiresWithin(0)).toBe(false);
+      expect(session.expiresWithin(999999999)).toBe(true);
+      expect(session.getPayload()).toBeDefined();
+      expect(session.getPayload()?.email).toBe(APP_USER_EMAIL);
+    });
+
+    it('should set user context with asUser', async () => {
+      appClient.asUser(appUserToken);
+      expect(appClient.getUserToken()).toBe(appUserToken);
+
+      appClient.clearUserContext();
+      expect(appClient.getUserToken()).toBeNull();
     });
   });
 

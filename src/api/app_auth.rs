@@ -135,6 +135,35 @@ pub struct VerifyEmailRequest {
     pub token: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct IntrospectRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TokenIntrospectionResponse {
+    /// Whether the token is active (valid and not expired)
+    pub active: bool,
+    /// User ID (sub claim from JWT)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    /// User email
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// User name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Token expiration timestamp (Unix epoch seconds)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp: Option<i64>,
+    /// Token issued at timestamp (Unix epoch seconds)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<i64>,
+    /// Full user object (optional, included for convenience)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<AppUserResponse>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct AppAuthSettings {
     allow_registration: bool,
@@ -842,6 +871,129 @@ pub async fn resend_verification(
     let _ = state.events.publish(event);
 
     Ok(Json(serde_json::json!({ "message": "Verification email sent" })))
+}
+
+/// POST /v1/auth/app/introspect - Verify token and get user info (stateless)
+///
+/// This is the OAuth2-style token introspection endpoint.
+/// It does NOT modify any state - use it for server-side token validation.
+pub async fn introspect_token(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Json(input): Json<IntrospectRequest>,
+) -> Result<Json<TokenIntrospectionResponse>> {
+    let project_id = auth.require_project()?;
+
+    // Try to decode the token
+    let claims = match decode_app_token(&state, &input.token) {
+        Ok(c) => c,
+        Err(_) => {
+            // Invalid token - return inactive
+            return Ok(Json(TokenIntrospectionResponse {
+                active: false,
+                user_id: None,
+                email: None,
+                name: None,
+                exp: None,
+                iat: None,
+                user: None,
+            }));
+        }
+    };
+
+    // Verify project matches
+    if claims.project_id != project_id.to_string() {
+        return Ok(Json(TokenIntrospectionResponse {
+            active: false,
+            user_id: None,
+            email: None,
+            name: None,
+            exp: None,
+            iat: None,
+            user: None,
+        }));
+    }
+
+    // Check expiration
+    let now = Utc::now().timestamp();
+    if claims.exp < now {
+        return Ok(Json(TokenIntrospectionResponse {
+            active: false,
+            user_id: Some(claims.sub),
+            email: Some(claims.email),
+            name: None,
+            exp: Some(claims.exp),
+            iat: Some(claims.iat),
+            user: None,
+        }));
+    }
+
+    // Verify session is still valid (if session_id present)
+    if let Some(session_id) = claims.session_id {
+        let session_valid: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM sys_app_sessions WHERE id = $1 AND NOT revoked AND expires_at > NOW())"
+        )
+        .bind(session_id)
+        .fetch_one(state.pool.inner())
+        .await?;
+
+        if !session_valid {
+            return Ok(Json(TokenIntrospectionResponse {
+                active: false,
+                user_id: Some(claims.sub),
+                email: Some(claims.email),
+                name: None,
+                exp: Some(claims.exp),
+                iat: Some(claims.iat),
+                user: None,
+            }));
+        }
+    }
+
+    // Get user info
+    let user_id = match Uuid::parse_str(&claims.sub) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(Json(TokenIntrospectionResponse {
+                active: false,
+                user_id: None,
+                email: None,
+                name: None,
+                exp: None,
+                iat: None,
+                user: None,
+            }));
+        }
+    };
+
+    let user: Option<AppUser> = sqlx::query_as(
+        "SELECT * FROM sys_app_users WHERE id = $1 AND project_id = $2 AND status = 'active'"
+    )
+    .bind(user_id)
+    .bind(project_id)
+    .fetch_optional(state.pool.inner())
+    .await?;
+
+    match user {
+        Some(user) => Ok(Json(TokenIntrospectionResponse {
+            active: true,
+            user_id: Some(user.id.to_string()),
+            email: Some(user.email.clone()),
+            name: user.name.clone(),
+            exp: Some(claims.exp),
+            iat: Some(claims.iat),
+            user: Some(user.into()),
+        })),
+        None => Ok(Json(TokenIntrospectionResponse {
+            active: false,
+            user_id: Some(claims.sub),
+            email: Some(claims.email),
+            name: None,
+            exp: Some(claims.exp),
+            iat: Some(claims.iat),
+            user: None,
+        })),
+    }
 }
 
 /// DELETE /v1/auth/app/me - Delete account
