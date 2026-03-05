@@ -839,6 +839,7 @@
             <div class="sidebar-section">
                 <h4 class="sidebar-title">Core Concepts</h4>
                 <ul class="sidebar-links">
+                    <li><a href="#providers">Providers</a></li>
                     <li><a href="#collections">Collections</a></li>
                     <li><a href="#documents">Documents</a></li>
                     <li><a href="#search">Search</a></li>
@@ -879,7 +880,7 @@
                     <div class="docs-hero">
                         <div class="version-badge">
                             <span>SDK Version</span>
-                            <strong>0.5.2</strong>
+                            <strong>0.5.4</strong>
                         </div>
                         <h1>Devabase Documentation</h1>
                         <p class="lead">
@@ -1050,6 +1051,79 @@ console.<span class="token-function">log</span>(response.sources);</code></pre>
                     </table>
                 </section>
 
+                <!-- Providers -->
+                <section id="providers">
+                    <h2><a href="#providers" class="anchor">#</a>Providers</h2>
+                    <p>Configure LLM and embedding providers for RAG operations. Providers are stored in project settings.</p>
+
+                    <h3>Configure LLM Provider</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Add an OpenAI LLM provider</span>
+<span class="token-keyword">await</span> client.providers.llm.<span class="token-function">upsert</span>({
+  id: <span class="token-string">'my-openai'</span>,
+  type: <span class="token-string">'openai'</span>,         <span class="token-comment">// 'openai' | 'anthropic' | 'google' | 'custom'</span>
+  api_key: <span class="token-string">'sk-...'</span>,
+  model: <span class="token-string">'gpt-4o-mini'</span>
+});
+
+<span class="token-comment">// Add a custom/self-hosted LLM</span>
+<span class="token-keyword">await</span> client.providers.llm.<span class="token-function">upsert</span>({
+  id: <span class="token-string">'local-llm'</span>,
+  type: <span class="token-string">'custom'</span>,
+  api_key: <span class="token-string">'key123'</span>,
+  base_url: <span class="token-string">'http://localhost:8080/v1'</span>,
+  model: <span class="token-string">'llama-3'</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Configure Embedding Provider</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Add an OpenAI embedding provider</span>
+<span class="token-keyword">await</span> client.providers.embedding.<span class="token-function">upsert</span>({
+  id: <span class="token-string">'my-embeddings'</span>,
+  type: <span class="token-string">'openai'</span>,         <span class="token-comment">// 'openai' | 'cohere' | 'voyage' | 'custom'</span>
+  api_key: <span class="token-string">'sk-...'</span>,
+  model: <span class="token-string">'text-embedding-3-small'</span>,
+  dimensions: <span class="token-number">1536</span>
+});
+
+<span class="token-comment">// List all providers</span>
+<span class="token-keyword">const</span> llmProviders = <span class="token-keyword">await</span> client.providers.llm.<span class="token-function">list</span>();
+<span class="token-keyword">const</span> embeddingProviders = <span class="token-keyword">await</span> client.providers.embedding.<span class="token-function">list</span>();
+
+<span class="token-comment">// Test a provider connection</span>
+<span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.providers.llm.<span class="token-function">test</span>({
+  type: <span class="token-string">'openai'</span>,
+  api_key: <span class="token-string">'sk-...'</span>,
+  model: <span class="token-string">'gpt-4o-mini'</span>
+});
+console.<span class="token-function">log</span>(result.success, result.message);</code></pre>
+                    </div>
+
+                    <h3>Provider Types</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Supported Types</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>LLM</td><td><code>openai</code>, <code>anthropic</code>, <code>google</code>, <code>custom</code></td></tr>
+                            <tr><td>Embedding</td><td><code>openai</code>, <code>cohere</code>, <code>voyage</code>, <code>custom</code></td></tr>
+                            <tr><td>Rerank</td><td><code>cohere</code>, <code>jina</code>, <code>custom</code></td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
                 <!-- Collections -->
                 <section id="collections">
                     <h2><a href="#collections" class="anchor">#</a>Collections</h2>
@@ -1148,8 +1222,12 @@ console.<span class="token-function">log</span>(response.sources);</code></pre>
 <span class="token-comment">// Delete collection (and all documents)</span>
 <span class="token-keyword">await</span> client.collections.<span class="token-function">delete</span>(<span class="token-string">'my-docs'</span>);
 
-<span class="token-comment">// Clear collection (keep collection, remove documents)</span>
-<span class="token-keyword">await</span> client.collections.<span class="token-function">clear</span>(<span class="token-string">'my-docs'</span>);</code></pre>
+<span class="token-comment">// Update collection RAG config</span>
+<span class="token-keyword">await</span> client.collections.<span class="token-function">updateRagConfig</span>(<span class="token-string">'my-docs'</span>, {
+  llm_provider_id: <span class="token-string">'my-llm'</span>,
+  model: <span class="token-string">'gpt-4o-mini'</span>,
+  system_prompt: <span class="token-string">'You are a helpful assistant.'</span>
+});</code></pre>
                     </div>
                 </section>
 
@@ -1228,16 +1306,14 @@ console.<span class="token-function">log</span>(<span class="token-string">'Proc
 <span class="token-comment">// Get document chunks</span>
 <span class="token-keyword">const</span> chunks = <span class="token-keyword">await</span> client.documents.<span class="token-function">chunks</span>(<span class="token-string">'document-id'</span>);
 
-<span class="token-comment">// Update metadata</span>
-<span class="token-keyword">await</span> client.documents.<span class="token-function">updateMetadata</span>(<span class="token-string">'document-id'</span>, {
-  category: <span class="token-string">'technical'</span>
-});
-
-<span class="token-comment">// Reprocess document</span>
+<span class="token-comment">// Reprocess document (re-chunk and re-embed)</span>
 <span class="token-keyword">await</span> client.documents.<span class="token-function">reprocess</span>(<span class="token-string">'document-id'</span>);
 
 <span class="token-comment">// Delete document</span>
-<span class="token-keyword">await</span> client.documents.<span class="token-function">delete</span>(<span class="token-string">'document-id'</span>);</code></pre>
+<span class="token-keyword">await</span> client.documents.<span class="token-function">delete</span>(<span class="token-string">'document-id'</span>);
+
+<span class="token-comment">// List all documents across collections</span>
+<span class="token-keyword">const</span> allDocs = <span class="token-keyword">await</span> client.documents.<span class="token-function">listAll</span>({ status: <span class="token-string">'processed'</span> });</code></pre>
                     </div>
                 </section>
 
@@ -1687,7 +1763,10 @@ client.appAuth.<span class="token-function">setToken</span>(accessToken);</code>
   <span class="token-type">AuthorizationError</span>,
   <span class="token-type">NotFoundError</span>,
   <span class="token-type">ValidationError</span>,
-  <span class="token-type">RateLimitError</span>
+  <span class="token-type">RateLimitError</span>,
+  <span class="token-type">DatabaseError</span>,
+  <span class="token-type">ConfigurationError</span>,
+  <span class="token-type">ExternalServiceError</span>
 } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
 
 <span class="token-keyword">try</span> {
@@ -1727,6 +1806,9 @@ client.appAuth.<span class="token-function">setToken</span>(accessToken);</code>
                             <tr><td><code>NotFoundError</code></td><td>404</td><td>Resource not found</td></tr>
                             <tr><td><code>ValidationError</code></td><td>400</td><td>Invalid input data</td></tr>
                             <tr><td><code>RateLimitError</code></td><td>429</td><td>Too many requests</td></tr>
+                            <tr><td><code>DatabaseError</code></td><td>400</td><td>Database constraint violation</td></tr>
+                            <tr><td><code>ConfigurationError</code></td><td>422</td><td>Missing or invalid configuration</td></tr>
+                            <tr><td><code>ExternalServiceError</code></td><td>502</td><td>LLM/embedding provider error</td></tr>
                         </tbody>
                     </table>
                 </section>
@@ -1853,7 +1935,7 @@ client.<span class="token-function">useProject</span>(PROJECT_ID);
                 <!-- Footer -->
                 <div style="margin-top: 80px; padding-top: 40px; border-top: 1px solid var(--border-color); text-align: center;">
                     <p style="color: var(--text-muted); font-size: 14px;">
-                        Devabase SDK v0.5.0 · <a href="https://github.com/kvsovanreach/devabase">GitHub</a> · <a href="https://www.npmjs.com/package/devabase-sdk">npm</a> · MIT License
+                        Devabase SDK v0.5.4 · <a href="https://github.com/kvsovanreach/devabase">GitHub</a> · <a href="https://www.npmjs.com/package/devabase-sdk">npm</a> · MIT License
                     </p>
                 </div>
             </div>

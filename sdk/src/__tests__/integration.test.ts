@@ -331,13 +331,13 @@ describe('Devabase SDK Integration Tests', () => {
         collection: TEST_COLLECTION_NAME,
         message: 'What programming languages are discussed?',
       });
-      expect(response.message).toBeDefined();
+      expect(response.answer).toBeDefined();
       conversationId = response.conversation_id;
     });
 
     it('should continue conversation', async () => {
       const response = await client.chat.continue(conversationId, 'Tell me more');
-      expect(response.message).toBeDefined();
+      expect(response.answer).toBeDefined();
     });
 
     it('should list conversations', async () => {

@@ -264,22 +264,27 @@ Build a ChatGPT-like interface for your internal documentation:
 curl -X POST localhost:9002/v1/collections \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Project-ID: $PROJECT_ID" \
+  -H "Content-Type: application/json" \
   -d '{"name": "company-docs", "dimensions": 1536}'
 
 # 2. Upload documents
-curl -X POST localhost:9002/v1/documents/upload \
+curl -X POST localhost:9002/v1/collections/company-docs/documents \
   -H "Authorization: Bearer $TOKEN" \
-  -F "collection=company-docs" \
+  -H "X-Project-ID: $PROJECT_ID" \
   -F "file=@employee-handbook.pdf"
 
-# 3. Enable RAG
-curl -X PATCH localhost:9002/v1/collections/company-docs \
+# 3. Configure RAG settings
+curl -X PATCH localhost:9002/v1/collections/company-docs/config \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"rag_enabled": true, "rag_config": {"llm_provider_id": "...", "model": "gpt-4o"}}'
+  -H "X-Project-ID: $PROJECT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"llm_provider_id": "...", "model": "gpt-4o"}'
 
 # 4. Chat!
 curl -X POST localhost:9002/v1/collections/company-docs/chat \
   -H "Authorization: Bearer $TOKEN" \
+  -H "X-Project-ID: $PROJECT_ID" \
+  -H "Content-Type: application/json" \
   -d '{"message": "What is our PTO policy?"}'
 ```
 
@@ -421,21 +426,27 @@ POST   /v1/projects/:id/invitations        # Invite by email
 POST   /v1/collections                     # Create collection
 GET    /v1/collections                     # List collections
 GET    /v1/collections/:name               # Get collection
-PATCH  /v1/collections/:name               # Update (enable RAG, etc.)
+PATCH  /v1/collections/:name               # Update collection
 DELETE /v1/collections/:name               # Delete collection
+GET    /v1/collections/:name/stats         # Get collection statistics
+PATCH  /v1/collections/:name/config        # Update RAG configuration
 ```
 
 ### Documents & Chunks
 
 ```http
-POST   /v1/documents/upload                # Upload document
-GET    /v1/documents?collection=:name      # List documents
+# Documents
+POST   /v1/collections/:name/documents     # Upload document to collection
+GET    /v1/collections/:name/documents     # List collection documents
+GET    /v1/documents                       # List all documents (with filters)
 GET    /v1/documents/:id                   # Get document
 DELETE /v1/documents/:id                   # Delete document
 GET    /v1/documents/:id/chunks            # Get document chunks
+POST   /v1/documents/:id/reprocess         # Reprocess document
 
+# Chunks
 GET    /v1/chunks/:id                      # Get chunk
-PUT    /v1/chunks/:id                      # Update chunk
+PATCH  /v1/chunks/:id                      # Update chunk
 DELETE /v1/chunks/:id                      # Delete chunk
 POST   /v1/chunks/:id/split                # Split chunk
 POST   /v1/chunks/merge                    # Merge chunks
@@ -475,9 +486,14 @@ POST /v1/search
 POST /v1/collections/:name/chat
 {"message": "...", "conversation_id": "..."}
 
-# Multi-collection chat
-POST /v1/chat
-{"collections": ["docs", "faq"], "message": "..."}
+# Single collection chat (streaming)
+POST /v1/collections/:name/chat/stream
+{"message": "...", "conversation_id": "..."}
+
+# Unified RAG chat (single or multi-collection, streaming or non-streaming)
+POST /v1/rag
+{"collection": "docs", "message": "...", "stream": false}
+{"collection": ["docs", "faq"], "message": "...", "stream": true}
 ```
 
 ### Knowledge Graph
@@ -548,16 +564,17 @@ POST   /v1/benchmarks/compare              # Compare two runs
 ```http
 POST   /v1/tables                          # Create table
 GET    /v1/tables                          # List tables
-GET    /v1/tables/:name/schema             # Get table schema
-DELETE /v1/tables/:name                    # Delete table
+GET    /v1/tables/:table                   # Get table (schema, row count)
+DELETE /v1/tables/:table                   # Delete table
 
-GET    /v1/tables/:name/rows               # List rows (with filtering)
-POST   /v1/tables/:name/rows               # Insert row
-PATCH  /v1/tables/:name/rows/:id           # Update row
-DELETE /v1/tables/:name/rows/:id           # Delete row
+GET    /v1/tables/:table/rows              # List rows (with filtering)
+POST   /v1/tables/:table/rows              # Insert row
+GET    /v1/tables/:table/rows/:id          # Get row by ID
+PATCH  /v1/tables/:table/rows/:id          # Update row
+DELETE /v1/tables/:table/rows/:id          # Delete row
 
-POST   /v1/tables/:name/import             # Import CSV/JSON
-GET    /v1/tables/:name/export             # Export CSV/JSON
+GET    /v1/tables/:table/export            # Export CSV/JSON
+POST   /v1/tables/:table/import            # Import CSV/JSON
 ```
 
 ### Prompts
@@ -565,10 +582,10 @@ GET    /v1/tables/:name/export             # Export CSV/JSON
 ```http
 POST   /v1/prompts                         # Create prompt template
 GET    /v1/prompts                         # List prompts
-GET    /v1/prompts/:id                     # Get prompt
-PATCH  /v1/prompts/:id                     # Update prompt
-DELETE /v1/prompts/:id                     # Delete prompt
-POST   /v1/prompts/:id/render              # Render with variables
+GET    /v1/prompts/:name                   # Get prompt by name
+PATCH  /v1/prompts/:name                   # Update prompt
+DELETE /v1/prompts/:name                   # Delete prompt
+POST   /v1/prompts/:name/render            # Render with variables
 ```
 
 ### Conversations
@@ -619,10 +636,22 @@ GET    /v1/keys/:id                        # Get API key
 DELETE /v1/keys/:id                        # Revoke API key
 ```
 
-### Real-time
+### Providers
 
 ```http
-GET    /v1/ws                              # WebSocket connection
+# Provider testing
+POST   /v1/providers/test-llm              # Test LLM provider connection
+POST   /v1/providers/test-embedding        # Test embedding provider connection
+POST   /v1/providers/test-rerank           # Test rerank provider connection
+
+# Providers are stored in project settings (PATCH /v1/projects/:id)
+# Use the SDK's client.providers resource for easy management
+```
+
+### Real-time & Health
+
+```http
+GET    /v1/realtime                        # WebSocket upgrade for real-time updates
 GET    /health                             # Health check
 GET    /ready                              # Readiness check
 ```
@@ -655,8 +684,7 @@ GET    /ready                              # Readiness check
 |----------|--------|
 | **Cohere** | `rerank-english-v3.0`, `rerank-multilingual-v3.0` |
 | **Jina** | `jina-reranker-v2-base-multilingual` |
-| **Voyage** | `rerank-2`, `rerank-2-lite` |
-| **Custom** | Any compatible reranking API |
+| **Custom** | Any compatible reranking API (Voyage, etc.) |
 
 ### Supported Document Formats
 
@@ -697,56 +725,104 @@ The web dashboard provides a complete interface for managing your Devabase insta
 
 ## 💻 CLI
 
-The `deva` CLI lets you manage Devabase from your terminal:
+Devabase provides two command-line tools:
+
+### Server Binary (`devabase`)
+
+Manage the server and database from your terminal:
 
 ```bash
-# Server Management
-deva serve                               # Start the server
-deva serve --host 0.0.0.0 --port 8080    # Custom host/port
-deva init                                # Initialize new project
+# Start the server
+devabase serve                               # Start with default config
+devabase serve --host 0.0.0.0 --port 8080    # Custom host/port
+devabase init                                # Initialize new project
 
 # Database Management
-deva db setup                            # Create DB and run migrations
-deva db migrate                          # Run pending migrations
-deva db status                           # Check migration status
-deva db backup --output backup.sql       # Backup database
-deva db restore backup.sql --yes         # Restore from backup
+devabase db setup                            # Create DB and run migrations
+devabase db migrate                          # Run pending migrations
+devabase db status                           # Check migration status
+devabase db backup --output backup.sql       # Backup database
+devabase db restore backup.sql --yes         # Restore from backup
 
 # Configuration
-deva config show                         # Display configuration
-deva config show --section server        # Show specific section
-deva config validate                     # Validate config file
-deva config generate --output devabase.toml  # Generate default config
+devabase config show                         # Display configuration
+devabase config show --section server        # Show specific section
+devabase config validate                     # Validate config file
+devabase config generate --output devabase.toml  # Generate default config
 
-# User Management
-deva user create --email admin@example.com --name Admin
-deva user list --limit 50
-deva user get admin@example.com
-deva user delete admin@example.com --yes
+# User Management (admin operations)
+devabase user create --email admin@example.com --name Admin
+devabase user list --limit 50
+devabase user get admin@example.com
+devabase user delete admin@example.com --yes
 
-# Project Management
-deva project create --name "My Project" --owner user-id
-deva project list --user user-id
-deva project get project-id
-deva project delete project-id --yes
+# Project Management (admin operations)
+devabase project create --name "My Project" --owner user-id
+devabase project list --user user-id
+devabase project get project-id
+devabase project delete project-id --yes
 
 # API Key Management
-deva key create --project project-id --name "Production Key" --scopes read,write
-deva key list --project project-id
-deva key revoke --project project-id key-id
+devabase key create --project project-id --name "Production Key" --scopes read,write
+devabase key list --project project-id
+devabase key revoke --project project-id key-id
 
-# Collection Management
-deva vector create-collection docs --dimensions 1536 --metric cosine
-deva vector list-collections
-deva vector stats docs
-deva vector delete-collection docs
+# Vector Collection Management
+devabase vector create-collection docs --dimensions 1536 --metric cosine
+devabase vector list-collections
+devabase vector stats docs
+devabase vector delete-collection docs
 
 # Document Management
-deva document upload manual.pdf --collection docs --project project-id
-deva document list --collection docs --project project-id --status processed
-deva document get doc-id --project project-id
-deva document reprocess doc-id --project project-id
-deva document delete doc-id --project project-id --yes
+devabase document upload manual.pdf --collection docs --project project-id
+devabase document list --collection docs --project project-id --status processed
+devabase document get doc-id --project project-id
+devabase document reprocess doc-id --project project-id
+devabase document delete doc-id --project project-id --yes
+```
+
+### Client CLI (`deva`)
+
+Interact with a running Devabase server:
+
+```bash
+# Authentication
+deva login                               # Authenticate with server
+deva logout                              # Clear saved credentials
+deva whoami                              # Show current user
+
+# Project Context
+deva project list                        # List all projects
+deva project use <id>                    # Set current project
+deva project current                     # Show current project
+deva project create "My Project"         # Create new project
+
+# Collections
+deva collections list                    # List collections
+deva collections get <name>              # Get collection details
+deva collections create <name>           # Create collection
+deva collections delete <name>           # Delete collection
+
+# Documents
+deva documents list                      # List documents
+deva documents upload <file> --collection <name>  # Upload document
+deva documents get <id>                  # Get document details
+deva documents delete <id>               # Delete document
+
+# Tables
+deva tables list                         # List custom tables
+deva tables get <name>                   # Get table schema
+deva tables query <name> --limit 100     # Query table rows
+deva tables export <name> --format json  # Export table data
+deva tables import <name> <file>         # Import data into table
+
+# SQL
+deva sql "SELECT * FROM users LIMIT 10"  # Execute SQL query
+
+# Configuration
+deva config                              # Show all config
+deva config api_url                      # Get specific value
+deva config api_url http://localhost:9002  # Set value
 ```
 
 ---
@@ -799,6 +875,9 @@ const response = await client.chat.send({
   message: 'What is the refund policy?',
   conversation_id: 'conv-123',
 });
+console.log(response.answer);       // Generated answer
+console.log(response.sources);      // Source documents used
+console.log(response.tokens_used);  // Token usage
 
 // Tables (Auto-API)
 const { rows } = await client.tables.rows('customers').query({
@@ -822,6 +901,33 @@ const session = await client.appAuth.login({
   email: 'user@example.com',
   password: 'securepassword',
 });
+
+// Provider Management
+await client.providers.embedding.upsert({
+  id: 'my-openai-embed',
+  type: 'openai',
+  api_key: 'sk-...',
+  model: 'text-embedding-3-small',
+});
+
+await client.providers.llm.upsert({
+  id: 'my-openai-llm',
+  type: 'openai',
+  api_key: 'sk-...',
+  model: 'gpt-4o',
+});
+
+await client.providers.rerank.upsert({
+  id: 'my-cohere-rerank',
+  type: 'cohere',
+  api_key: 'co-...',
+  model: 'rerank-english-v3.0',
+});
+
+// Knowledge Graph
+await client.knowledge.extractFromDocument('document-id');
+const { data: entities } = await client.knowledge.entities.list({ entity_type: 'person' });
+const graph = await client.knowledge.getGraph('entity-id', { depth: 2 });
 ```
 
 ---
@@ -852,12 +958,13 @@ NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}
 | `BACKEND_PORT` | Backend API server port | `9002` |
 | `POSTGRES_PORT` | PostgreSQL database port | `9003` |
 | `DATABASE_URL` | PostgreSQL connection string | Required |
+| `POSTGRES_USER` | PostgreSQL username | `devabase` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `devabase` |
+| `POSTGRES_DB` | PostgreSQL database name | `devabase` |
 | `JWT_SECRET` | Secret for JWT signing (min 32 chars) | Required |
 | `NEXT_PUBLIC_API_URL` | Frontend API URL | `http://localhost:9002` |
 | `DEVABASE_HOST` | Server bind address | `0.0.0.0` |
-| `DEVABASE_PORT` | Server port (same as BACKEND_PORT) | `9002` |
-| `STORAGE_PATH` | File storage directory | `./data/storage` |
-| `MAX_UPLOAD_SIZE_MB` | Maximum upload size | `50` |
+| `DEVABASE_PORT` | Server port | `9002` |
 | `RUST_LOG` | Log level | `info` |
 
 ### Config File (devabase.toml)
@@ -866,51 +973,49 @@ NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}
 [server]
 host = "0.0.0.0"
 port = 9002
-max_upload_size_mb = 100
 ui_enabled = true
 
 [database]
 url = "${DATABASE_URL}"
 max_connections = 20
-auto_migrate = true
+run_migrations = true
 
 [storage]
-type = "local"
-path = "./data/storage"
+driver = "local"
+path = "./data/files"
+max_file_size = "100MB"
 
 [vector]
 index_type = "hnsw"
-default_dimensions = 1536
-default_metric = "cosine"
+default_dimensions = 1536   # Match your embedding model's output
+default_metric = "cosine"   # cosine, l2, or ip (inner product)
+
+[embedding]
+# Provider: "openai", "ollama", or "custom"
+provider = "openai"
+api_key = "${OPENAI_API_KEY}"
+model = "text-embedding-3-small"
+batch_size = 100
+
+# For custom embedding service (OpenAI-compatible API):
+# provider = "custom"
+# base_url = "http://your-host:port/api/v1"
+# api_key = "your-api-key"
+# model = "your-model-name"
 
 [chunking]
-default_strategy = "fixed"      # fixed, sentence, paragraph, markdown
-default_chunk_size = 512
-default_overlap = 50
+default_strategy = "markdown"   # fixed, sentence, paragraph, markdown
+chunk_size = 512
+chunk_overlap = 50
 
 [cache]
 enabled = true
-type = "memory"
-ttl_seconds = 3600
-
-[events]
-enabled = true
-channel_capacity = 1024
+ttl_seconds = 86400
 
 [auth]
 jwt_secret = "${JWT_SECRET}"
-token_expiry_seconds = 3600
-refresh_token_expiry_seconds = 604800
-
-[rate_limit]
-enabled = true
-requests_per_window = 100
-window_seconds = 60
-
-[cors]
-allowed_origins = ["*"]
-allow_credentials = true
-max_age = 3600
+api_key_prefix = "dvb_"
+token_expiry_hours = 24
 ```
 
 ---
@@ -940,7 +1045,7 @@ max_age = 3600
 │  │                         Provider Layer                              │ │
 │  │  Embeddings: OpenAI │ Cohere │ Voyage │ Custom                      │ │
 │  │  LLMs: OpenAI │ Anthropic │ Google │ Custom                         │ │
-│  │  Rerankers: Cohere │ Jina │ Voyage │ Custom                         │ │
+│  │  Rerankers: Cohere │ Jina │ Custom                                  │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │

@@ -142,10 +142,10 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     <span class="logo-text-brand">Anthropic</span>
                 </div>
                 <div class="logo-item">
-                    <span class="logo-text-brand">Cohere</span>
+                    <span class="logo-text-brand">Google AI</span>
                 </div>
                 <div class="logo-item">
-                    <span class="logo-text-brand">Jina AI</span>
+                    <span class="logo-text-brand">Cohere</span>
                 </div>
                 <div class="logo-item">
                     <span class="logo-text-brand">Voyage AI</span>
@@ -469,19 +469,19 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
 );</code></pre>
                         </div>
                         <div class="code-panel" id="knowledge-panel">
-                            <pre><code><span class="code-comment">// Extract knowledge from documents</span>
-<span class="code-keyword">await</span> client.knowledge.<span class="code-function">extract</span>(<span class="code-string">'docs'</span>);
+                            <pre><code><span class="code-comment">// Extract knowledge from a document</span>
+<span class="code-keyword">await</span> client.knowledge.<span class="code-function">extractFromDocument</span>(<span class="code-string">'doc-id'</span>);
 
-<span class="code-comment">// Get entities from collection</span>
-<span class="code-keyword">const</span> entities = <span class="code-keyword">await</span> client.knowledge.<span class="code-function">getEntities</span>(
-  <span class="code-string">'docs'</span>,
-  { type: <span class="code-string">'PERSON'</span>, limit: <span class="code-number">50</span> }
-);
+<span class="code-comment">// List entities by type</span>
+<span class="code-keyword">const</span> { data } = <span class="code-keyword">await</span> client.knowledge.entities.<span class="code-function">list</span>({
+  entity_type: <span class="code-string">'PERSON'</span>,
+  limit: <span class="code-number">50</span>
+});
 
-<span class="code-comment">// Get entity relationships</span>
+<span class="code-comment">// Get entity graph (relationships)</span>
 <span class="code-keyword">const</span> graph = <span class="code-keyword">await</span> client.knowledge.<span class="code-function">getGraph</span>(
-  <span class="code-string">'docs'</span>,
-  { entity_id: <span class="code-string">'entity-123'</span>, depth: <span class="code-number">2</span> }
+  <span class="code-string">'entity-123'</span>,
+  { depth: <span class="code-number">2</span> }
 );</code></pre>
                         </div>
                         <div class="code-panel" id="auth-panel">
