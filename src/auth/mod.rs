@@ -198,8 +198,8 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
                     }
                 }
 
-                // Try API key
-                if let Ok(mut ctx) = validate_api_key(&state.pool, token).await {
+                // Try API key (with cache to avoid repeated Argon2 hashing)
+                if let Ok(mut ctx) = validate_api_key_cached(&state.pool, token, &state.api_key_cache).await {
                     // Check for X-App-User-Token header (dual-auth)
                     ctx = try_set_app_user_context(ctx, parts, state).await;
                     return Ok(ctx);
@@ -211,7 +211,7 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
         if let Some(api_key) = parts.headers.get("X-API-Key").and_then(|h| h.to_str().ok()) {
             credentials_provided = true;
             is_api_key_attempt = true;
-            if let Ok(mut ctx) = validate_api_key(&state.pool, api_key).await {
+            if let Ok(mut ctx) = validate_api_key_cached(&state.pool, api_key, &state.api_key_cache).await {
                 // Check for X-App-User-Token header (dual-auth)
                 ctx = try_set_app_user_context(ctx, parts, state).await;
                 return Ok(ctx);
@@ -235,6 +235,15 @@ impl FromRequestParts<Arc<crate::server::AppState>> for AuthContext {
 
 pub async fn validate_api_key(pool: &DbPool, key: &str) -> crate::Result<AuthContext> {
     let api_ctx = api_key::verify_key(pool, key).await?;
+    Ok(AuthContext::from_api_key(
+        api_ctx.api_key_id,
+        api_ctx.project_id,
+        api_ctx.scopes,
+    ))
+}
+
+pub async fn validate_api_key_cached(pool: &DbPool, key: &str, cache: &ApiKeyCache) -> crate::Result<AuthContext> {
+    let api_ctx = api_key::verify_key_with_cache(pool, key, Some(cache)).await?;
     Ok(AuthContext::from_api_key(
         api_ctx.api_key_id,
         api_ctx.project_id,

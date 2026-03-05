@@ -18,6 +18,30 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{Row, ValueRef};
 use std::sync::Arc;
+use uuid::Uuid;
+
+/// Get table info with schema cache — avoids repeated information_schema lookups.
+/// Falls back to database on cache miss. Caches for 60 seconds.
+async fn get_table_info_cached(
+    state: &AppState,
+    project_id: Uuid,
+    table_name: &str,
+) -> Result<TableInfo> {
+    // Check cache first
+    if let Some(info) = state.table_schema_cache.get(project_id, table_name).await {
+        return Ok(info);
+    }
+
+    // Cache miss — fetch from database
+    let info = rest_gen::get_user_table(state.pool.inner(), project_id, table_name)
+        .await?
+        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+
+    // Store in cache
+    state.table_schema_cache.set(project_id, table_name, info.clone()).await;
+
+    Ok(info)
+}
 
 /// List all user tables for the current project with pagination
 pub async fn list_tables(
@@ -44,9 +68,7 @@ pub async fn get_table(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    let table = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+    let table = get_table_info_cached(&state, project_id, &table_name).await?;
 
     Ok(Json(table))
 }
@@ -110,10 +132,16 @@ pub async fn create_table(
     // Execute in a transaction
     let mut tx = state.pool.inner().begin().await?;
 
-    // Create the actual table
-    sqlx::query(&create_sql).execute(&mut *tx).await.map_err(|e| {
-        Error::Validation(format!("Failed to create table: {}", e))
-    })?;
+    // Create the table and indexes (semicolon-separated statements)
+    for stmt in create_sql.split(';') {
+        let stmt = stmt.trim();
+        if stmt.is_empty() {
+            continue;
+        }
+        sqlx::query(stmt).execute(&mut *tx).await.map_err(|e| {
+            Error::Validation(format!("Failed to create table: {}", e))
+        })?;
+    }
 
     // Register in sys_user_tables
     let schema_def = serde_json::to_value(&input.columns)?;
@@ -131,10 +159,11 @@ pub async fn create_table(
 
     tx.commit().await?;
 
-    // Get the created table info
+    // Fetch and cache the created table info
     let table = rest_gen::get_user_table(state.pool.inner(), project_id, &input.name)
         .await?
         .ok_or_else(|| Error::Internal("Failed to retrieve created table".into()))?;
+    state.table_schema_cache.set(project_id, &input.name, table.clone()).await;
 
     Ok((StatusCode::CREATED, Json(table)))
 }
@@ -181,6 +210,9 @@ pub async fn delete_table(
 
     tx.commit().await?;
 
+    // Invalidate schema cache for the deleted table
+    state.table_schema_cache.invalidate(project_id, &table_name).await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -210,19 +242,6 @@ pub async fn list_rows(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Verify table exists and API is enabled
-    let exists: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 AND api_enabled = true",
-    )
-    .bind(project_id)
-    .bind(&table_name)
-    .fetch_optional(state.pool.inner())
-    .await?;
-
-    if exists.is_none() {
-        return Err(Error::NotFound(format!("Table '{}' not found", table_name)));
-    }
-
     // Resolve pagination parameters
     let (limit, mut offset) = query.get_pagination();
 
@@ -233,16 +252,7 @@ pub async fn list_rows(
         }
     }
 
-    // Build and execute count query
-    let (count_sql, count_params) = rest_gen::build_count_query(
-        project_id,
-        &table_name,
-        query.filter.as_deref(),
-    )?;
-
-    let total: i64 = execute_count_query(state.pool.inner(), &count_sql, &count_params).await?;
-
-    // Build and execute select query
+    // Build select query
     let (select_sql, select_params) = rest_gen::build_select_query(
         project_id,
         &table_name,
@@ -253,7 +263,18 @@ pub async fn list_rows(
         offset,
     )?;
 
-    let rows = execute_select_query(state.pool.inner(), &select_sql, &select_params).await?;
+    // Run COUNT and SELECT in parallel to halve latency
+    let (count_sql, count_params) = rest_gen::build_count_query(
+        project_id,
+        &table_name,
+        query.filter.as_deref(),
+    )?;
+
+    let pool = state.pool.inner();
+    let (total, rows) = tokio::try_join!(
+        execute_count_query(pool, &count_sql, &count_params),
+        execute_select_query(pool, &select_sql, &select_params),
+    )?;
     let count = rows.len() as i32;
 
     Ok(Json(RowsResponse {
@@ -273,10 +294,8 @@ pub async fn get_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Get table info including column schema
-    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+    // Get table info with cache
+    let table_info = get_table_info_cached(&state, project_id, &table_name).await?;
 
     let pk_column = get_primary_key_column(&table_info.columns);
 
@@ -357,10 +376,8 @@ pub async fn create_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Get table info including column schema
-    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+    // Get table info with cache
+    let table_info = get_table_info_cached(&state, project_id, &table_name).await?;
 
     // Process the data: auto-generate UUIDs and handle empty values
     let processed_data = preprocess_row_data(&data, &table_info.columns)?;
@@ -406,10 +423,8 @@ pub async fn update_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Get table info including column schema
-    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+    // Get table info from cache (avoids repeated schema lookups)
+    let table_info = get_table_info_cached(&state, project_id, &table_name).await?;
 
     let pk_column = get_primary_key_column(&table_info.columns);
 
@@ -447,10 +462,8 @@ pub async fn delete_row(
 
     rest_gen::validate_table_name(&table_name)?;
 
-    // Get table info including column schema
-    let table_info = rest_gen::get_user_table(state.pool.inner(), project_id, &table_name)
-        .await?
-        .ok_or_else(|| Error::NotFound(format!("Table '{}' not found", table_name)))?;
+    // Get table info from cache (avoids repeated schema lookups)
+    let table_info = get_table_info_cached(&state, project_id, &table_name).await?;
 
     let pk_column = get_primary_key_column(&table_info.columns);
 
@@ -557,10 +570,11 @@ fn bind_json_value<'q>(
             }
         }
         Value::String(s) => {
-            // Empty strings should be treated as NULL for most column types
-            // (especially timestamps, dates, uuids, numbers)
+            // Empty strings are bound as empty strings — NOT converted to NULL here.
+            // Column-specific NULL conversion (for timestamps, dates, uuids) is handled
+            // upstream in preprocess_row_data() which sets Value::Null explicitly.
             if s.is_empty() {
-                return query.bind(Option::<String>::None);
+                return query.bind(s.as_str());
             }
             // Try to parse as UUID first (for project_id and id columns)
             if let Ok(uuid) = uuid::Uuid::parse_str(s) {

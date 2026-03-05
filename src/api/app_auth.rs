@@ -41,6 +41,47 @@ pub struct AppUser {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Internal struct for login that includes password_hash (never serialized to API)
+#[derive(Debug, sqlx::FromRow)]
+struct AppUserWithPassword {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub email: String,
+    pub email_verified: bool,
+    pub name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub phone: Option<String>,
+    pub status: String,
+    pub metadata: serde_json::Value,
+    pub last_login_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub failed_login_attempts: i32,
+    pub locked_until: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub password_hash: Option<String>,
+}
+
+impl AppUserWithPassword {
+    fn into_user(self) -> AppUser {
+        AppUser {
+            id: self.id,
+            project_id: self.project_id,
+            email: self.email,
+            email_verified: self.email_verified,
+            name: self.name,
+            avatar_url: self.avatar_url,
+            phone: self.phone,
+            status: self.status,
+            metadata: self.metadata,
+            last_login_at: self.last_login_at,
+            failed_login_attempts: self.failed_login_attempts,
+            locked_until: self.locked_until,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct AppUserResponse {
     pub id: String,
@@ -330,16 +371,16 @@ pub async fn login(
     // Get auth settings
     let settings = get_auth_settings(&state.pool, project_id).await?;
 
-    // Find user
-    let user: Option<AppUser> = sqlx::query_as(
-        "SELECT * FROM sys_app_users WHERE project_id = $1 AND LOWER(email) = LOWER($2)"
+    // Find user with password hash in a single query (avoids redundant round-trip)
+    let user_with_pw: Option<AppUserWithPassword> = sqlx::query_as(
+        "SELECT id, project_id, email, email_verified, name, avatar_url, phone, status, metadata, last_login_at, failed_login_attempts, locked_until, created_at, updated_at, password_hash FROM sys_app_users WHERE project_id = $1 AND LOWER(email) = LOWER($2)"
     )
     .bind(project_id)
     .bind(&input.email)
     .fetch_optional(state.pool.inner())
     .await?;
 
-    let user = match user {
+    let user_with_pw = match user_with_pw {
         Some(u) => u,
         None => {
             // Don't reveal if email exists
@@ -348,7 +389,7 @@ pub async fn login(
     };
 
     // Check if account is locked
-    if let Some(locked_until) = user.locked_until {
+    if let Some(locked_until) = user_with_pw.locked_until {
         if locked_until > Utc::now() {
             return Err(Error::Auth(format!(
                 "Account locked. Try again after {}",
@@ -358,24 +399,19 @@ pub async fn login(
     }
 
     // Check status
-    if user.status == "suspended" {
+    if user_with_pw.status == "suspended" {
         return Err(Error::Auth("Account suspended".to_string()));
     }
-    if user.status == "deleted" {
+    if user_with_pw.status == "deleted" {
         return Err(Error::Auth("Account not found".to_string()));
     }
 
-    // Get password hash
-    let password_hash: Option<(Option<String>,)> = sqlx::query_as(
-        "SELECT password_hash FROM sys_app_users WHERE id = $1"
-    )
-    .bind(user.id)
-    .fetch_optional(state.pool.inner())
-    .await?;
+    let password_hash = user_with_pw.password_hash.as_deref()
+        .ok_or_else(|| Error::Auth("Password login not available for this account".to_string()))?
+        .to_string();
 
-    let password_hash = password_hash
-        .and_then(|p| p.0)
-        .ok_or_else(|| Error::Auth("Password login not available for this account".to_string()))?;
+    // Extract user (without password) for the rest of the handler
+    let user = user_with_pw.into_user();
 
     // Verify password
     if !verify_password(&input.password, &password_hash) {

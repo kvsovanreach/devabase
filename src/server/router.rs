@@ -335,6 +335,7 @@ fn build_cors_layer(config: &crate::config::CorsConfig) -> CorsLayer {
             header::HeaderName::from_static("x-project-id"),
             header::HeaderName::from_static("x-request-time"),
             header::HeaderName::from_static("x-request-id"),
+            header::HeaderName::from_static("x-app-user-token"),
         ])
         .max_age(std::time::Duration::from_secs(config.max_age_secs));
 

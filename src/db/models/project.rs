@@ -101,6 +101,67 @@ pub struct ProjectMember {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Project with the requesting user's role — avoids N+1 query in list_projects
+#[derive(Debug, Clone, FromRow)]
+pub struct ProjectWithRole {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub description: Option<String>,
+    pub owner_id: Uuid,
+    pub is_active: bool,
+    pub settings: Option<serde_json::Value>,
+    pub metadata: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub role: ProjectRole,
+}
+
+impl From<ProjectWithRole> for ProjectResponse {
+    fn from(p: ProjectWithRole) -> Self {
+        Self {
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            description: p.description,
+            owner_id: p.owner_id,
+            is_active: p.is_active,
+            settings: p.settings,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+            role: Some(p.role),
+        }
+    }
+}
+
+/// Project member with user info — avoids N+1 query in list_members
+#[derive(Debug, Clone, FromRow)]
+pub struct ProjectMemberWithUser {
+    // From sys_project_members
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub role: ProjectRole,
+    pub joined_at: Option<DateTime<Utc>>,
+    // From sys_users (aliased in query)
+    pub email: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+}
+
+impl From<ProjectMemberWithUser> for ProjectMemberResponse {
+    fn from(m: ProjectMemberWithUser) -> Self {
+        Self {
+            id: m.id,
+            user_id: m.user_id,
+            email: m.email,
+            name: m.name,
+            avatar_url: m.avatar_url,
+            role: m.role,
+            joined_at: m.joined_at,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct AddProjectMember {
     pub user_id: Uuid,

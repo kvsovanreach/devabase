@@ -97,6 +97,8 @@ pub struct DatabaseConfig {
     pub url: String,
     #[serde(default = "default_max_connections")]
     pub max_connections: u32,
+    #[serde(default = "default_min_connections")]
+    pub min_connections: u32,
     #[serde(default = "default_true")]
     pub run_migrations: bool,
 }
@@ -255,6 +257,10 @@ fn default_max_connections() -> u32 {
     20
 }
 
+fn default_min_connections() -> u32 {
+    5
+}
+
 fn default_storage_driver() -> String {
     "local".to_string()
 }
@@ -394,6 +400,7 @@ impl Config {
             database: DatabaseConfig {
                 url: database_url,
                 max_connections: default_max_connections(),
+                min_connections: default_min_connections(),
                 run_migrations: true,
             },
             storage: StorageConfig::default(),

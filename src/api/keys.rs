@@ -69,5 +69,7 @@ pub async fn delete_key(
     auth.require_write()?;
 
     auth::delete_key(&state.pool, project_id, id).await?;
+    // Invalidate cached auth for this key so revocation takes effect immediately
+    state.api_key_cache.invalidate_by_key_id(id).await;
     Ok(Json(serde_json::json!({ "deleted": true })))
 }

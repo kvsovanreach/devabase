@@ -47,11 +47,7 @@ impl RateLimiter {
         true
     }
 
-    /// Clean up expired rate limit entries.
-    /// Call this periodically to prevent memory growth.
-    /// Note: Currently not used as entries are cleaned lazily during check(),
-    /// but available for explicit cleanup if needed.
-    #[allow(dead_code)]
+    /// Clean up expired rate limit entries to prevent unbounded memory growth.
     pub async fn cleanup(&self) {
         let mut requests = self.requests.write().await;
         let now = Instant::now();
@@ -60,6 +56,19 @@ impl RateLimiter {
         requests.retain(|_, times| {
             times.retain(|&t| t > cutoff);
             !times.is_empty()
+        });
+    }
+
+    /// Start a background task that periodically cleans up expired entries.
+    /// Prevents memory growth from unique IPs that never return.
+    pub fn start_cleanup_task(&self) {
+        let limiter = self.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                limiter.cleanup().await;
+            }
         });
     }
 
@@ -86,9 +95,10 @@ pub struct RateLimitLayer {
 
 impl RateLimitLayer {
     pub fn new(max_requests: usize, window_seconds: u64) -> Self {
-        Self {
-            limiter: RateLimiter::new(max_requests, window_seconds),
-        }
+        let limiter = RateLimiter::new(max_requests, window_seconds);
+        // Start background cleanup to prevent unbounded memory growth
+        limiter.start_cleanup_task();
+        Self { limiter }
     }
 }
 

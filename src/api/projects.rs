@@ -11,7 +11,8 @@ use crate::api::pagination::{PaginatedResponse, PaginationQuery};
 use crate::auth::AuthContext;
 use crate::db::models::{
     AddProjectMember, CreateInvitation, CreateProject, InvitationResponse,
-    Project, ProjectInvitation, ProjectMember, ProjectMemberResponse, ProjectResponse, ProjectRole,
+    Project, ProjectInvitation, ProjectMember, ProjectMemberResponse, ProjectMemberWithUser,
+    ProjectResponse, ProjectRole, ProjectWithRole,
     UpdateProject, UpdateProjectMember, User,
 };
 use crate::server::AppState;
@@ -46,10 +47,11 @@ pub async fn list_projects(
     .fetch_one(state.pool.inner())
     .await?;
 
-    // Get paginated projects
-    let projects: Vec<Project> = sqlx::query_as(
+    // Get paginated projects with role in a single query (avoids N+1)
+    let projects: Vec<ProjectWithRole> = sqlx::query_as(
         r#"
-        SELECT p.*
+        SELECT p.id, p.name, p.slug, p.description, p.owner_id, p.is_active,
+               p.settings, p.metadata, p.created_at, p.updated_at, pm.role
         FROM sys_projects p
         JOIN sys_project_members pm ON pm.project_id = p.id
         WHERE pm.user_id = $1 AND p.is_active = true
@@ -63,21 +65,7 @@ pub async fn list_projects(
     .fetch_all(state.pool.inner())
     .await?;
 
-    // Then get roles for each project
-    let mut responses = Vec::new();
-    for project in projects {
-        let role: (ProjectRole,) = sqlx::query_as(
-            "SELECT role FROM sys_project_members WHERE project_id = $1 AND user_id = $2"
-        )
-        .bind(project.id)
-        .bind(user_id)
-        .fetch_one(state.pool.inner())
-        .await?;
-
-        let mut resp = ProjectResponse::from(project);
-        resp.role = Some(role.0);
-        responses.push(resp);
-    }
+    let responses: Vec<ProjectResponse> = projects.into_iter().map(ProjectResponse::from).collect();
 
     Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }
@@ -298,13 +286,15 @@ pub async fn list_members(
     .fetch_one(state.pool.inner())
     .await?;
 
-    // Get paginated members
-    let members: Vec<ProjectMember> = sqlx::query_as(
+    // Get paginated members with user info in a single JOIN query (avoids N+1)
+    let members: Vec<ProjectMemberWithUser> = sqlx::query_as(
         r#"
-        SELECT *
-        FROM sys_project_members
-        WHERE project_id = $1
-        ORDER BY role, joined_at
+        SELECT pm.id, pm.user_id, pm.role, pm.joined_at,
+               u.email, u.name, u.avatar_url
+        FROM sys_project_members pm
+        JOIN sys_users u ON u.id = pm.user_id
+        WHERE pm.project_id = $1
+        ORDER BY pm.role, pm.joined_at
         LIMIT $2 OFFSET $3
         "#,
     )
@@ -314,24 +304,7 @@ pub async fn list_members(
     .fetch_all(state.pool.inner())
     .await?;
 
-    // Build responses with user info
-    let mut responses = Vec::new();
-    for pm in members {
-        let user: User = sqlx::query_as("SELECT * FROM sys_users WHERE id = $1")
-            .bind(pm.user_id)
-            .fetch_one(state.pool.inner())
-            .await?;
-
-        responses.push(ProjectMemberResponse {
-            id: pm.id,
-            user_id: pm.user_id,
-            email: user.email,
-            name: user.name,
-            avatar_url: user.avatar_url,
-            role: pm.role,
-            joined_at: pm.joined_at,
-        });
-    }
+    let responses: Vec<ProjectMemberResponse> = members.into_iter().map(ProjectMemberResponse::from).collect();
 
     Ok(Json(PaginatedResponse::new(responses, total.0, limit, offset)))
 }

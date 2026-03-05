@@ -1,8 +1,32 @@
+use futures::future::try_join_all;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::db::models::user_table::{TableColumnInfo, TableInfo};
 use crate::Result;
+
+/// Fetch columns + row count for a single table in parallel
+async fn build_table_info(
+    pool: &PgPool,
+    project_id: Uuid,
+    table_name: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+) -> Result<TableInfo> {
+    let full_table_name = get_full_table_name(project_id, &table_name);
+
+    // Run column lookup and row count in parallel
+    let (columns, row_count) = tokio::try_join!(
+        get_table_columns(pool, &full_table_name),
+        get_row_count(pool, &full_table_name, project_id),
+    )?;
+
+    Ok(TableInfo {
+        name: table_name,
+        columns,
+        row_count,
+        created_at,
+    })
+}
 
 /// Get all user tables for a project
 pub async fn get_user_tables(pool: &PgPool, project_id: Uuid) -> Result<Vec<TableInfo>> {
@@ -19,72 +43,56 @@ pub async fn get_user_tables(pool: &PgPool, project_id: Uuid) -> Result<Vec<Tabl
     .fetch_all(pool)
     .await?;
 
-    let mut result = Vec::new();
-    for (table_name, created_at) in tables {
-        let full_table_name = format!("ut_{}_{}", project_id.to_string().replace("-", "_"), table_name);
+    // Fetch all table metadata in parallel (columns + row counts concurrently)
+    let futures: Vec<_> = tables
+        .into_iter()
+        .map(|(name, created_at)| build_table_info(pool, project_id, name, created_at))
+        .collect();
 
-        // Get column info from information_schema
-        let columns = get_table_columns(pool, &full_table_name).await?;
-
-        // Get row count
-        let row_count = get_row_count(pool, &full_table_name, project_id).await?;
-
-        result.push(TableInfo {
-            name: table_name,
-            columns,
-            row_count,
-            created_at,
-        });
-    }
-
+    let result = try_join_all(futures).await?;
     Ok(result)
 }
 
 /// Get all user tables for a project with pagination
 pub async fn get_user_tables_paginated(pool: &PgPool, project_id: Uuid, limit: i64, offset: i64) -> Result<(Vec<TableInfo>, i64)> {
-    // Get total count
-    let total: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sys_user_tables WHERE project_id = $1 AND api_enabled = true"
-    )
-    .bind(project_id)
-    .fetch_one(pool)
-    .await?;
+    // Run COUNT and table list fetch in parallel
+    let (total, tables) = tokio::try_join!(
+        async {
+            let row: (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM sys_user_tables WHERE project_id = $1 AND api_enabled = true"
+            )
+            .bind(project_id)
+            .fetch_one(pool)
+            .await?;
+            Ok::<_, crate::Error>(row.0)
+        },
+        async {
+            let rows: Vec<(String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+                r#"
+                SELECT table_name, created_at
+                FROM sys_user_tables
+                WHERE project_id = $1 AND api_enabled = true
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+                "#,
+            )
+            .bind(project_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool)
+            .await?;
+            Ok::<_, crate::Error>(rows)
+        },
+    )?;
 
-    // Get tables from the registry
-    let tables: Vec<(String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
-        r#"
-        SELECT table_name, created_at
-        FROM sys_user_tables
-        WHERE project_id = $1 AND api_enabled = true
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
-        "#,
-    )
-    .bind(project_id)
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(pool)
-    .await?;
+    // Fetch all table metadata in parallel
+    let futures: Vec<_> = tables
+        .into_iter()
+        .map(|(name, created_at)| build_table_info(pool, project_id, name, created_at))
+        .collect();
 
-    let mut result = Vec::new();
-    for (table_name, created_at) in tables {
-        let full_table_name = format!("ut_{}_{}", project_id.to_string().replace("-", "_"), table_name);
-
-        // Get column info from information_schema
-        let columns = get_table_columns(pool, &full_table_name).await?;
-
-        // Get row count
-        let row_count = get_row_count(pool, &full_table_name, project_id).await?;
-
-        result.push(TableInfo {
-            name: table_name,
-            columns,
-            row_count,
-            created_at,
-        });
-    }
-
-    Ok((result, total.0))
+    let result = try_join_all(futures).await?;
+    Ok((result, total))
 }
 
 /// Get a single user table by name
@@ -168,7 +176,7 @@ async fn get_table_columns(pool: &PgPool, full_table_name: &str) -> Result<Vec<T
 /// Get row count for a table
 async fn get_row_count(pool: &PgPool, full_table_name: &str, project_id: Uuid) -> Result<i64> {
     let query = format!(
-        "SELECT COUNT(*) as count FROM {} WHERE project_id = $1",
+        "SELECT COUNT(*) as count FROM \"{}\" WHERE project_id = $1",
         full_table_name
     );
 

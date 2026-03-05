@@ -2,7 +2,9 @@ use crate::db::models::user_table::ColumnDefinition;
 use crate::Result;
 use uuid::Uuid;
 
-/// Build CREATE TABLE SQL from column definitions
+/// Build CREATE TABLE SQL from column definitions.
+/// Returns the CREATE TABLE statement followed by CREATE INDEX statements
+/// for project_id and any foreign key columns.
 pub fn build_create_table_sql(
     project_id: Uuid,
     table_name: &str,
@@ -12,6 +14,7 @@ pub fn build_create_table_sql(
 
     let mut column_defs = Vec::new();
     let mut foreign_keys = Vec::new();
+    let mut index_columns: Vec<String> = Vec::new();
 
     // Always add project_id as first column (hidden from API but used for filtering)
     column_defs.push("project_id UUID NOT NULL".to_string());
@@ -60,6 +63,8 @@ pub fn build_create_table_sql(
             }
 
             foreign_keys.push(fk);
+            // Index FK columns for fast joins and cascade deletes
+            index_columns.push(col.name.clone());
         }
     }
 
@@ -67,11 +72,27 @@ pub fn build_create_table_sql(
     let mut all_defs = column_defs;
     all_defs.extend(foreign_keys);
 
-    Ok(format!(
+    let mut sql = format!(
         "CREATE TABLE \"{}\" ({})",
         full_table_name,
         all_defs.join(", ")
-    ))
+    );
+
+    // Auto-create index on project_id (every query filters by this)
+    sql.push_str(&format!(
+        "; CREATE INDEX \"idx_{}_project_id\" ON \"{}\" (project_id)",
+        table_name, full_table_name
+    ));
+
+    // Auto-create indexes on foreign key columns
+    for col_name in &index_columns {
+        sql.push_str(&format!(
+            "; CREATE INDEX \"idx_{}_{col_name}\" ON \"{}\" (\"{col_name}\")",
+            table_name, full_table_name, col_name = col_name
+        ));
+    }
+
+    Ok(sql)
 }
 
 /// Build DROP TABLE SQL
@@ -373,7 +394,21 @@ fn parse_filters(filter_str: &str, param_offset: usize) -> Result<(String, Vec<s
 
         // Don't add param for IS conditions
         if op != "is" {
-            params.push(serde_json::json!(value));
+            // Auto-cast boolean and numeric values from string
+            let typed_value = if value == "true" {
+                serde_json::json!(true)
+            } else if value == "false" {
+                serde_json::json!(false)
+            } else if value == "null" {
+                serde_json::json!(null)
+            } else if let Ok(n) = value.parse::<i64>() {
+                serde_json::json!(n)
+            } else if let Ok(n) = value.parse::<f64>() {
+                serde_json::json!(n)
+            } else {
+                serde_json::json!(value)
+            };
+            params.push(typed_value);
         }
         conditions.push(condition);
     }
