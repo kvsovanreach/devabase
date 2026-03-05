@@ -182,6 +182,40 @@ export class ChatResource {
   }
 
   /**
+   * Create a new conversation
+   * @example
+   * const conversation = await client.chat.createConversation({
+   *   collection_id: 'collection-uuid',
+   *   title: 'Support Chat'
+   * });
+   */
+  async createConversation(
+    data: { collection_id: string; title?: string },
+    requestOptions?: RequestOptions
+  ): Promise<Conversation> {
+    return this.http.post<Conversation>('/v1/conversations', data, requestOptions);
+  }
+
+  /**
+   * Update a conversation
+   * @example
+   * const conversation = await client.chat.updateConversation('conversation-id', {
+   *   title: 'Updated Title'
+   * });
+   */
+  async updateConversation(
+    conversationId: string,
+    data: { title?: string },
+    requestOptions?: RequestOptions
+  ): Promise<Conversation> {
+    return this.http.patch<Conversation>(
+      `/v1/conversations/${conversationId}`,
+      data,
+      requestOptions
+    );
+  }
+
+  /**
    * Delete a conversation
    * @example
    * await client.chat.deleteConversation('conversation-id');

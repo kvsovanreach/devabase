@@ -38,11 +38,14 @@ export function useUsageAnalytics(params?: UsageQueryParams) {
       if (params?.end_date) searchParams.set('end_date', params.end_date);
 
       const queryString = searchParams.toString();
-      const url = queryString ? `/usage?${queryString}` : '/usage';
+      const url = queryString ? `/admin/usage?${queryString}` : '/admin/usage';
 
       const response = await api.get<UsageResponse>(url);
       return response.data;
     },
+    staleTime: 30 * 1000, // Data is fresh for 30 seconds
+    refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -61,5 +64,8 @@ export function useStorageStats() {
         documents: totalDocuments,
       };
     },
+    staleTime: 30 * 1000, // Data is fresh for 30 seconds
+    refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds
+    refetchOnWindowFocus: true,
   });
 }

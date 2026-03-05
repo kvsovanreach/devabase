@@ -150,36 +150,18 @@ export class DocumentsResource {
   }
 
   /**
-   * Update document metadata
+   * List all documents across collections
    * @example
-   * const doc = await client.documents.updateMetadata('document-id', {
-   *   author: 'Jane Doe',
-   *   category: 'Technical'
-   * });
+   * const docs = await client.documents.listAll({ status: 'processed', limit: 50 });
    */
-  async updateMetadata(
-    documentId: string,
-    metadata: Record<string, unknown>,
-    options?: RequestOptions
-  ): Promise<Document> {
-    return this.http.patch<Document>(`/v1/documents/${documentId}`, { metadata }, options);
-  }
-
-  /**
-   * Download the original document file
-   * @example
-   * const blob = await client.documents.download('document-id');
-   */
-  async download(documentId: string, options?: RequestOptions): Promise<Blob> {
-    const response = await fetch(`/v1/documents/${documentId}/download`, {
-      method: 'GET',
-      signal: options?.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.statusText}`);
-    }
-
-    return response.blob();
+  async listAll(
+    options?: ListDocumentsOptions & RequestOptions
+  ): Promise<PaginatedResponse<Document>> {
+    const { status, limit, offset, page, per_page, cursor, ...reqOptions } = options ?? {};
+    return this.http.get<PaginatedResponse<Document>>(
+      '/v1/documents',
+      { status, limit, offset, page, per_page, cursor },
+      reqOptions
+    );
   }
 }

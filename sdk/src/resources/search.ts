@@ -129,43 +129,9 @@ export class SearchResource {
   }
 
   /**
-   * Get similar chunks to a given chunk
+   * Search by vector directly (low-level)
    * @example
-   * const similar = await client.search.similar('chunk-id', 'my-collection', 5);
-   */
-  async similar(
-    chunkId: string,
-    collection: string,
-    topK: number = 5,
-    requestOptions?: RequestOptions
-  ): Promise<SearchResult[]> {
-    const response = await this.http.get<{ results: SearchResult[] }>(
-      `/v1/collections/${collection}/chunks/${chunkId}/similar`,
-      { top_k: topK },
-      requestOptions
-    );
-    return response.results;
-  }
-
-  /**
-   * Create embeddings for text
-   * @example
-   * const embeddings = await client.search.embed(['Hello, World!', 'How are you?']);
-   */
-  async embed(texts: string[], requestOptions?: RequestOptions): Promise<number[][]> {
-    const response = await this.http.post<{ embeddings: number[][] }>(
-      '/v1/embeddings',
-      { texts },
-      requestOptions
-    );
-    return response.embeddings;
-  }
-
-  /**
-   * Search by vector directly
-   * @example
-   * const embedding = await client.search.embed(['my query']);
-   * const results = await client.search.byVector('my-collection', embedding[0]);
+   * const results = await client.search.byVector('my-collection', [0.1, 0.2, ...]);
    */
   async byVector(
     collection: string,
@@ -174,11 +140,37 @@ export class SearchResource {
     requestOptions?: RequestOptions
   ): Promise<SearchResult[]> {
     const response = await this.http.post<{ results: SearchResult[] }>(
-      `/v1/collections/${collection}/search`,
+      `/v1/collections/${collection}/vectors/search`,
       {
-        vector,
+        embedding: vector,
         top_k: options?.top_k ?? 10,
         filter: options?.filter,
+      },
+      requestOptions
+    );
+    return response.results;
+  }
+
+  /**
+   * Search across multiple collections
+   * @example
+   * const results = await client.search.multi(['docs', 'faq'], 'How to login?', { top_k: 10 });
+   */
+  async multi(
+    collections: string[],
+    query: string,
+    options?: Omit<SearchOptions, 'collection' | 'query'>,
+    requestOptions?: RequestOptions
+  ): Promise<SearchResult[]> {
+    const response = await this.http.post<{ results: SearchResult[] }>(
+      '/v1/search',
+      {
+        collections,
+        query,
+        top_k: options?.top_k ?? 10,
+        filter: options?.filter,
+        rerank: options?.rerank,
+        include_content: options?.include_content ?? true,
       },
       requestOptions
     );

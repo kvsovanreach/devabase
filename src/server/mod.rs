@@ -1,4 +1,4 @@
-mod middleware;
+pub mod middleware;
 mod router;
 pub mod websocket;
 

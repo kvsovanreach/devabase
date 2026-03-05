@@ -101,6 +101,27 @@ export class KnowledgeResource {
     },
 
     /**
+     * Create a new entity
+     * @example
+     * const entity = await client.knowledge.entities.create({
+     *   name: 'John Doe',
+     *   entity_type: 'person',
+     *   description: 'Software engineer'
+     * });
+     */
+    create: async (
+      data: {
+        name: string;
+        entity_type: string;
+        description?: string;
+        aliases?: string[];
+      },
+      requestOptions?: RequestOptions
+    ): Promise<Entity> => {
+      return this.http.post<Entity>('/v1/knowledge/entities', data, requestOptions);
+    },
+
+    /**
      * Delete an entity
      * @example
      * await client.knowledge.entities.delete('entity-id');
@@ -206,29 +227,22 @@ export class KnowledgeResource {
     );
   }
 
+  // =========================================================================
+  // Statistics
+  // =========================================================================
+
   /**
-   * Find path between two entities
+   * Get knowledge graph statistics
    * @example
-   * const paths = await client.knowledge.findPath('entity-1', 'entity-2');
+   * const stats = await client.knowledge.getStats();
+   * console.log(`${stats.total_entities} entities, ${stats.total_relationships} relationships`);
    */
-  async findPath(
-    sourceEntityId: string,
-    targetEntityId: string,
-    options?: { max_depth?: number },
-    requestOptions?: RequestOptions
-  ): Promise<Array<{
-    entities: Entity[];
-    relationships: Relationship[];
-  }>> {
-    return this.http.post(
-      '/v1/knowledge/path',
-      {
-        source_entity_id: sourceEntityId,
-        target_entity_id: targetEntityId,
-        max_depth: options?.max_depth ?? 5,
-      },
-      requestOptions
-    );
+  async getStats(requestOptions?: RequestOptions): Promise<{
+    total_entities: number;
+    total_relationships: number;
+    entities_by_type: Array<{ entity_type: string; count: number }>;
+  }> {
+    return this.http.get('/v1/knowledge/stats', undefined, requestOptions);
   }
 
   // =========================================================================
@@ -238,51 +252,22 @@ export class KnowledgeResource {
   /**
    * Extract knowledge from a document
    * @example
-   * const knowledge = await client.knowledge.extractFromDocument('document-id');
+   * const result = await client.knowledge.extractFromDocument('document-id');
+   * console.log(`Extracted ${result.entities_extracted} entities`);
    */
   async extractFromDocument(
     documentId: string,
     requestOptions?: RequestOptions
-  ): Promise<ExtractedKnowledge> {
-    return this.http.post<ExtractedKnowledge>(
-      `/v1/knowledge/extract/document/${documentId}`,
+  ): Promise<{
+    document_id: string;
+    entities_extracted: number;
+    relationships_extracted: number;
+    message: string;
+  }> {
+    return this.http.post(
+      `/v1/knowledge/extract/${documentId}`,
       undefined,
       { ...requestOptions, timeout: 300000 } // 5 minute timeout
     );
-  }
-
-  /**
-   * Extract knowledge from all documents in a collection
-   * @example
-   * const job = await client.knowledge.extractFromCollection('my-collection');
-   */
-  async extractFromCollection(
-    collectionName: string,
-    requestOptions?: RequestOptions
-  ): Promise<{ job_id: string; status: string }> {
-    return this.http.post(
-      `/v1/knowledge/extract/collection/${collectionName}`,
-      undefined,
-      { ...requestOptions, timeout: 300000 }
-    );
-  }
-
-  /**
-   * Get extraction job status
-   * @example
-   * const status = await client.knowledge.getExtractionStatus('job-id');
-   */
-  async getExtractionStatus(
-    jobId: string,
-    requestOptions?: RequestOptions
-  ): Promise<{
-    job_id: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    progress: number;
-    entities_extracted: number;
-    relationships_extracted: number;
-    error?: string;
-  }> {
-    return this.http.get(`/v1/knowledge/extract/status/${jobId}`, undefined, requestOptions);
   }
 }

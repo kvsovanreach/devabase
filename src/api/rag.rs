@@ -13,6 +13,7 @@ use crate::api::conversations;
 use crate::auth::AuthContext;
 use crate::db::models::RagConfig;
 use crate::rag::{self, count_tokens, get_project_embedding_provider, RetrievalQuery};
+use crate::server::middleware::usage::log_usage_with_tokens;
 use crate::server::AppState;
 use crate::vector;
 use crate::{Error, ErrorInfo, Result};
@@ -314,6 +315,17 @@ async fn rag_chat_json_internal(
     let prompt_tokens = count_tokens(&full_prompt) as i32;
     let answer_tokens = count_tokens(&clean_answer) as i32;
     let total_tokens = prompt_tokens + answer_tokens;
+
+    // Log usage with token counts
+    log_usage_with_tokens(
+        state.pool.inner(),
+        "/v1/rag",
+        "POST",
+        200,
+        0, // latency already tracked by middleware
+        Some(prompt_tokens),
+        Some(answer_tokens),
+    ).await;
 
     Ok(UnifiedChatResponse {
         answer: clean_answer,
@@ -1413,6 +1425,17 @@ async fn chat_internal(
     let answer_tokens = count_tokens(&answer) as i32;
     let total_tokens = user_tokens + answer_tokens;
 
+    // Log usage with token counts
+    log_usage_with_tokens(
+        state.pool.inner(),
+        &format!("/v1/collections/{}/chat", collection_name),
+        "POST",
+        200,
+        0,
+        Some(user_tokens),
+        Some(answer_tokens),
+    ).await;
+
     // Get or create conversation and save messages
     let conversation_uuid = conversations::get_or_create_conversation(
         &state.pool,
@@ -1624,6 +1647,17 @@ async fn chat_multi_internal(
     let prompt_tokens = count_tokens(&full_prompt) as i32;
     let answer_tokens = count_tokens(&answer) as i32;
     let total_tokens = prompt_tokens + answer_tokens;
+
+    // Log usage with token counts
+    log_usage_with_tokens(
+        state.pool.inner(),
+        "/v1/chat/multi",
+        "POST",
+        200,
+        0,
+        Some(prompt_tokens),
+        Some(answer_tokens),
+    ).await;
 
     Ok(MultiCollectionChatResponse {
         answer,
