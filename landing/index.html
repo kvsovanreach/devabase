@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Devabase - Backend for RAG/LLM Applications</title>
-    <meta name="description" content="Build AI-powered applications in minutes. Devabase provides vector storage, document processing, RAG chat, and user authentication out of the box.">
+    <title>Devabase - The Complete Backend for AI Applications</title>
+    <meta name="description" content="Open-source backend for RAG and LLM applications. Vector database, document processing, semantic search, RAG chat, knowledge graphs, app authentication, real-time events, and more — all in one platform.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
 </head>
 <body>
     <!-- Navigation -->
     <nav class="nav">
         <div class="nav-container">
             <a href="./" class="nav-logo">
-                <span class="logo-icon">⚡</span>
+                <span class="logo-icon">&#x26A1;</span>
                 <span class="logo-text">Devabase</span>
             </a>
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#how-it-works">How It Works</a>
                 <a href="#sdk">SDK</a>
-                <a href="docs">Docs</a>
+                <a href="#architecture">Architecture</a>
+                <a href="docs.html">Docs</a>
                 <a href="https://github.com/kvsovanreach/devabase" target="_blank" class="nav-github">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -50,16 +51,16 @@
             <div class="hero-content">
                 <div class="hero-badge animate-fade-in">
                     <span class="badge-dot"></span>
-                    <span>Now with Knowledge Graphs & Advanced Retrieval</span>
+                    <span>Open Source &middot; Self-Hosted &middot; Production-Ready</span>
                 </div>
                 <h1 class="hero-title animate-fade-in-up">
-                    Build AI Apps<br>
-                    <span class="gradient-text">10x Faster</span>
+                    The Complete Backend for<br>
+                    <span class="gradient-text">AI Applications</span>
                 </h1>
                 <p class="hero-description animate-fade-in-up delay-1">
-                    The complete backend for RAG and LLM applications.
-                    Vector storage, document processing, knowledge graphs,
-                    advanced retrieval strategies, and user authentication — all in one place.
+                    Stop stitching together vector databases, auth services, file storage, and chat APIs.
+                    Devabase is an open-source, all-in-one backend that gives you everything you need to
+                    build production-grade RAG and LLM applications &mdash; from document ingestion to real-time events.
                 </p>
                 <div class="hero-cta animate-fade-in-up delay-2">
                     <a href="#get-started" class="btn btn-primary btn-lg">
@@ -68,19 +69,24 @@
                             <path d="M5 12h14M12 5l7 7-7 7"/>
                         </svg>
                     </a>
-                    <a href="#how-it-works" class="btn btn-secondary btn-lg">
-                        <span>See How It Works</span>
+                    <a href="docs.html" class="btn btn-secondary btn-lg">
+                        <span>Read the Docs</span>
                     </a>
                 </div>
                 <div class="hero-stats animate-fade-in-up delay-3">
                     <div class="stat">
-                        <span class="stat-value">50ms</span>
+                        <span class="stat-value">&lt;50ms</span>
                         <span class="stat-label">Avg Response</span>
                     </div>
                     <div class="stat-divider"></div>
                     <div class="stat">
-                        <span class="stat-value">99.9%</span>
-                        <span class="stat-label">Uptime</span>
+                        <span class="stat-value">20+</span>
+                        <span class="stat-label">API Resources</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-value">100+</span>
+                        <span class="stat-label">REST Endpoints</span>
                     </div>
                     <div class="stat-divider"></div>
                     <div class="stat">
@@ -101,30 +107,30 @@
                     </div>
                     <pre class="code-content"><code><span class="code-keyword">import</span> { createClient } <span class="code-keyword">from</span> <span class="code-string">'devabase-sdk'</span>;
 
-<span class="code-keyword">const</span> client = <span class="code-function">createClient</span>({
-  baseUrl: <span class="code-string">'https://your-server.com'</span>,
+<span class="code-keyword">const</span> db = <span class="code-function">createClient</span>({
+  baseUrl: <span class="code-string">'http://localhost:9002'</span>,
   apiKey: <span class="code-string">'dvb_your_key'</span>
 });
-client.<span class="code-function">useProject</span>(<span class="code-string">'your-project-id'</span>);
 
-<span class="code-comment">// Upload and process documents</span>
-<span class="code-keyword">await</span> client.documents.<span class="code-function">upload</span>(<span class="code-string">'docs'</span>, {
-  file: pdfBuffer,
-  filename: <span class="code-string">'manual.pdf'</span>
+<span class="code-comment">// Upload &amp; auto-process documents</span>
+<span class="code-keyword">await</span> db.documents.<span class="code-function">upload</span>(<span class="code-string">'knowledge-base'</span>, {
+  file: pdfBuffer, filename: <span class="code-string">'manual.pdf'</span>
 });
 
-<span class="code-comment">// Semantic search</span>
-<span class="code-keyword">const</span> results = <span class="code-keyword">await</span> client.search.<span class="code-function">query</span>({
-  collection: <span class="code-string">'docs'</span>,
+<span class="code-comment">// Semantic search with reranking</span>
+<span class="code-keyword">const</span> results = <span class="code-keyword">await</span> db.search.<span class="code-function">query</span>({
+  collection: <span class="code-string">'knowledge-base'</span>,
   query: <span class="code-string">'How to configure auth?'</span>,
   rerank: <span class="code-boolean">true</span>
 });
 
-<span class="code-comment">// RAG Chat with sources</span>
-<span class="code-keyword">const</span> response = <span class="code-keyword">await</span> client.chat.<span class="code-function">send</span>({
-  collection: <span class="code-string">'docs'</span>,
+<span class="code-comment">// RAG Chat with streaming</span>
+<span class="code-keyword">await</span> db.chat.<span class="code-function">stream</span>({
+  collection: <span class="code-string">'knowledge-base'</span>,
   message: <span class="code-string">'Explain the setup process'</span>,
-  include_sources: <span class="code-boolean">true</span>
+}, {
+  <span class="code-function">onContent</span>: (chunk) =&gt; process.stdout.<span class="code-function">write</span>(chunk),
+  <span class="code-function">onSources</span>: (sources) =&gt; console.<span class="code-function">log</span>(sources),
 });</code></pre>
                 </div>
             </div>
@@ -161,17 +167,19 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
         </div>
     </section>
 
-    <!-- Features Section -->
+    <!-- Core Features Section -->
     <section class="features" id="features">
         <div class="container">
             <div class="section-header">
-                <span class="section-badge">Features</span>
-                <h2 class="section-title">Everything you need to build AI apps</h2>
+                <span class="section-badge">Core Features</span>
+                <h2 class="section-title">Everything you need, nothing you don't</h2>
                 <p class="section-description">
-                    Stop stitching together multiple services. Devabase gives you
-                    a complete, production-ready backend for your AI applications.
+                    One self-hosted backend replaces your vector database, auth service,
+                    file storage, chat API, and real-time infrastructure. All tightly integrated.
                 </p>
             </div>
+
+            <!-- Primary Feature Cards (large) -->
             <div class="features-grid">
                 <div class="feature-card" data-aos="fade-up">
                     <div class="feature-icon">
@@ -181,13 +189,14 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     </div>
                     <h3 class="feature-title">Vector Database</h3>
                     <p class="feature-description">
-                        Store and query millions of vectors with sub-millisecond latency.
-                        Built on pgvector with automatic indexing and optimization.
+                        Store and query millions of high-dimensional vectors with sub-millisecond latency.
+                        Built on pgvector with automatic HNSW indexing and optimization.
                     </p>
                     <ul class="feature-list">
-                        <li>Cosine, L2, and Inner Product metrics</li>
-                        <li>Automatic HNSW indexing</li>
-                        <li>Metadata filtering</li>
+                        <li>Cosine, L2, and Inner Product distance metrics</li>
+                        <li>Automatic HNSW index creation &amp; tuning</li>
+                        <li>Metadata filtering on vector queries</li>
+                        <li>Upsert, search, and delete operations</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
@@ -198,13 +207,14 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     </div>
                     <h3 class="feature-title">Document Processing</h3>
                     <p class="feature-description">
-                        Upload PDFs, Word docs, and more. Automatic chunking,
-                        embedding generation, and knowledge extraction.
+                        Upload PDFs, Word docs, text files, and Markdown. Automatic chunking,
+                        embedding generation, and knowledge extraction &mdash; all in the background.
                     </p>
                     <ul class="feature-list">
-                        <li>PDF, DOCX, TXT, Markdown</li>
-                        <li>Smart chunking strategies</li>
-                        <li>Background processing</li>
+                        <li>PDF, DOCX, TXT, Markdown support</li>
+                        <li>Smart chunking with split &amp; merge control</li>
+                        <li>Background async processing pipeline</li>
+                        <li>File storage with upload/download</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
@@ -213,15 +223,16 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">Semantic Search</h3>
+                    <h3 class="feature-title">Semantic &amp; Hybrid Search</h3>
                     <p class="feature-description">
-                        Vector search, keyword search, and hybrid retrieval with
-                        cross-encoder reranking for optimal results.
+                        Vector search, BM25 keyword search, and hybrid retrieval with
+                        Reciprocal Rank Fusion and cross-encoder reranking.
                     </p>
                     <ul class="feature-list">
-                        <li>Hybrid search (vector + BM25)</li>
-                        <li>Cross-encoder reranking</li>
-                        <li>Multi-collection search</li>
+                        <li>Hybrid search (vector + BM25 with RRF)</li>
+                        <li>Cross-encoder reranking for precision</li>
+                        <li>Multi-collection search in one query</li>
+                        <li>Configurable vector/keyword weight blending</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
@@ -230,15 +241,16 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">RAG Chat</h3>
+                    <h3 class="feature-title">RAG Chat &amp; Streaming</h3>
                     <p class="feature-description">
-                        Production-ready RAG with conversation memory, source
-                        attribution, and streaming responses.
+                        Production-ready Retrieval-Augmented Generation with multi-turn
+                        conversation memory, source attribution, and real-time streaming via SSE.
                     </p>
                     <ul class="feature-list">
-                        <li>Multi-turn conversations</li>
-                        <li>Source attribution</li>
-                        <li>Streaming responses</li>
+                        <li>Multi-turn conversations with history</li>
+                        <li>Source attribution per response</li>
+                        <li>Server-Sent Events streaming</li>
+                        <li>Single or multi-collection RAG</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
@@ -247,15 +259,16 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">App Authentication</h3>
+                    <h3 class="feature-title">App User Authentication</h3>
                     <p class="feature-description">
-                        Complete auth for your app's users. Registration, login,
-                        password reset, email verification — ready to use.
+                        Complete auth system for your application's end-users. Registration, login,
+                        password reset, email verification, and dual-auth for row-level security.
                     </p>
                     <ul class="feature-list">
-                        <li>JWT access & refresh tokens</li>
-                        <li>Password reset flow</li>
-                        <li>Account lockout protection</li>
+                        <li>JWT access &amp; refresh tokens</li>
+                        <li>Password reset &amp; account lockout</li>
+                        <li>Dual-auth: API key + user identity (RLS)</li>
+                        <li>Token introspection &amp; user management</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
@@ -264,15 +277,16 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3zm0 5h16M9 3v4m6-4v4"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">Tables & REST API</h3>
+                    <h3 class="feature-title">Tables &amp; REST API</h3>
                     <p class="feature-description">
-                        Create PostgreSQL tables with an auto-generated REST API.
-                        Full CRUD with filtering, sorting, and pagination.
+                        Create PostgreSQL tables with auto-generated REST endpoints.
+                        Full CRUD, filtering, sorting, pagination &mdash; like a headless database.
                     </p>
                     <ul class="feature-list">
-                        <li>Auto-generated REST endpoints</li>
-                        <li>Rich filtering syntax</li>
-                        <li>Cursor-based pagination</li>
+                        <li>Auto-generated REST for every table</li>
+                        <li>Rich filtering, sorting, and pagination</li>
+                        <li>Column definitions with type safety</li>
+                        <li>Direct SQL query execution</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
@@ -286,13 +300,14 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     </div>
                     <h3 class="feature-title">Knowledge Graphs</h3>
                     <p class="feature-description">
-                        Extract entities and relationships from documents automatically.
-                        Build connected knowledge for enhanced RAG.
+                        Automatically extract entities and relationships from your documents.
+                        Build connected knowledge for graph-enhanced RAG retrieval.
                     </p>
                     <ul class="feature-list">
-                        <li>Automatic entity extraction</li>
-                        <li>Relationship mapping</li>
-                        <li>Graph-enhanced retrieval</li>
+                        <li>Automatic entity extraction (NER)</li>
+                        <li>Relationship mapping between entities</li>
+                        <li>Graph traversal with configurable depth</li>
+                        <li>Graph-enhanced retrieval for better RAG</li>
                     </ul>
                 </div>
                 <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
@@ -303,15 +318,130 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <path d="M9 9h6v6H9z"/>
                         </svg>
                     </div>
-                    <h3 class="feature-title">Advanced Retrieval</h3>
+                    <h3 class="feature-title">Advanced Retrieval Strategies</h3>
                     <p class="feature-description">
                         State-of-the-art retrieval strategies that dramatically
-                        improve RAG accuracy and relevance.
+                        improve RAG accuracy beyond basic vector search.
                     </p>
                     <ul class="feature-list">
-                        <li>HyDE & Multi-Query expansion</li>
-                        <li>Self-Query & contextual compression</li>
+                        <li>HyDE (Hypothetical Document Embeddings)</li>
+                        <li>Multi-Query expansion</li>
+                        <li>Self-Query with contextual compression</li>
                         <li>Parent-Child chunking</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Additional Capabilities -->
+            <div class="section-header" style="margin-top: 5rem;">
+                <span class="section-badge">And More</span>
+                <h2 class="section-title">A complete platform, not just a database</h2>
+                <p class="section-description">
+                    Devabase includes everything a production app needs beyond core AI features.
+                </p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card" data-aos="fade-up">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Real-Time Events</h3>
+                    <p class="feature-description">
+                        WebSocket-based real-time event streaming. Subscribe to document, collection,
+                        table, and vector changes as they happen.
+                    </p>
+                    <ul class="feature-list">
+                        <li>WebSocket with channel subscriptions</li>
+                        <li>Document, collection, table, vector events</li>
+                        <li>Project-scoped event filtering</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Provider Management</h3>
+                    <p class="feature-description">
+                        Configure LLM, embedding, and reranking providers per project.
+                        Swap between OpenAI, Anthropic, Cohere, Voyage AI, and more.
+                    </p>
+                    <ul class="feature-list">
+                        <li>LLM, embedding, and rerank providers</li>
+                        <li>Per-project provider configuration</li>
+                        <li>Provider health testing</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Webhooks</h3>
+                    <p class="feature-description">
+                        Subscribe to events and get notified via HTTP callbacks.
+                        Custom headers, retry logic, delivery logs, and testing tools.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Event-driven webhook subscriptions</li>
+                        <li>Configurable retries &amp; timeouts</li>
+                        <li>Delivery logs &amp; test endpoints</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="0">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">RAG Evaluation &amp; Benchmarks</h3>
+                    <p class="feature-description">
+                        Measure and improve your RAG pipeline quality. Run academic benchmarks
+                        (BEIR datasets), compare configurations, and export results.
+                    </p>
+                    <ul class="feature-list">
+                        <li>BEIR &amp; custom dataset benchmarks</li>
+                        <li>Configuration comparison</li>
+                        <li>Exportable evaluation results</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">File Storage</h3>
+                    <p class="feature-description">
+                        Upload, download, and manage files associated with your project.
+                        Integrated with document processing for seamless ingestion.
+                    </p>
+                    <ul class="feature-list">
+                        <li>File upload &amp; download API</li>
+                        <li>Linked to document processing</li>
+                        <li>Project-scoped file management</li>
+                    </ul>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Prompt Templates &amp; Admin</h3>
+                    <p class="feature-description">
+                        Manage prompt templates, monitor cache performance, track API usage
+                        analytics, and administer your platform from a single interface.
+                    </p>
+                    <ul class="feature-list">
+                        <li>Reusable prompt template management</li>
+                        <li>Cache stats &amp; invalidation</li>
+                        <li>Usage analytics &amp; export</li>
                     </ul>
                 </div>
             </div>
@@ -325,47 +455,47 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                 <span class="section-badge">How It Works</span>
                 <h2 class="section-title">From zero to production in minutes</h2>
                 <p class="section-description">
-                    Get started with just a few lines of code. No infrastructure to manage.
+                    Self-host Devabase with Docker and start building with the TypeScript SDK.
                 </p>
             </div>
             <div class="steps">
                 <div class="step" data-aos="fade-right">
                     <div class="step-number">01</div>
                     <div class="step-content">
-                        <h3>Install the SDK</h3>
-                        <p>Add the Devabase SDK to your project with npm, yarn, or pnpm.</p>
+                        <h3>Deploy Devabase</h3>
+                        <p>Run the server with Docker or build from source. PostgreSQL with pgvector included.</p>
                         <div class="step-code">
-                            <code>npm install devabase-sdk</code>
+                            <code>docker compose up -d</code>
                         </div>
                     </div>
                 </div>
                 <div class="step" data-aos="fade-left">
                     <div class="step-number">02</div>
                     <div class="step-content">
-                        <h3>Create a collection</h3>
-                        <p>Collections store your documents and their vector embeddings.</p>
+                        <h3>Install the SDK</h3>
+                        <p>Add the fully-typed TypeScript SDK to your project.</p>
                         <div class="step-code">
-                            <code>await client.collections.create({ name: 'docs' })</code>
+                            <code>npm install devabase-sdk</code>
                         </div>
                     </div>
                 </div>
                 <div class="step" data-aos="fade-right">
                     <div class="step-number">03</div>
                     <div class="step-content">
-                        <h3>Upload documents</h3>
-                        <p>Upload files and they're automatically processed and indexed.</p>
+                        <h3>Configure &amp; Ingest</h3>
+                        <p>Create a project, set up providers, create collections, and upload documents.</p>
                         <div class="step-code">
-                            <code>await client.documents.upload('docs', { file, filename })</code>
+                            <code>await db.documents.upload('docs', { file, filename })</code>
                         </div>
                     </div>
                 </div>
                 <div class="step" data-aos="fade-left">
                     <div class="step-number">04</div>
                     <div class="step-content">
-                        <h3>Search & Chat</h3>
-                        <p>Query your knowledge base with semantic search or RAG chat.</p>
+                        <h3>Search, Chat &amp; Build</h3>
+                        <p>Query your knowledge base with semantic search, RAG chat, or direct SQL.</p>
                         <div class="step-code">
-                            <code>await client.chat.send({ collection: 'docs', message: '...' })</code>
+                            <code>await db.chat.stream({ collection: 'docs', message: '...' }, callbacks)</code>
                         </div>
                     </div>
                 </div>
@@ -379,35 +509,41 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
             <div class="sdk-grid">
                 <div class="sdk-content">
                     <span class="section-badge">TypeScript SDK</span>
-                    <h2 class="section-title">Developer-first experience</h2>
+                    <h2 class="section-title">Developer-first, end-to-end</h2>
                     <p class="section-description">
-                        Fully typed SDK with IntelliSense support, comprehensive
-                        documentation, and examples for every use case.
+                        A fully-typed SDK covering every API endpoint. From document upload to
+                        real-time events, build your entire application with one import.
                     </p>
                     <div class="sdk-features">
                         <div class="sdk-feature">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M5 13l4 4L19 7"/>
                             </svg>
-                            <span>Full TypeScript support</span>
+                            <span>Full TypeScript types &amp; IntelliSense</span>
                         </div>
                         <div class="sdk-feature">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M5 13l4 4L19 7"/>
                             </svg>
-                            <span>Async/await patterns</span>
+                            <span>20+ resource modules (search, chat, auth, tables, vectors...)</span>
                         </div>
                         <div class="sdk-feature">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M5 13l4 4L19 7"/>
                             </svg>
-                            <span>Streaming support</span>
+                            <span>SSE streaming &amp; WebSocket real-time</span>
                         </div>
                         <div class="sdk-feature">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M5 13l4 4L19 7"/>
                             </svg>
-                            <span>Error handling with typed exceptions</span>
+                            <span>Dual-auth support (API key + user context for RLS)</span>
+                        </div>
+                        <div class="sdk-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span>Typed error hierarchy with actionable messages</span>
                         </div>
                         <div class="sdk-feature">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -416,7 +552,7 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                             <span>Works in Node.js, browsers, and edge runtimes</span>
                         </div>
                     </div>
-                    <a href="https://sovanreach.com/projects/devabase/docs" class="btn btn-primary" target="_blank">
+                    <a href="docs.html" class="btn btn-primary">
                         View SDK Documentation
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M7 17L17 7M17 7H7M17 7v10"/>
@@ -427,13 +563,14 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
                     <div class="code-tabs">
                         <button class="code-tab active" data-tab="search">Search</button>
                         <button class="code-tab" data-tab="chat">Chat</button>
-                        <button class="code-tab" data-tab="knowledge">Knowledge</button>
+                        <button class="code-tab" data-tab="tables">Tables</button>
                         <button class="code-tab" data-tab="auth">Auth</button>
+                        <button class="code-tab" data-tab="realtime">Realtime</button>
                     </div>
                     <div class="code-panels">
                         <div class="code-panel active" id="search-panel">
                             <pre><code><span class="code-comment">// Semantic search with reranking</span>
-<span class="code-keyword">const</span> results = <span class="code-keyword">await</span> client.search.<span class="code-function">query</span>({
+<span class="code-keyword">const</span> results = <span class="code-keyword">await</span> db.search.<span class="code-function">query</span>({
   collection: <span class="code-string">'knowledge-base'</span>,
   query: <span class="code-string">'authentication best practices'</span>,
   top_k: <span class="code-number">10</span>,
@@ -441,66 +578,94 @@ client.<span class="code-function">useProject</span>(<span class="code-string">'
   filter: { category: <span class="code-string">'security'</span> }
 });
 
-<span class="code-comment">// Advanced retrieval with HyDE strategy</span>
-<span class="code-keyword">const</span> advanced = <span class="code-keyword">await</span> client.search.<span class="code-function">query</span>({
-  collection: <span class="code-string">'docs'</span>,
-  query: <span class="code-string">'How do I implement OAuth?'</span>,
-  strategy: <span class="code-string">'hyde'</span>,  <span class="code-comment">// or 'multi_query'</span>
-  rerank: <span class="code-boolean">true</span>
+<span class="code-comment">// Hybrid search (vector + BM25)</span>
+<span class="code-keyword">const</span> hybrid = <span class="code-keyword">await</span> db.search.<span class="code-function">hybrid</span>(
+  <span class="code-string">'knowledge-base'</span>,
+  { query: <span class="code-string">'OAuth implementation'</span>, top_k: <span class="code-number">10</span> }
+);
+
+<span class="code-comment">// Multi-collection search</span>
+<span class="code-keyword">const</span> multi = <span class="code-keyword">await</span> db.search.<span class="code-function">multi</span>({
+  collections: [<span class="code-string">'docs'</span>, <span class="code-string">'faq'</span>, <span class="code-string">'tutorials'</span>],
+  query: <span class="code-string">'How do I get started?'</span>
 });</code></pre>
                         </div>
                         <div class="code-panel" id="chat-panel">
                             <pre><code><span class="code-comment">// RAG chat with streaming</span>
-<span class="code-keyword">await</span> client.chat.<span class="code-function">stream</span>({
+<span class="code-keyword">await</span> db.chat.<span class="code-function">stream</span>({
   collection: <span class="code-string">'docs'</span>,
   message: <span class="code-string">'How do I implement OAuth?'</span>
 }, {
-  <span class="code-function">onContent</span>: (chunk) => {
-    process.stdout.<span class="code-function">write</span>(chunk);
-  },
-  <span class="code-function">onDone</span>: (convId, tokens) => {
-    console.<span class="code-function">log</span>(<span class="code-string">'Done!'</span>, tokens, <span class="code-string">'tokens'</span>);
-  }
+  <span class="code-function">onSources</span>: (s) =&gt; console.<span class="code-function">log</span>(s),
+  <span class="code-function">onContent</span>: (chunk) =&gt; process.stdout.<span class="code-function">write</span>(chunk),
+  <span class="code-function">onDone</span>: (id, tokens) =&gt; console.<span class="code-function">log</span>(<span class="code-string">'Done!'</span>)
 });
 
-<span class="code-comment">// Multi-turn conversation</span>
-<span class="code-keyword">const</span> r2 = <span class="code-keyword">await</span> client.chat.<span class="code-function">continue</span>(
-  response.conversation_id,
-  <span class="code-string">'What about refresh tokens?'</span>
+<span class="code-comment">// Multi-turn conversations</span>
+<span class="code-keyword">const</span> r1 = <span class="code-keyword">await</span> db.chat.<span class="code-function">send</span>({
+  collection: <span class="code-string">'docs'</span>, message: <span class="code-string">'What is auth?'</span>
+});
+<span class="code-keyword">const</span> r2 = <span class="code-keyword">await</span> db.chat.<span class="code-function">continue</span>(
+  r1.conversation_id, <span class="code-string">'How about refresh tokens?'</span>
 );</code></pre>
                         </div>
-                        <div class="code-panel" id="knowledge-panel">
-                            <pre><code><span class="code-comment">// Extract knowledge from a document</span>
-<span class="code-keyword">await</span> client.knowledge.<span class="code-function">extractFromDocument</span>(<span class="code-string">'doc-id'</span>);
-
-<span class="code-comment">// List entities by type</span>
-<span class="code-keyword">const</span> { data } = <span class="code-keyword">await</span> client.knowledge.entities.<span class="code-function">list</span>({
-  entity_type: <span class="code-string">'PERSON'</span>,
-  limit: <span class="code-number">50</span>
+                        <div class="code-panel" id="tables-panel">
+                            <pre><code><span class="code-comment">// Create a table with typed columns</span>
+<span class="code-keyword">await</span> db.tables.<span class="code-function">create</span>({
+  name: <span class="code-string">'articles'</span>,
+  columns: [
+    { name: <span class="code-string">'title'</span>, type: <span class="code-string">'TEXT'</span> },
+    { name: <span class="code-string">'views'</span>, type: <span class="code-string">'INTEGER'</span>, default: <span class="code-number">0</span> }
+  ]
 });
 
-<span class="code-comment">// Get entity graph (relationships)</span>
-<span class="code-keyword">const</span> graph = <span class="code-keyword">await</span> client.knowledge.<span class="code-function">getGraph</span>(
-  <span class="code-string">'entity-123'</span>,
-  { depth: <span class="code-number">2</span> }
-);</code></pre>
+<span class="code-comment">// CRUD with filtering &amp; pagination</span>
+<span class="code-keyword">const</span> rows = db.tables.<span class="code-function">rows</span>(<span class="code-string">'articles'</span>);
+<span class="code-keyword">await</span> rows.<span class="code-function">insert</span>({ title: <span class="code-string">'Hello'</span>, views: <span class="code-number">0</span> });
+<span class="code-keyword">const</span> page = <span class="code-keyword">await</span> rows.<span class="code-function">query</span>({
+  filter: { views: { gt: <span class="code-number">100</span> } },
+  sort: <span class="code-string">'views:desc'</span>, limit: <span class="code-number">20</span>
+});
+
+<span class="code-comment">// Or run raw SQL</span>
+<span class="code-keyword">const</span> data = <span class="code-keyword">await</span> db.sql.<span class="code-function">execute</span>(<span class="code-string">'SELECT * FROM articles'</span>);</code></pre>
                         </div>
                         <div class="code-panel" id="auth-panel">
                             <pre><code><span class="code-comment">// Register app users</span>
-<span class="code-keyword">const</span> auth = <span class="code-keyword">await</span> client.appAuth.<span class="code-function">register</span>({
+<span class="code-keyword">const</span> auth = <span class="code-keyword">await</span> db.appAuth.<span class="code-function">register</span>({
   email: <span class="code-string">'user@example.com'</span>,
   password: <span class="code-string">'securePassword123'</span>,
   name: <span class="code-string">'John Doe'</span>
 });
 
-<span class="code-comment">// Login and get tokens</span>
-<span class="code-keyword">const</span> tokens = <span class="code-keyword">await</span> client.appAuth.<span class="code-function">login</span>({
+<span class="code-comment">// Login &amp; get JWT tokens</span>
+<span class="code-keyword">const</span> tokens = <span class="code-keyword">await</span> db.appAuth.<span class="code-function">login</span>({
   email: <span class="code-string">'user@example.com'</span>,
   password: <span class="code-string">'securePassword123'</span>
 });
 
-console.<span class="code-function">log</span>(tokens.access_token);
-console.<span class="code-function">log</span>(tokens.refresh_token);</code></pre>
+<span class="code-comment">// Set user context for RLS</span>
+db.<span class="code-function">asUser</span>(tokens.access_token);
+<span class="code-comment">// Queries now respect row-level security</span>
+<span class="code-keyword">const</span> myArticles = <span class="code-keyword">await</span> db.tables
+  .<span class="code-function">rows</span>(<span class="code-string">'articles'</span>).<span class="code-function">query</span>();</code></pre>
+                        </div>
+                        <div class="code-panel" id="realtime-panel">
+                            <pre><code><span class="code-comment">// Connect to real-time events</span>
+db.realtime.<span class="code-function">connect</span>({
+  <span class="code-function">onOpen</span>: () =&gt; {
+    db.realtime.<span class="code-function">subscribe</span>([
+      <span class="code-string">'document:*'</span>,
+      <span class="code-string">'collection:knowledge-base'</span>,
+      <span class="code-string">'table:articles'</span>
+    ]);
+  },
+  <span class="code-function">onEvent</span>: (event) =&gt; {
+    console.<span class="code-function">log</span>(event.channel, event.event);
+    console.<span class="code-function">log</span>(event.data);
+  },
+  <span class="code-function">onError</span>: (msg) =&gt; console.<span class="code-function">error</span>(msg)
+});</code></pre>
                         </div>
                     </div>
                 </div>
@@ -509,13 +674,14 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
     </section>
 
     <!-- Architecture Section -->
-    <section class="architecture">
+    <section class="architecture" id="architecture">
         <div class="container">
             <div class="section-header">
                 <span class="section-badge">Architecture</span>
-                <h2 class="section-title">Built for scale and reliability</h2>
+                <h2 class="section-title">Built for performance, scale, and reliability</h2>
                 <p class="section-description">
-                    Enterprise-grade infrastructure that grows with your application.
+                    Written in Rust with Axum and PostgreSQL. Designed to run anywhere &mdash;
+                    from a single VPS to a distributed cluster.
                 </p>
             </div>
             <div class="arch-grid">
@@ -525,26 +691,26 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
                             <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
                     </div>
-                    <h3>High Performance</h3>
-                    <p>Written in Rust for maximum performance. Sub-50ms response times.</p>
+                    <h3>Rust + Axum</h3>
+                    <p>Memory-safe, zero-cost abstractions, and async I/O for sub-50ms response times at scale.</p>
                 </div>
                 <div class="arch-card" data-aos="zoom-in" data-aos-delay="100">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                        </svg>
+                    </div>
+                    <h3>PostgreSQL + pgvector</h3>
+                    <p>Your vectors, documents, tables, and auth all live in one battle-tested database.</p>
+                </div>
+                <div class="arch-card" data-aos="zoom-in" data-aos-delay="200">
                     <div class="arch-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                             <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                         </svg>
                     </div>
                     <h3>Secure by Default</h3>
-                    <p>JWT authentication, API keys, row-level security, and encryption at rest.</p>
-                </div>
-                <div class="arch-card" data-aos="zoom-in" data-aos-delay="200">
-                    <div class="arch-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                    </div>
-                    <h3>Auto-scaling</h3>
-                    <p>Horizontal scaling for vector search and document processing.</p>
+                    <p>JWT auth, API key scoping, row-level security, Argon2 hashing, and project isolation.</p>
                 </div>
                 <div class="arch-card" data-aos="zoom-in" data-aos-delay="300">
                     <div class="arch-icon">
@@ -552,8 +718,78 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
                             <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                         </svg>
                     </div>
-                    <h3>Multi-tenant</h3>
-                    <p>Isolated projects with separate data, API keys, and configurations.</p>
+                    <h3>Multi-Tenant</h3>
+                    <p>Isolated projects with separate data, API keys, providers, and configurations.</p>
+                </div>
+                <div class="arch-card" data-aos="zoom-in" data-aos-delay="400">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Self-Hosted &amp; Open Source</h3>
+                    <p>Deploy on your own infrastructure. No vendor lock-in. Full control over your data.</p>
+                </div>
+                <div class="arch-card" data-aos="zoom-in" data-aos-delay="500">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <h3>Pluggable Providers</h3>
+                    <p>Swap LLM, embedding, and reranking providers without changing application code.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Use Cases</span>
+                <h2 class="section-title">What you can build with Devabase</h2>
+            </div>
+            <div class="arch-grid">
+                <div class="arch-card" data-aos="fade-up">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                    </div>
+                    <h3>AI Customer Support</h3>
+                    <p>Build chatbots that answer questions from your documentation with cited sources and conversation history.</p>
+                </div>
+                <div class="arch-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    <h3>Enterprise Search</h3>
+                    <p>Semantic search across millions of documents with hybrid retrieval, filtering, and role-based access.</p>
+                </div>
+                <div class="arch-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="6" cy="6" r="3"/>
+                            <circle cx="18" cy="6" r="3"/>
+                            <circle cx="12" cy="18" r="3"/>
+                            <path d="M8.5 7.5L10.5 16M15.5 7.5L13.5 16M7.5 5.5h9"/>
+                        </svg>
+                    </div>
+                    <h3>Knowledge Management</h3>
+                    <p>Extract entities, map relationships, and build interactive knowledge graphs from unstructured data.</p>
+                </div>
+                <div class="arch-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="arch-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Content Platforms</h3>
+                    <p>Full-stack backend with tables, auth, file storage, and AI-powered content recommendations.</p>
                 </div>
             </div>
         </div>
@@ -563,9 +799,9 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
     <section class="cta" id="get-started">
         <div class="container">
             <div class="cta-content">
-                <h2 class="cta-title">Ready to build your AI app?</h2>
+                <h2 class="cta-title">Ready to build your AI application?</h2>
                 <p class="cta-description">
-                    Get started for free. No credit card required.
+                    Open source and free to self-host. Get started in under 5 minutes.
                 </p>
                 <div class="cta-buttons">
                     <a href="https://github.com/kvsovanreach/devabase" class="btn btn-white btn-lg" target="_blank">
@@ -574,7 +810,7 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
                         </svg>
                         <span>View on GitHub</span>
                     </a>
-                    <a href="docs" class="btn btn-outline-white btn-lg">
+                    <a href="docs.html" class="btn btn-outline-white btn-lg">
                         <span>Read Documentation</span>
                     </a>
                 </div>
@@ -597,10 +833,10 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
             <div class="footer-grid">
                 <div class="footer-brand">
                     <a href="./" class="nav-logo">
-                        <span class="logo-icon">⚡</span>
+                        <span class="logo-icon">&#x26A1;</span>
                         <span class="logo-text">Devabase</span>
                     </a>
-                    <p>The complete backend for RAG and LLM applications.</p>
+                    <p>The complete open-source backend for RAG and LLM applications.</p>
                     <div class="footer-social">
                         <a href="https://github.com/kvsovanreach/devabase" target="_blank" aria-label="GitHub">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -615,15 +851,16 @@ console.<span class="code-function">log</span>(tokens.refresh_token);</code></pr
                         <li><a href="#features">Features</a></li>
                         <li><a href="#how-it-works">How It Works</a></li>
                         <li><a href="#sdk">SDK</a></li>
+                        <li><a href="#architecture">Architecture</a></li>
                         <li><a href="#get-started">Get Started</a></li>
                     </ul>
                 </div>
                 <div class="footer-links">
                     <h4>Resources</h4>
                     <ul>
-                        <li><a href="docs">Documentation</a></li>
-                        <li><a href="docs#api-reference">API Reference</a></li>
-                        <li><a href="docs#examples">Examples</a></li>
+                        <li><a href="docs.html">Documentation</a></li>
+                        <li><a href="docs.html#api-reference">API Reference</a></li>
+                        <li><a href="docs.html#examples">Examples</a></li>
                         <li><a href="https://github.com/kvsovanreach/devabase" target="_blank">GitHub</a></li>
                     </ul>
                 </div>

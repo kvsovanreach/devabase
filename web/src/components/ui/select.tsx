@@ -60,7 +60,7 @@ function Select({
             id={inputId}
             className={cn(
               'w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-surface-secondary border rounded-xl text-[15px] text-left',
-              'transition-all duration-150',
+              'transition-all duration-150 cursor-pointer',
               'hover:bg-surface-hover hover:border-border',
               'focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/20',
               'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface-secondary',

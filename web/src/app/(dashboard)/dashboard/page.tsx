@@ -93,7 +93,7 @@ export default function DashboardPage() {
     },
     {
       name: 'API Keys',
-      value: apiKeys?.length || 0,
+      value: apiKeys?.data?.length || 0,
       icon: Key,
       href: '/keys',
       color: 'text-cyan-500',
@@ -126,7 +126,7 @@ export default function DashboardPage() {
       description: 'Secure access to your data from external applications',
       href: '/keys',
       icon: Key,
-      completed: (apiKeys?.length || 0) > 0,
+      completed: (apiKeys?.data?.length || 0) > 0,
     },
     {
       title: 'Set up Webhooks',

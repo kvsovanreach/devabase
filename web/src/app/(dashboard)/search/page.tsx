@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useCollections } from '@/hooks/use-collections';
 import { useSearch, useMultiCollectionSearch, useHybridSearch, MultiCollectionSearchResult } from '@/hooks/use-search';
+import { useProjectStore } from '@/stores/project-store';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -34,8 +35,117 @@ type SearchType = 'vector' | 'hybrid';
 
 type UnifiedResult = (SearchResult & { collection?: string; collection_name?: string; vector_score?: number; keyword_score?: number }) | MultiCollectionSearchResult | HybridSearchResult;
 
+function MultiCollectionDropdown({
+  collections,
+  selected,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+}: {
+  collections: { name: string; vector_count: number }[];
+  selected: string[];
+  onToggle: (name: string) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          'flex items-center gap-2 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors min-w-[180px]',
+          selected.length > 0
+            ? 'bg-primary/10 border-primary text-primary'
+            : 'bg-surface border-border-light text-text-secondary hover:border-primary'
+        )}
+      >
+        <Layers className="w-4 h-4 flex-shrink-0" />
+        <span className="flex-1 text-left truncate">
+          {selected.length === 0
+            ? 'Select collections'
+            : selected.length === collections.length
+              ? 'All collections'
+              : `${selected.length} collection${selected.length > 1 ? 's' : ''}`}
+        </span>
+        <ChevronDown className={cn('w-3.5 h-3.5 flex-shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-64 bg-surface border border-border-light rounded-xl shadow-lg z-50 overflow-hidden">
+          {/* Select All / Clear All */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border-light">
+            <span className="text-[12px] text-text-tertiary">{selected.length} of {collections.length} selected</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onSelectAll}
+                className="text-[12px] text-primary hover:underline"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={onClearAll}
+                className="text-[12px] text-text-tertiary hover:text-foreground"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Collection list */}
+          <div className="max-h-[240px] overflow-y-auto py-1">
+            {collections.map((c) => {
+              const isSelected = selected.includes(c.name);
+              return (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => onToggle(c.name)}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-surface-hover transition-colors"
+                >
+                  <div className={cn(
+                    'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                    isSelected
+                      ? 'bg-primary border-primary'
+                      : 'border-border-light'
+                  )}>
+                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={cn(
+                    'flex-1 text-[13px] truncate',
+                    isSelected ? 'text-foreground font-medium' : 'text-text-secondary'
+                  )}>
+                    {c.name}
+                  </span>
+                  <span className="text-[11px] text-text-tertiary font-mono">{c.vector_count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SearchPage() {
   const { data: collections } = useCollections();
+  const { currentProject } = useProjectStore();
   const searchMutation = useSearch();
   const multiSearchMutation = useMultiCollectionSearch();
   const hybridSearchMutation = useHybridSearch();
@@ -67,6 +177,23 @@ export default function SearchPage() {
   const [vectorWeight, setVectorWeight] = useState(0.7);
   const [keywordWeight, setKeywordWeight] = useState(0.3);
   const [rerankEnabled, setRerankEnabled] = useState(false);
+  const [rerankAlert, setRerankAlert] = useState(false);
+
+  // Check if a reranking provider is configured
+  const hasRerankProvider = useMemo(() => {
+    const settings = currentProject?.settings;
+    if (!settings) return false;
+    const providers = settings.reranking_providers;
+    if (!Array.isArray(providers) || providers.length === 0) return false;
+    return providers.some((p: Record<string, unknown>) => p.is_active);
+  }, [currentProject?.settings]);
+
+  // Auto-disable rerank if provider is removed
+  useEffect(() => {
+    if (rerankEnabled && !hasRerankProvider) {
+      setRerankEnabled(false);
+    }
+  }, [hasRerankProvider, rerankEnabled]);
 
   const [showFilters, setShowFilters] = useState(false);
   const [showHybridPanel, setShowHybridPanel] = useState(false);
@@ -129,6 +256,7 @@ export default function SearchPage() {
           query: query.trim(),
           top_k: parseInt(limit),
           filter: filter || undefined,
+          rerank: rerankEnabled || undefined,
         });
         setResults(data.results);
         setCollectionsSearched(data.collections_searched);
@@ -196,7 +324,7 @@ export default function SearchPage() {
                   type="button"
                   onClick={() => setSearchMode('single')}
                   className={cn(
-                    'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors',
+                    'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors cursor-pointer',
                     searchMode === 'single'
                       ? 'bg-primary text-white'
                       : 'bg-surface text-text-secondary hover:bg-surface-hover'
@@ -209,7 +337,7 @@ export default function SearchPage() {
                   type="button"
                   onClick={() => setSearchMode('multi')}
                   className={cn(
-                    'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors',
+                    'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors cursor-pointer',
                     searchMode === 'multi'
                       ? 'bg-primary text-white'
                       : 'bg-surface text-text-secondary hover:bg-surface-hover'
@@ -230,27 +358,13 @@ export default function SearchPage() {
                   className="w-48 !h-9 !py-0 !rounded-lg text-[13px]"
                 />
               ) : (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {(collections || []).map((c) => {
-                    const selected = selectedCollections.includes(c.name);
-                    return (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => toggleCollection(c.name)}
-                        className={cn(
-                          'flex items-center gap-1 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors',
-                          selected
-                            ? 'bg-primary/10 border-primary text-primary'
-                            : 'bg-surface border-border-light text-text-secondary hover:border-primary'
-                        )}
-                      >
-                        {selected && <Check className="w-3.5 h-3.5" />}
-                        {c.name}
-                      </button>
-                    );
-                  })}
-                </div>
+                <MultiCollectionDropdown
+                  collections={collections || []}
+                  selected={selectedCollections}
+                  onToggle={toggleCollection}
+                  onSelectAll={() => setSelectedCollections((collections || []).map(c => c.name))}
+                  onClearAll={() => setSelectedCollections([])}
+                />
               )}
 
               {/* Divider */}
@@ -263,7 +377,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setSearchType('vector')}
                     className={cn(
-                      'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors',
+                      'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors cursor-pointer',
                       searchType === 'vector'
                         ? 'bg-primary text-white'
                         : 'bg-surface text-text-secondary hover:bg-surface-hover'
@@ -276,7 +390,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setSearchType('hybrid')}
                     className={cn(
-                      'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors',
+                      'flex items-center gap-1.5 h-full px-3 text-[13px] font-medium transition-colors cursor-pointer',
                       searchType === 'hybrid'
                         ? 'bg-primary text-white'
                         : 'bg-surface text-text-secondary hover:bg-surface-hover'
@@ -288,21 +402,38 @@ export default function SearchPage() {
                 </div>
               )}
 
-              {/* Rerank Toggle (only for vector search) */}
-              {searchMode === 'single' && searchType === 'vector' && (
-                <button
-                  type="button"
-                  onClick={() => setRerankEnabled(!rerankEnabled)}
-                  className={cn(
-                    'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors',
-                    rerankEnabled
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : 'border-border-light text-text-secondary hover:border-primary'
+              {/* Rerank Toggle (for vector search or multi-collection) */}
+              {(searchMode === 'multi' || (searchMode === 'single' && searchType === 'vector')) && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!hasRerankProvider) {
+                        setRerankAlert(true);
+                        setTimeout(() => setRerankAlert(false), 3000);
+                        return;
+                      }
+                      setRerankEnabled(!rerankEnabled);
+                    }}
+                    className={cn(
+                      'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors cursor-pointer',
+                      rerankEnabled
+                        ? 'bg-primary/10 border-primary text-primary'
+                        : 'border-border-light text-text-secondary hover:border-primary'
+                    )}
+                  >
+                    <ArrowUpDown className="w-4 h-4" />
+                    Rerank
+                  </button>
+                  {rerankAlert && (
+                    <div className="absolute top-full left-0 mt-1 w-64 p-3 bg-surface border border-error/30 rounded-xl shadow-lg z-50">
+                      <p className="text-[12px] text-error font-medium">No reranking provider configured</p>
+                      <p className="text-[11px] text-text-tertiary mt-1">
+                        Go to Settings → Providers to add a reranking provider (Cohere, Jina, etc.)
+                      </p>
+                    </div>
                   )}
-                >
-                  <ArrowUpDown className="w-4 h-4" />
-                  Rerank
-                </button>
+                </div>
               )}
 
               {/* Hybrid Weights */}
@@ -312,7 +443,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setShowHybridPanel(!showHybridPanel)}
                     className={cn(
-                      'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors',
+                      'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors cursor-pointer',
                       showHybridPanel
                         ? 'bg-primary/10 border-primary text-primary'
                         : 'border-border-light text-text-secondary hover:border-primary'
@@ -389,7 +520,7 @@ export default function SearchPage() {
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
                   className={cn(
-                    'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors',
+                    'flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13px] font-medium border transition-colors cursor-pointer',
                     activeFilterCount > 0 || showFilters
                       ? 'bg-primary/10 border-primary text-primary'
                       : 'border-border-light text-text-secondary hover:border-primary'

@@ -50,12 +50,19 @@ export type {
   // Pagination
   PaginationMeta,
   PaginatedResponse,
+  PaginatedRowsResponse,
   QueryOptions,
 
   // Search
   SearchResult,
+  VectorMatch,
+  HybridSearchResult,
   SearchOptions,
   HybridSearchOptions,
+  MultiSearchOptions,
+  RetrievalStrategy,
+  StrategyOptions,
+  FilterFieldSchema,
 
   // Chat / RAG
   ChatMessage,
@@ -85,7 +92,11 @@ export type {
   // Webhooks
   Webhook,
   WebhookEvent,
+  WebhookStatus,
+  WebhookLog,
   CreateWebhookInput,
+  UpdateWebhookInput,
+  TestWebhookResponse,
 } from './types';
 
 // Errors
@@ -112,15 +123,19 @@ export { CollectionsResource } from './resources/collections';
 export { DocumentsResource } from './resources/documents';
 export { TablesResource, TableRowsClient } from './resources/tables';
 export { SearchResource } from './resources/search';
+export { VectorsResource } from './resources/vectors';
 export { ChatResource } from './resources/chat';
 export { KnowledgeResource } from './resources/knowledge';
 export { ChunksResource } from './resources/chunks';
 export { EvaluationResource } from './resources/evaluation';
+export { BenchmarksResource } from './resources/benchmarks';
 export { PromptsResource } from './resources/prompts';
 export { WebhooksResource } from './resources/webhooks';
 export { SqlResource } from './resources/sql';
 export { StorageResource } from './resources/storage';
 export { ProvidersResource } from './resources/providers';
+export { AdminResource } from './resources/admin';
+export { RealtimeResource } from './resources/realtime';
 
 // Provider types
 export type {
@@ -136,3 +151,33 @@ export type {
   TestProviderResponse,
   ProjectSettings,
 } from './resources/providers';
+
+// Vector types
+export type {
+  VectorUpsert,
+} from './resources/vectors';
+
+// Benchmark types
+export type {
+  BenchmarkConfig,
+  DatasetSource,
+  RunBenchmarkInput,
+  BenchmarkRunResponse,
+  BenchmarkListItem,
+  BeirDatasetInfo,
+} from './resources/benchmarks';
+
+// Admin types
+export type {
+  CacheStats,
+  UsageSummary,
+  UsageByEndpoint,
+  UsageResponse,
+} from './resources/admin';
+
+// Realtime types
+export type {
+  RealtimeEvent,
+  RealtimeMessage,
+  RealtimeCallbacks,
+} from './resources/realtime';

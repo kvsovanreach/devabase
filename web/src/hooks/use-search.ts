@@ -15,6 +15,7 @@ export interface MultiCollectionSearchRequest {
   query: string;
   top_k?: number;
   filter?: Record<string, unknown>;
+  rerank?: boolean;
 }
 
 export interface MultiCollectionSearchResult {
@@ -23,6 +24,7 @@ export interface MultiCollectionSearchResult {
   collection_name: string;
   content: string;
   score: number;
+  rerank_score?: number;
   metadata: Record<string, unknown> | null;
 }
 

@@ -281,7 +281,7 @@ pub async fn hybrid_search(
                 v.chunk_id,
                 c.document_id,
                 c.content,
-                1 - (v.embedding <=> $1::vector) as vector_score,
+                (1 - (v.embedding <=> $1::vector))::float8 as vector_score,
                 ROW_NUMBER() OVER (ORDER BY v.embedding <=> $1::vector) as vector_rank,
                 COALESCE(
                     jsonb_set(
@@ -304,10 +304,10 @@ pub async fn hybrid_search(
                 v.chunk_id,
                 c.document_id,
                 c.content,
-                CASE
+                (CASE
                     WHEN $4 = '' THEN 0
                     ELSE ts_rank_cd(to_tsvector('english', c.content), plainto_tsquery('english', $4))
-                END as keyword_score,
+                END)::float8 as keyword_score,
                 ROW_NUMBER() OVER (
                     ORDER BY CASE
                         WHEN $4 = '' THEN 0
@@ -338,8 +338,8 @@ pub async fn hybrid_search(
                 COALESCE(vr.id, kr.id) as id,
                 COALESCE(vr.document_id, kr.document_id) as document_id,
                 COALESCE(vr.content, kr.content) as content,
-                COALESCE(vr.vector_score, 0) as vector_score,
-                COALESCE(kr.keyword_score, 0) as keyword_score,
+                COALESCE(vr.vector_score, 0)::float8 as vector_score,
+                COALESCE(kr.keyword_score, 0)::float8 as keyword_score,
                 COALESCE(vr.metadata, kr.metadata) as metadata,
                 -- RRF scoring: score = weight * (1 / (k + rank))
                 (

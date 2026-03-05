@@ -1,6 +1,6 @@
 {
   "name": "devabase-sdk",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Official Node.js SDK for Devabase - Backend for RAG/LLM Applications",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

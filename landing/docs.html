@@ -1278,7 +1278,7 @@
                     <span>Devabase</span>
                 </a>
                 <nav class="header-nav">
-                    <a href="docs" class="active">Docs</a>
+                    <a href="docs.html" class="active">Docs</a>
                     <a href="#api-reference">API</a>
                     <a href="#examples">Examples</a>
                 </nav>
@@ -1310,13 +1310,22 @@
                 </ul>
             </div>
             <div class="sidebar-section">
-                <h4 class="sidebar-title">Core Concepts</h4>
+                <h4 class="sidebar-title">Core Features</h4>
                 <ul class="sidebar-links">
                     <li><a href="#providers">Providers</a></li>
+                    <li><a href="#projects">Projects</a></li>
                     <li><a href="#collections">Collections</a></li>
                     <li><a href="#documents">Documents</a></li>
+                    <li><a href="#chunks">Chunks</a></li>
+                    <li><a href="#vectors">Vectors</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Search & AI</h4>
+                <ul class="sidebar-links">
                     <li><a href="#search">Search</a></li>
                     <li><a href="#rag-chat">RAG Chat</a></li>
+                    <li><a href="#knowledge">Knowledge Graphs</a></li>
                 </ul>
             </div>
             <div class="sidebar-section">
@@ -1325,7 +1334,7 @@
                     <li><a href="#tables">Tables</a></li>
                     <li><a href="#row-operations">Row Operations</a></li>
                     <li><a href="#filtering">Filtering</a></li>
-                    <li><a href="#pagination">Pagination</a></li>
+                    <li><a href="#sql">SQL Queries</a></li>
                 </ul>
             </div>
             <div class="sidebar-section">
@@ -1337,6 +1346,23 @@
                     <li><a href="#app-auth-rls">User Context (RLS)</a></li>
                     <li><a href="#app-auth-session">Session Management</a></li>
                     <li><a href="#user-management">Admin Operations</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Platform</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#storage">File Storage</a></li>
+                    <li><a href="#webhooks">Webhooks</a></li>
+                    <li><a href="#prompts">Prompt Templates</a></li>
+                    <li><a href="#realtime">Real-Time Events</a></li>
+                    <li><a href="#admin">Admin & Analytics</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-section">
+                <h4 class="sidebar-title">Evaluation</h4>
+                <ul class="sidebar-links">
+                    <li><a href="#evaluation">RAG Evaluation</a></li>
+                    <li><a href="#benchmarks">Benchmarks</a></li>
                 </ul>
             </div>
             <div class="sidebar-section">
@@ -1358,12 +1384,12 @@
                     <div class="docs-hero">
                         <div class="version-badge">
                             <span>SDK Version</span>
-                            <strong>0.5.4</strong>
+                            <strong>0.5.5</strong>
                         </div>
                         <h1>Devabase Documentation</h1>
                         <p class="lead">
-                            The complete backend SDK for building AI-powered applications.
-                            Vector storage, document processing, semantic search, RAG chat, and more.
+                            The complete TypeScript SDK for building AI-powered applications with Devabase.
+                            Vector storage, document processing, hybrid search, RAG chat, knowledge graphs, tables, app authentication, file storage, webhooks, real-time events, and more &mdash; all from a single SDK.
                         </p>
                     </div>
 
@@ -1655,6 +1681,92 @@ console.<span class="token-function">log</span>(result.success, result.message);
                             <tr><td>Rerank</td><td><code>cohere</code>, <code>jina</code>, <code>custom</code></td></tr>
                         </tbody>
                     </table>
+                    <h3>Rerank Provider</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Add a rerank provider for search result refinement</span>
+<span class="token-keyword">await</span> client.providers.rerank.<span class="token-function">upsert</span>({
+  id: <span class="token-string">'my-reranker'</span>,
+  type: <span class="token-string">'cohere'</span>,         <span class="token-comment">// 'cohere' | 'jina' | 'custom'</span>
+  api_key: <span class="token-string">'co-...'</span>,
+  model: <span class="token-string">'rerank-v3.5'</span>
+});
+
+<span class="token-comment">// Get/update project settings (default providers)</span>
+<span class="token-keyword">const</span> settings = <span class="token-keyword">await</span> client.providers.<span class="token-function">getSettings</span>();
+<span class="token-keyword">await</span> client.providers.<span class="token-function">updateSettings</span>({
+  default_llm_provider: <span class="token-string">'my-openai'</span>,
+  default_embedding_provider: <span class="token-string">'my-embeddings'</span>,
+  default_rerank_provider: <span class="token-string">'my-reranker'</span>
+});</code></pre>
+                    </div>
+                </section>
+
+                <!-- Projects -->
+                <section id="projects">
+                    <h2><a href="#projects" class="anchor">#</a>Projects</h2>
+                    <p>Projects are the top-level isolation boundary. All resources (collections, tables, documents) belong to a project. Use API keys or member invitations to control access.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create a project</span>
+<span class="token-keyword">const</span> project = <span class="token-keyword">await</span> client.projects.<span class="token-function">create</span>({
+  name: <span class="token-string">'My App'</span>,
+  description: <span class="token-string">'Production backend'</span>
+});
+
+<span class="token-comment">// List your projects</span>
+<span class="token-keyword">const</span> projects = <span class="token-keyword">await</span> client.projects.<span class="token-function">list</span>();
+
+<span class="token-comment">// Set active project for all subsequent calls</span>
+client.<span class="token-function">useProject</span>(project.id);</code></pre>
+                    </div>
+
+                    <h3>API Keys</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create an API key for the project</span>
+<span class="token-keyword">const</span> key = <span class="token-keyword">await</span> client.projects.apiKeys.<span class="token-function">create</span>(projectId, {
+  name: <span class="token-string">'Production Key'</span>,
+  scopes: [<span class="token-string">'read'</span>, <span class="token-string">'write'</span>]
+});
+console.<span class="token-function">log</span>(key.key); <span class="token-comment">// dvb_... (only shown once)</span>
+
+<span class="token-comment">// List, toggle, revoke keys</span>
+<span class="token-keyword">const</span> keys = <span class="token-keyword">await</span> client.projects.apiKeys.<span class="token-function">list</span>(projectId);
+<span class="token-keyword">await</span> client.projects.apiKeys.<span class="token-function">toggle</span>(projectId, keyId);
+<span class="token-keyword">await</span> client.projects.apiKeys.<span class="token-function">revoke</span>(projectId, keyId);</code></pre>
+                    </div>
+
+                    <h3>Team Members</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Invite a team member</span>
+<span class="token-keyword">await</span> client.projects.members.<span class="token-function">invite</span>(projectId, {
+  email: <span class="token-string">'dev@team.com'</span>,
+  role: <span class="token-string">'editor'</span>  <span class="token-comment">// 'admin' | 'editor' | 'viewer'</span>
+});
+
+<span class="token-comment">// List members and update roles</span>
+<span class="token-keyword">const</span> members = <span class="token-keyword">await</span> client.projects.members.<span class="token-function">list</span>(projectId);
+<span class="token-keyword">await</span> client.projects.members.<span class="token-function">updateRole</span>(projectId, userId, <span class="token-string">'admin'</span>);
+
+<span class="token-comment">// Manage invitations</span>
+<span class="token-keyword">const</span> invitations = <span class="token-keyword">await</span> client.projects.invitations.<span class="token-function">list</span>(projectId);
+<span class="token-keyword">await</span> client.projects.invitations.<span class="token-function">accept</span>(invitationId);</code></pre>
+                    </div>
                 </section>
 
                 <!-- Collections -->
@@ -1850,12 +1962,96 @@ console.<span class="token-function">log</span>(<span class="token-string">'Proc
                     </div>
                 </section>
 
+                <!-- Chunks -->
+                <section id="chunks">
+                    <h2><a href="#chunks" class="anchor">#</a>Chunks</h2>
+                    <p>Chunks are the atomic units of text that get embedded and indexed. Documents are automatically split into chunks, but you can also manage them directly for fine-grained control.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Get a specific chunk</span>
+<span class="token-keyword">const</span> chunk = <span class="token-keyword">await</span> client.chunks.<span class="token-function">get</span>(<span class="token-string">'chunk-id'</span>);
+<span class="token-comment">// { id, document_id, content, chunk_index, token_count, metadata }</span>
+
+<span class="token-comment">// Update chunk content or metadata</span>
+<span class="token-keyword">await</span> client.chunks.<span class="token-function">update</span>(<span class="token-string">'chunk-id'</span>, {
+  content: <span class="token-string">'Updated text content'</span>,
+  metadata: { reviewed: <span class="token-boolean">true</span> }
+});
+
+<span class="token-comment">// Delete a chunk</span>
+<span class="token-keyword">await</span> client.chunks.<span class="token-function">delete</span>(<span class="token-string">'chunk-id'</span>);
+
+<span class="token-comment">// Split a chunk into two at a character position</span>
+<span class="token-keyword">const</span> { chunks } = <span class="token-keyword">await</span> client.chunks.<span class="token-function">split</span>(<span class="token-string">'chunk-id'</span>, <span class="token-number">500</span>);
+
+<span class="token-comment">// Merge multiple chunks into one</span>
+<span class="token-keyword">const</span> { chunk: merged, merged_count } = <span class="token-keyword">await</span> client.chunks.<span class="token-function">merge</span>(
+  [<span class="token-string">'chunk-1'</span>, <span class="token-string">'chunk-2'</span>, <span class="token-string">'chunk-3'</span>],
+  { separator: <span class="token-string">'\n\n'</span> }
+);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Vectors -->
+                <section id="vectors">
+                    <h2><a href="#vectors" class="anchor">#</a>Vectors</h2>
+                    <p>Low-level vector operations for when you need direct control over embeddings. Use this to upsert pre-computed vectors, search by embedding, or manage individual vectors.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Upsert vectors with metadata</span>
+<span class="token-keyword">await</span> client.vectors.<span class="token-function">upsert</span>(<span class="token-string">'my-collection'</span>, [
+  {
+    id: <span class="token-string">'vec-1'</span>,              <span class="token-comment">// Optional: auto-generated if omitted</span>
+    embedding: [<span class="token-number">0.1</span>, <span class="token-number">0.2</span>, ...],  <span class="token-comment">// Float array matching collection dimensions</span>
+    metadata: { source: <span class="token-string">'api'</span> },
+    chunk_id: <span class="token-string">'chunk-id'</span>      <span class="token-comment">// Optional: link to a chunk</span>
+  }
+]);
+
+<span class="token-comment">// Search by raw embedding vector</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.vectors.<span class="token-function">search</span>(<span class="token-string">'my-collection'</span>, {
+  embedding: [<span class="token-number">0.1</span>, <span class="token-number">0.2</span>, ...],
+  top_k: <span class="token-number">10</span>,
+  include_metadata: <span class="token-boolean">true</span>,
+  filter: { source: <span class="token-string">'api'</span> }
+});
+
+<span class="token-comment">// Hybrid search (vector + keyword)</span>
+<span class="token-keyword">const</span> hybrid = <span class="token-keyword">await</span> client.vectors.<span class="token-function">hybridSearch</span>(<span class="token-string">'my-collection'</span>, {
+  embedding: [<span class="token-number">0.1</span>, <span class="token-number">0.2</span>, ...],
+  query: <span class="token-string">'search text'</span>,
+  top_k: <span class="token-number">10</span>
+});
+
+<span class="token-comment">// Delete a vector</span>
+<span class="token-keyword">await</span> client.vectors.<span class="token-function">delete</span>(<span class="token-string">'my-collection'</span>, <span class="token-string">'vec-1'</span>);</code></pre>
+                    </div>
+
+                    <div class="callout callout-info">
+                        <svg class="callout-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                        </svg>
+                        <div class="callout-content">
+                            <div class="callout-title">When to use Vectors vs Search</div>
+                            <p>Use <code>client.vectors</code> when you have pre-computed embeddings. Use <code>client.search</code> for text-based queries where Devabase handles embedding for you.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Search -->
                 <section id="search">
                     <h2><a href="#search" class="anchor">#</a>Search</h2>
-                    <p>Semantic search with multiple retrieval modes: vector search, keyword search, and hybrid.</p>
+                    <p>High-level search across your collections. Devabase automatically embeds your query and searches using vector similarity, keyword matching, or hybrid fusion.</p>
 
-                    <h3>Vector Search</h3>
+                    <h3>Semantic Search</h3>
                     <div class="code-block">
                         <div class="code-block-header">
                             <span class="code-block-title">TypeScript</span>
@@ -1873,7 +2069,7 @@ console.<span class="token-function">log</span>(<span class="token-string">'Proc
                     </div>
 
                     <h3>Hybrid Search</h3>
-                    <p>Combine vector similarity with keyword matching for best results.</p>
+                    <p>Combine vector similarity with BM25 keyword matching using Reciprocal Rank Fusion (RRF).</p>
                     <div class="code-block">
                         <div class="code-block-header">
                             <span class="code-block-title">TypeScript</span>
@@ -1882,22 +2078,23 @@ console.<span class="token-function">log</span>(<span class="token-string">'Proc
                         <pre><code><span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">hybrid</span>({
   collection: <span class="token-string">'my-docs'</span>,
   query: <span class="token-string">'JWT refresh tokens'</span>,
+  top_k: <span class="token-number">10</span>,
   vector_weight: <span class="token-number">0.7</span>,    <span class="token-comment">// 70% vector similarity</span>
   keyword_weight: <span class="token-number">0.3</span>,   <span class="token-comment">// 30% keyword matching</span>
-  rerank: <span class="token-boolean">true</span>
+  filter: { type: <span class="token-string">'guide'</span> }
 });</code></pre>
                     </div>
 
-                    <h3>Keyword Search (BM25)</h3>
+                    <h3>Search by Vector</h3>
                     <div class="code-block">
                         <div class="code-block-header">
                             <span class="code-block-title">TypeScript</span>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
-                        <pre><code><span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">keyword</span>({
-  collection: <span class="token-string">'my-docs'</span>,
-  query: <span class="token-string">'authentication'</span>,
-  top_k: <span class="token-number">10</span>
+                        <pre><code><span class="token-comment">// Search with a pre-computed embedding</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">byVector</span>(<span class="token-string">'my-docs'</span>, [<span class="token-number">0.1</span>, <span class="token-number">0.2</span>, ...], {
+  top_k: <span class="token-number">10</span>,
+  filter: { status: <span class="token-string">'published'</span> }
 });</code></pre>
                     </div>
 
@@ -1907,10 +2104,56 @@ console.<span class="token-function">log</span>(<span class="token-string">'Proc
                             <span class="code-block-title">TypeScript</span>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
-                        <pre><code><span class="token-comment">// Search across ALL collections in the project</span>
-<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">global</span>(<span class="token-string">'authentication'</span>, {
+                        <pre><code><span class="token-comment">// Search across multiple collections at once</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">multi</span>({
+  collections: [<span class="token-string">'docs'</span>, <span class="token-string">'faq'</span>, <span class="token-string">'tutorials'</span>],
+  query: <span class="token-string">'authentication'</span>,
   top_k: <span class="token-number">20</span>,
   rerank: <span class="token-boolean">true</span>
+});</code></pre>
+                    </div>
+
+                    <h3>Advanced Retrieval Strategies</h3>
+                    <p>Devabase includes built-in advanced retrieval strategies for better search quality.</p>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// HyDE: Hypothetical Document Embeddings</span>
+<span class="token-comment">// Generates a hypothetical answer, then searches with its embedding</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">hyde</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'How does authentication work?'</span>,
+  top_k: <span class="token-number">10</span>
+});
+
+<span class="token-comment">// Multi-Query: Generates multiple query variations</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">multiQuery</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'JWT token security'</span>,
+  top_k: <span class="token-number">10</span>
+});
+
+<span class="token-comment">// Self-Query: Extracts filters from natural language</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">selfQuery</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'security articles written after 2024'</span>,
+  top_k: <span class="token-number">10</span>
+});
+
+<span class="token-comment">// Parent-Child: Returns parent chunks for better context</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">parentChild</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'OAuth implementation'</span>,
+  top_k: <span class="token-number">5</span>
+});
+
+<span class="token-comment">// Compressed: Removes irrelevant text from results</span>
+<span class="token-keyword">const</span> results = <span class="token-keyword">await</span> client.search.<span class="token-function">compressed</span>({
+  collection: <span class="token-string">'my-docs'</span>,
+  query: <span class="token-string">'rate limiting configuration'</span>,
+  top_k: <span class="token-number">10</span>
 });</code></pre>
                     </div>
                 </section>
@@ -1989,6 +2232,100 @@ console.<span class="token-function">log</span>(response.tokens_used);</code></p
 
 <span class="token-comment">// Delete a conversation</span>
 <span class="token-keyword">await</span> client.chat.<span class="token-function">deleteConversation</span>(<span class="token-string">'conversation-id'</span>);</code></pre>
+                    </div>
+
+                    <h3>Collection-Scoped Chat</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Chat scoped to a single collection (better error handling)</span>
+<span class="token-keyword">const</span> response = <span class="token-keyword">await</span> client.chat.<span class="token-function">collection</span>(<span class="token-string">'my-docs'</span>, {
+  message: <span class="token-string">'What is authentication?'</span>,
+  include_sources: <span class="token-boolean">true</span>
+});
+
+<span class="token-comment">// Stream from a specific collection</span>
+<span class="token-keyword">await</span> client.chat.<span class="token-function">streamCollection</span>(<span class="token-string">'my-docs'</span>, {
+  message: <span class="token-string">'Explain the architecture'</span>
+}, {
+  <span class="token-function">onContent</span>: (chunk) => process.stdout.<span class="token-function">write</span>(chunk),
+  <span class="token-function">onDone</span>: (id, tokens) => console.<span class="token-function">log</span>(<span class="token-string">'Done'</span>, tokens)
+});</code></pre>
+                    </div>
+                </section>
+
+                <!-- Knowledge Graphs -->
+                <section id="knowledge">
+                    <h2><a href="#knowledge" class="anchor">#</a>Knowledge Graphs</h2>
+                    <p>Extract and query entities and relationships from your documents. Knowledge graphs enable structured understanding of your content beyond simple text search.</p>
+
+                    <h3>Extract Knowledge</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Extract entities and relationships from a document</span>
+<span class="token-keyword">await</span> client.knowledge.<span class="token-function">extractFromDocument</span>(<span class="token-string">'document-id'</span>);
+
+<span class="token-comment">// Get extraction stats</span>
+<span class="token-keyword">const</span> stats = <span class="token-keyword">await</span> client.knowledge.<span class="token-function">getStats</span>();
+<span class="token-comment">// { entity_count, relationship_count, ... }</span></code></pre>
+                    </div>
+
+                    <h3>Entities</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// List entities</span>
+<span class="token-keyword">const</span> entities = <span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">list</span>({
+  type: <span class="token-string">'person'</span>,
+  limit: <span class="token-number">50</span>
+});
+
+<span class="token-comment">// Search entities by name</span>
+<span class="token-keyword">const</span> matches = <span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">search</span>(<span class="token-string">'John Smith'</span>);
+
+<span class="token-comment">// Create entity manually</span>
+<span class="token-keyword">const</span> entity = <span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">create</span>({
+  name: <span class="token-string">'OAuth 2.0'</span>,
+  type: <span class="token-string">'technology'</span>,
+  description: <span class="token-string">'Authorization framework'</span>
+});
+
+<span class="token-comment">// Merge duplicate entities</span>
+<span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">merge</span>(<span class="token-string">'source-id'</span>, <span class="token-string">'target-id'</span>);
+
+<span class="token-comment">// Update or delete</span>
+<span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">update</span>(<span class="token-string">'entity-id'</span>, { description: <span class="token-string">'Updated'</span> });
+<span class="token-keyword">await</span> client.knowledge.entities.<span class="token-function">delete</span>(<span class="token-string">'entity-id'</span>);</code></pre>
+                    </div>
+
+                    <h3>Relationships & Graph Traversal</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create a relationship between entities</span>
+<span class="token-keyword">await</span> client.knowledge.relationships.<span class="token-function">create</span>({
+  source_id: <span class="token-string">'entity-1'</span>,
+  target_id: <span class="token-string">'entity-2'</span>,
+  type: <span class="token-string">'implements'</span>
+});
+
+<span class="token-comment">// List relationships for an entity</span>
+<span class="token-keyword">const</span> rels = <span class="token-keyword">await</span> client.knowledge.relationships.<span class="token-function">list</span>({
+  entity_id: <span class="token-string">'entity-1'</span>
+});
+
+<span class="token-comment">// Get the full entity graph (with depth control)</span>
+<span class="token-keyword">const</span> graph = <span class="token-keyword">await</span> client.knowledge.<span class="token-function">getGraph</span>(<span class="token-string">'entity-id'</span>, { depth: <span class="token-number">2</span> });
+<span class="token-comment">// { entities: [...], relationships: [...] }</span></code></pre>
                     </div>
                 </section>
 
@@ -2184,6 +2521,47 @@ filter: <span class="token-string">'age.gte=18&status.eq=active&name.like=john'<
                     </div>
                 </section>
 
+                <!-- SQL Queries -->
+                <section id="sql">
+                    <h2><a href="#sql" class="anchor">#</a>SQL Queries</h2>
+                    <p>Execute raw SQL queries when you need full database control. Supports parameterized queries for security.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Execute a query with parameters</span>
+<span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.sql.<span class="token-function">execute</span>(
+  <span class="token-string">'SELECT * FROM articles WHERE category = $1 ORDER BY created_at DESC'</span>,
+  [<span class="token-string">'technology'</span>],
+  { limit: <span class="token-number">100</span> }
+);
+
+console.<span class="token-function">log</span>(result.columns);          <span class="token-comment">// ['id', 'title', 'category', ...]</span>
+console.<span class="token-function">log</span>(result.rows);             <span class="token-comment">// Array of row objects</span>
+console.<span class="token-function">log</span>(result.row_count);        <span class="token-comment">// Number of rows returned</span>
+console.<span class="token-function">log</span>(result.execution_time_ms); <span class="token-comment">// Query execution time</span>
+
+<span class="token-comment">// Get query execution history</span>
+<span class="token-keyword">const</span> history = <span class="token-keyword">await</span> client.sql.<span class="token-function">getHistory</span>({ limit: <span class="token-number">50</span> });
+
+<span class="token-comment">// Get database schema (all tables and columns)</span>
+<span class="token-keyword">const</span> schema = <span class="token-keyword">await</span> client.sql.<span class="token-function">getSchema</span>();
+<span class="token-comment">// Array&lt;{ table_name, columns: [{ name, type, nullable }] }&gt;</span></code></pre>
+                    </div>
+
+                    <div class="callout callout-warning">
+                        <svg class="callout-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <div class="callout-content">
+                            <div class="callout-title">Security</div>
+                            <p>Always use parameterized queries (<code>$1</code>, <code>$2</code>) instead of string concatenation to prevent SQL injection.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- App Auth -->
                 <section id="app-auth">
                     <h2><a href="#app-auth" class="anchor">#</a>App Authentication</h2>
@@ -2321,7 +2699,17 @@ console.<span class="token-function">log</span>(<span class="token-string">'User
 <span class="token-keyword">await</span> client.appAuth.<span class="token-function">changePassword</span>({
   current_password: <span class="token-string">'oldPassword'</span>,
   new_password: <span class="token-string">'newPassword123'</span>
-});</code></pre>
+});
+
+<span class="token-comment">// Email verification</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">verifyEmail</span>(verificationToken);
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">resendVerification</span>(<span class="token-string">'user@example.com'</span>);
+
+<span class="token-comment">// Delete user account</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">deleteAccount</span>();
+
+<span class="token-comment">// Logout (revoke tokens)</span>
+<span class="token-keyword">await</span> client.appAuth.<span class="token-function">logout</span>();</code></pre>
                     </div>
 
                     <h3>Complete Example: Next.js API Route</h3>
@@ -2331,7 +2719,7 @@ console.<span class="token-function">log</span>(<span class="token-string">'User
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
                         <pre><code><span class="token-comment">// app/api/articles/route.ts</span>
-<span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'@devabase/sdk'</span>;
+<span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
 
 <span class="token-keyword">const</span> client = <span class="token-function">createClient</span>({
   baseUrl: process.env.DEVABASE_URL!,
@@ -2389,6 +2777,265 @@ console.<span class="token-function">log</span>(<span class="token-string">'User
 
 <span class="token-comment">// Delete user</span>
 <span class="token-keyword">await</span> client.appAuth.users.<span class="token-function">delete</span>(<span class="token-string">'user-id'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- File Storage -->
+                <section id="storage">
+                    <h2><a href="#storage" class="anchor">#</a>File Storage</h2>
+                    <p>Upload and manage files with a simple API. Files are stored with project isolation and accessible via signed URLs.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Upload a file</span>
+<span class="token-keyword">const</span> file = <span class="token-keyword">await</span> client.storage.<span class="token-function">upload</span>({
+  file: buffer,                        <span class="token-comment">// Buffer, Blob, or File</span>
+  path: <span class="token-string">'uploads/profile.jpg'</span>,        <span class="token-comment">// Storage path</span>
+  contentType: <span class="token-string">'image/jpeg'</span>            <span class="token-comment">// Optional MIME type</span>
+});
+<span class="token-comment">// { path, size, content_type, url, created_at }</span>
+
+<span class="token-comment">// Get file content</span>
+<span class="token-keyword">const</span> blob = <span class="token-keyword">await</span> client.storage.<span class="token-function">get</span>(<span class="token-string">'uploads/profile.jpg'</span>);
+
+<span class="token-comment">// Get a public URL</span>
+<span class="token-keyword">const</span> url = client.storage.<span class="token-function">getUrl</span>(<span class="token-string">'uploads/profile.jpg'</span>);
+
+<span class="token-comment">// Delete a file</span>
+<span class="token-keyword">await</span> client.storage.<span class="token-function">delete</span>(<span class="token-string">'uploads/profile.jpg'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Webhooks -->
+                <section id="webhooks">
+                    <h2><a href="#webhooks" class="anchor">#</a>Webhooks</h2>
+                    <p>Subscribe to events and receive HTTP callbacks when things happen in your project. Webhooks include retry logic and delivery logs.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create a webhook</span>
+<span class="token-keyword">const</span> webhook = <span class="token-keyword">await</span> client.webhooks.<span class="token-function">create</span>({
+  url: <span class="token-string">'https://yourapp.com/webhooks/devabase'</span>,
+  events: [<span class="token-string">'document.processed'</span>, <span class="token-string">'row.created'</span>, <span class="token-string">'row.updated'</span>],
+  secret: <span class="token-string">'whsec_your_secret'</span>   <span class="token-comment">// For signature verification</span>
+});
+
+<span class="token-comment">// List webhooks</span>
+<span class="token-keyword">const</span> webhooks = <span class="token-keyword">await</span> client.webhooks.<span class="token-function">list</span>();
+
+<span class="token-comment">// Update a webhook</span>
+<span class="token-keyword">await</span> client.webhooks.<span class="token-function">update</span>(webhook.id, {
+  events: [<span class="token-string">'document.processed'</span>],
+  active: <span class="token-boolean">true</span>
+});
+
+<span class="token-comment">// Test a webhook (sends a test event)</span>
+<span class="token-keyword">const</span> testResult = <span class="token-keyword">await</span> client.webhooks.<span class="token-function">test</span>(webhook.id);
+
+<span class="token-comment">// View delivery logs</span>
+<span class="token-keyword">const</span> logs = <span class="token-keyword">await</span> client.webhooks.<span class="token-function">getLogs</span>(webhook.id, { limit: <span class="token-number">50</span> });
+
+<span class="token-comment">// Delete webhook</span>
+<span class="token-keyword">await</span> client.webhooks.<span class="token-function">delete</span>(webhook.id);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Prompt Templates -->
+                <section id="prompts">
+                    <h2><a href="#prompts" class="anchor">#</a>Prompt Templates</h2>
+                    <p>Store and manage prompt templates with variable substitution. Version your prompts and render them with dynamic values.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create a prompt template</span>
+<span class="token-keyword">await</span> client.prompts.<span class="token-function">create</span>({
+  name: <span class="token-string">'summarize'</span>,
+  content: <span class="token-string">'Summarize the following {{topic}} article in {{style}} style:\n\n{{content}}'</span>,
+  description: <span class="token-string">'Summarizes articles with configurable style'</span>
+});
+
+<span class="token-comment">// Render a prompt with variables</span>
+<span class="token-keyword">const</span> { rendered, variables_used } = <span class="token-keyword">await</span> client.prompts.<span class="token-function">render</span>(<span class="token-string">'summarize'</span>, {
+  topic: <span class="token-string">'AI'</span>,
+  style: <span class="token-string">'concise'</span>,
+  content: <span class="token-string">'Long article text here...'</span>
+});
+
+<span class="token-comment">// List all prompts</span>
+<span class="token-keyword">const</span> prompts = <span class="token-keyword">await</span> client.prompts.<span class="token-function">list</span>();
+
+<span class="token-comment">// Update a prompt (creates new version)</span>
+<span class="token-keyword">await</span> client.prompts.<span class="token-function">update</span>(<span class="token-string">'summarize'</span>, {
+  content: <span class="token-string">'Updated template: {{content}}'</span>
+});
+
+<span class="token-comment">// Delete a prompt</span>
+<span class="token-keyword">await</span> client.prompts.<span class="token-function">delete</span>(<span class="token-string">'summarize'</span>);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Real-Time Events -->
+                <section id="realtime">
+                    <h2><a href="#realtime" class="anchor">#</a>Real-Time Events</h2>
+                    <p>Subscribe to live events via WebSocket. Get instant notifications when data changes in your project.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Connect to real-time events</span>
+<span class="token-keyword">const</span> connection = client.realtime.<span class="token-function">connect</span>({
+  <span class="token-function">onOpen</span>: () => console.<span class="token-function">log</span>(<span class="token-string">'Connected'</span>),
+  <span class="token-function">onMessage</span>: (event) => {
+    console.<span class="token-function">log</span>(<span class="token-string">'Event:'</span>, event.type, event.payload);
+  },
+  <span class="token-function">onError</span>: (err) => console.<span class="token-function">error</span>(<span class="token-string">'Error:'</span>, err),
+  <span class="token-function">onClose</span>: () => console.<span class="token-function">log</span>(<span class="token-string">'Disconnected'</span>)
+});
+
+<span class="token-comment">// Subscribe to specific channels</span>
+client.realtime.<span class="token-function">subscribe</span>([
+  <span class="token-string">'documents'</span>,    <span class="token-comment">// Document upload/processing events</span>
+  <span class="token-string">'rows:articles'</span> <span class="token-comment">// Row changes on the 'articles' table</span>
+]);
+
+<span class="token-comment">// Unsubscribe from channels</span>
+client.realtime.<span class="token-function">unsubscribe</span>([<span class="token-string">'documents'</span>]);
+
+<span class="token-comment">// Check connection status</span>
+console.<span class="token-function">log</span>(client.realtime.isConnected);
+
+<span class="token-comment">// Disconnect</span>
+client.realtime.<span class="token-function">disconnect</span>();</code></pre>
+                    </div>
+                </section>
+
+                <!-- Admin & Analytics -->
+                <section id="admin">
+                    <h2><a href="#admin" class="anchor">#</a>Admin & Analytics</h2>
+                    <p>Cache management and usage analytics for monitoring your Devabase instance.</p>
+
+                    <h3>Cache Management</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Get cache statistics</span>
+<span class="token-keyword">const</span> stats = <span class="token-keyword">await</span> client.admin.cache.<span class="token-function">getStats</span>();
+<span class="token-comment">// { total_keys, memory_usage, hit_rate, ... }</span>
+
+<span class="token-comment">// Clear entire cache</span>
+<span class="token-keyword">await</span> client.admin.cache.<span class="token-function">clear</span>();
+
+<span class="token-comment">// Delete a specific cache key</span>
+<span class="token-keyword">await</span> client.admin.cache.<span class="token-function">delete</span>(<span class="token-string">'cache-key'</span>);</code></pre>
+                    </div>
+
+                    <h3>Usage Analytics</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Get usage summary</span>
+<span class="token-keyword">const</span> usage = <span class="token-keyword">await</span> client.admin.usage.<span class="token-function">get</span>({
+  start_date: <span class="token-string">'2025-01-01'</span>,
+  end_date: <span class="token-string">'2025-01-31'</span>,
+  limit: <span class="token-number">100</span>
+});
+
+<span class="token-comment">// Export usage data (CSV or JSON)</span>
+<span class="token-keyword">const</span> exported = <span class="token-keyword">await</span> client.admin.usage.<span class="token-function">export</span>({
+  start_date: <span class="token-string">'2025-01-01'</span>,
+  end_date: <span class="token-string">'2025-01-31'</span>,
+  format: <span class="token-string">'csv'</span>
+});</code></pre>
+                    </div>
+                </section>
+
+                <!-- RAG Evaluation -->
+                <section id="evaluation">
+                    <h2><a href="#evaluation" class="anchor">#</a>RAG Evaluation</h2>
+                    <p>Create evaluation datasets and run automated quality assessments of your RAG pipeline.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// Create an evaluation dataset</span>
+<span class="token-keyword">const</span> dataset = <span class="token-keyword">await</span> client.evaluation.datasets.<span class="token-function">create</span>({
+  name: <span class="token-string">'qa-test-suite'</span>,
+  description: <span class="token-string">'Quality assurance test cases'</span>
+});
+
+<span class="token-comment">// Add test cases</span>
+<span class="token-keyword">await</span> client.evaluation.cases.<span class="token-function">add</span>(dataset.id, {
+  query: <span class="token-string">'What is OAuth?'</span>,
+  expected_answer: <span class="token-string">'OAuth is an authorization framework...'</span>,
+  context: <span class="token-string">'OAuth 2.0 enables third-party applications...'</span>
+});
+
+<span class="token-comment">// Run evaluation</span>
+<span class="token-keyword">const</span> run = <span class="token-keyword">await</span> client.evaluation.runs.<span class="token-function">run</span>(dataset.id, {
+  collection: <span class="token-string">'my-docs'</span>
+});
+
+<span class="token-comment">// Get results</span>
+<span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.evaluation.runs.<span class="token-function">getRun</span>(run.id);
+
+<span class="token-comment">// List all runs for a dataset</span>
+<span class="token-keyword">const</span> runs = <span class="token-keyword">await</span> client.evaluation.runs.<span class="token-function">listRuns</span>(dataset.id);</code></pre>
+                    </div>
+                </section>
+
+                <!-- Benchmarks -->
+                <section id="benchmarks">
+                    <h2><a href="#benchmarks" class="anchor">#</a>Benchmarks</h2>
+                    <p>Run academic benchmarks (BEIR, etc.) to measure your search and retrieval quality against standardized datasets.</p>
+
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">TypeScript</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-comment">// List available benchmark datasets</span>
+<span class="token-keyword">const</span> datasets = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">listDatasets</span>();
+
+<span class="token-comment">// Run a benchmark</span>
+<span class="token-keyword">const</span> run = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">run</span>({
+  dataset: { source: <span class="token-string">'beir'</span>, name: <span class="token-string">'scifact'</span> },
+  config: {
+    collection: <span class="token-string">'bench-test'</span>,
+    top_k: <span class="token-number">10</span>
+  }
+});
+
+<span class="token-comment">// List all benchmark runs</span>
+<span class="token-keyword">const</span> runs = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">list</span>();
+
+<span class="token-comment">// Get detailed results</span>
+<span class="token-keyword">const</span> result = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">get</span>(run.id);
+
+<span class="token-comment">// Compare multiple runs</span>
+<span class="token-keyword">const</span> comparison = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">compare</span>([run1.id, run2.id]);
+
+<span class="token-comment">// Export results</span>
+<span class="token-keyword">const</span> exported = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">export</span>(run.id);
+
+<span class="token-comment">// Get preset configurations</span>
+<span class="token-keyword">const</span> presets = <span class="token-keyword">await</span> client.benchmarks.<span class="token-function">getPresetConfigs</span>();</code></pre>
                     </div>
                 </section>
 
@@ -2671,17 +3318,407 @@ console.<span class="token-function">log</span>(<span class="token-string">'User
                                 <tr>
                                     <td><span class="method post">POST</span></td>
                                     <td><code>/search</code></td>
-                                    <td>Vector search</td>
+                                    <td>Semantic search</td>
                                 </tr>
                                 <tr>
                                     <td><span class="method post">POST</span></td>
                                     <td><code>/search/hybrid</code></td>
-                                    <td>Hybrid search (vector + keyword)</td>
+                                    <td>Hybrid search (vector + BM25)</td>
                                 </tr>
                                 <tr>
                                     <td><span class="method post">POST</span></td>
-                                    <td><code>/search/keyword</code></td>
-                                    <td>Keyword search</td>
+                                    <td><code>/search/multi</code></td>
+                                    <td>Multi-collection search</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/search/vector</code></td>
+                                    <td>Search by raw embedding</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Vectors</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/collections/:name/vectors</code></td>
+                                    <td>Upsert vectors</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/collections/:name/vectors/search</code></td>
+                                    <td>Search by embedding</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/collections/:name/vectors/:id</code></td>
+                                    <td>Delete vector</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Chunks</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/chunks/:id</code></td>
+                                    <td>Get chunk</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method patch">PATCH</span></td>
+                                    <td><code>/chunks/:id</code></td>
+                                    <td>Update chunk</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/chunks/:id</code></td>
+                                    <td>Delete chunk</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/chunks/:id/split</code></td>
+                                    <td>Split chunk at position</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/chunks/merge</code></td>
+                                    <td>Merge multiple chunks</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Knowledge Graph</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/knowledge/entities</code></td>
+                                    <td>List entities</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/knowledge/entities</code></td>
+                                    <td>Create entity</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/knowledge/entities/:id</code></td>
+                                    <td>Get entity</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/knowledge/entities/search</code></td>
+                                    <td>Search entities</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/knowledge/entities/merge</code></td>
+                                    <td>Merge entities</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/knowledge/relationships</code></td>
+                                    <td>List relationships</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/knowledge/relationships</code></td>
+                                    <td>Create relationship</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/knowledge/graph/:id</code></td>
+                                    <td>Get entity graph</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/knowledge/extract/:docId</code></td>
+                                    <td>Extract from document</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/knowledge/stats</code></td>
+                                    <td>Get knowledge stats</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Webhooks</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/webhooks</code></td>
+                                    <td>List webhooks</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/webhooks</code></td>
+                                    <td>Create webhook</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/webhooks/:id</code></td>
+                                    <td>Get webhook</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method patch">PATCH</span></td>
+                                    <td><code>/webhooks/:id</code></td>
+                                    <td>Update webhook</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/webhooks/:id</code></td>
+                                    <td>Delete webhook</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/webhooks/:id/test</code></td>
+                                    <td>Test webhook</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/webhooks/:id/logs</code></td>
+                                    <td>Get delivery logs</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Storage</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/storage</code></td>
+                                    <td>Upload file (multipart)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/storage/*path</code></td>
+                                    <td>Get file content</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/storage/*path</code></td>
+                                    <td>Delete file</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Evaluation</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/evaluation/datasets</code></td>
+                                    <td>List datasets</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/evaluation/datasets</code></td>
+                                    <td>Create dataset</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/evaluation/datasets/:id/cases</code></td>
+                                    <td>Add test case</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/evaluation/datasets/:id/run</code></td>
+                                    <td>Run evaluation</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/evaluation/runs/:id</code></td>
+                                    <td>Get run results</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Benchmarks</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/benchmarks</code></td>
+                                    <td>Run benchmark</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/benchmarks</code></td>
+                                    <td>List benchmark runs</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/benchmarks/:id</code></td>
+                                    <td>Get benchmark result</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/benchmarks/compare</code></td>
+                                    <td>Compare multiple runs</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/benchmarks/datasets</code></td>
+                                    <td>List available datasets</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Admin</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/admin/cache</code></td>
+                                    <td>Get cache stats</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method delete">DELETE</span></td>
+                                    <td><code>/admin/cache</code></td>
+                                    <td>Clear cache</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/admin/usage</code></td>
+                                    <td>Get usage analytics</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/admin/usage/export</code></td>
+                                    <td>Export usage data</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Providers</h3>
+                    <div class="api-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Endpoint</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/providers/llm</code></td>
+                                    <td>List LLM providers</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/providers/llm</code></td>
+                                    <td>Upsert LLM provider</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/providers/embedding</code></td>
+                                    <td>List embedding providers</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/providers/embedding</code></td>
+                                    <td>Upsert embedding provider</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/providers/rerank</code></td>
+                                    <td>List rerank providers</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method post">POST</span></td>
+                                    <td><code>/providers/rerank</code></td>
+                                    <td>Upsert rerank provider</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method get">GET</span></td>
+                                    <td><code>/providers/settings</code></td>
+                                    <td>Get project settings</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="method patch">PATCH</span></td>
+                                    <td><code>/providers/settings</code></td>
+                                    <td>Update project settings</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2965,15 +4002,28 @@ console.<span class="token-function">log</span>(<span class="token-string">'User
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
                         <pre><code><span class="token-keyword">import type</span> {
-  <span class="token-type">Collection</span>,
-  <span class="token-type">Document</span>,
-  <span class="token-type">SearchResult</span>,
-  <span class="token-type">RagChatResponse</span>,
-  <span class="token-type">Table</span>,
-  <span class="token-type">AppUser</span>,
-  <span class="token-type">PaginatedResponse</span>,
-  <span class="token-type">QueryOptions</span>,
-  <span class="token-type">RagStreamCallbacks</span>
+  <span class="token-comment">// Config</span>
+  <span class="token-type">DevabaseConfig</span>, <span class="token-type">RequestOptions</span>,
+
+  <span class="token-comment">// Resources</span>
+  <span class="token-type">Collection</span>, <span class="token-type">Document</span>, <span class="token-type">Table</span>, <span class="token-type">Project</span>,
+
+  <span class="token-comment">// Search & AI</span>
+  <span class="token-type">SearchResult</span>, <span class="token-type">HybridSearchResult</span>, <span class="token-type">SearchOptions</span>,
+  <span class="token-type">RagChatResponse</span>, <span class="token-type">RagStreamCallbacks</span>, <span class="token-type">ChatMessage</span>,
+  <span class="token-type">Entity</span>, <span class="token-type">Relationship</span>, <span class="token-type">EntityGraph</span>,
+
+  <span class="token-comment">// Auth</span>
+  <span class="token-type">AppUser</span>, <span class="token-type">AppAuthResponse</span>, <span class="token-type">TokenIntrospectionResult</span>,
+
+  <span class="token-comment">// Data</span>
+  <span class="token-type">PaginatedResponse</span>, <span class="token-type">QueryOptions</span>, <span class="token-type">PaginationMeta</span>,
+
+  <span class="token-comment">// Platform</span>
+  <span class="token-type">Webhook</span>, <span class="token-type">Prompt</span>, <span class="token-type">ApiKey</span>,
+
+  <span class="token-comment">// Providers</span>
+  <span class="token-type">LLMProvider</span>, <span class="token-type">EmbeddingProvider</span>, <span class="token-type">RerankProvider</span>,
 } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;</code></pre>
                     </div>
                 </section>
@@ -3071,12 +4121,55 @@ client.<span class="token-function">useProject</span>(PROJECT_ID);
 <span class="token-comment">// Delete</span>
 <span class="token-keyword">await</span> posts.<span class="token-function">delete</span>(post.id);</code></pre>
                     </div>
+
+                    <h3>Full-Stack App with User Auth & RLS</h3>
+                    <div class="code-block">
+                        <div class="code-block-header">
+                            <span class="code-block-title">server.ts</span>
+                            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code><span class="token-keyword">import</span> { createClient } <span class="token-keyword">from</span> <span class="token-string">'devabase-sdk'</span>;
+
+<span class="token-comment">// Server-side client with API key</span>
+<span class="token-keyword">const</span> db = <span class="token-function">createClient</span>({
+  baseUrl: process.env.DEVABASE_URL!,
+  apiKey: process.env.DEVABASE_API_KEY!
+});
+db.<span class="token-function">useProject</span>(process.env.PROJECT_ID!);
+
+<span class="token-comment">// Register endpoint</span>
+app.<span class="token-function">post</span>(<span class="token-string">'/api/register'</span>, <span class="token-keyword">async</span> (req, res) => {
+  <span class="token-keyword">const</span> auth = <span class="token-keyword">await</span> db.appAuth.<span class="token-function">register</span>({
+    email: req.body.email,
+    password: req.body.password,
+    name: req.body.name
+  });
+  res.<span class="token-function">json</span>(auth); <span class="token-comment">// { user, access_token, refresh_token }</span>
+});
+
+<span class="token-comment">// Protected endpoint with RLS</span>
+app.<span class="token-function">get</span>(<span class="token-string">'/api/my-articles'</span>, <span class="token-keyword">async</span> (req, res) => {
+  <span class="token-keyword">const</span> userToken = req.headers.authorization?.split(<span class="token-string">' '</span>)[<span class="token-number">1</span>];
+
+  <span class="token-comment">// Set user context for RLS</span>
+  db.<span class="token-function">asUser</span>(userToken);
+
+  <span class="token-comment">// Query respects row-level security</span>
+  <span class="token-keyword">const</span> { rows } = <span class="token-keyword">await</span> db.tables.<span class="token-function">rows</span>(<span class="token-string">'articles'</span>).<span class="token-function">query</span>({
+    order: <span class="token-string">'created_at:desc'</span>,
+    limit: <span class="token-number">20</span>
+  });
+
+  db.<span class="token-function">clearUserContext</span>();
+  res.<span class="token-function">json</span>(rows);
+});</code></pre>
+                    </div>
                 </section>
 
                 <!-- Footer -->
                 <div style="margin-top: 80px; padding-top: 40px; border-top: 1px solid var(--border-color); text-align: center;">
                     <p style="color: var(--text-muted); font-size: 14px;">
-                        Devabase SDK v0.5.4 · <a href="https://github.com/kvsovanreach/devabase">GitHub</a> · <a href="https://www.npmjs.com/package/devabase-sdk">npm</a> · MIT License
+                        Devabase SDK v0.5.5 · <a href="https://github.com/kvsovanreach/devabase">GitHub</a> · <a href="https://www.npmjs.com/package/devabase-sdk">npm</a> · MIT License
                     </p>
                 </div>
             </div>

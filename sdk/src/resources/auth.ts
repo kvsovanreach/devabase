@@ -69,7 +69,7 @@ export class AuthResource {
    * console.log(user.email);
    */
   async me(options?: RequestOptions): Promise<User> {
-    return this.http.get<User>('/v1/users/me', undefined, options);
+    return this.http.get<User>('/v1/auth/me', undefined, options);
   }
 
   /**
@@ -81,7 +81,7 @@ export class AuthResource {
     data: { name?: string; avatar_url?: string },
     options?: RequestOptions
   ): Promise<User> {
-    return this.http.patch<User>('/v1/users/me', data, options);
+    return this.http.patch<User>('/v1/auth/me', data, options);
   }
 
   /**

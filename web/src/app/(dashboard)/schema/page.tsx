@@ -58,30 +58,57 @@ interface TableNodeData {
   table: TableInfo | CollectionSchema;
   type: 'table' | 'collection';
   foreignKeys?: string[];
+  connectedHandles?: Set<string>;
 }
+
+// Column row dimensions (must match CSS)
+const HEADER_HEIGHT = 40;
+const COLUMN_HEIGHT = 28;
 
 // Custom node component for tables and collections
 function TableNode({ data }: { data: TableNodeData }) {
-  const { table, type, foreignKeys = [] } = data;
+  const { table, type, foreignKeys = [], connectedHandles } = data;
   const Icon = type === 'table' ? Table2 : FolderOpen;
   const headerBg = type === 'table' ? 'bg-violet-500' : 'bg-primary';
 
   // Check if a column is a foreign key
   const isForeignKey = (colName: string) => foreignKeys.includes(colName);
 
+  // Only render handles that are actually connected
+  const isConnected = (handleId: string) => connectedHandles?.has(handleId) ?? false;
+
   return (
     <div className="bg-surface border border-border-light rounded-lg shadow-lg overflow-hidden min-w-[240px] max-w-[300px] relative">
-      {/* Connection handles */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!w-3 !h-3 !bg-primary !border-2 !border-surface"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!w-3 !h-3 !bg-violet-500 !border-2 !border-surface"
-      />
+      {/* Only render handles for columns that have connections */}
+      {table.columns.map((col: TableColumnInfo, i: number) => {
+        const topPx = HEADER_HEIGHT + i * COLUMN_HEIGHT + COLUMN_HEIGHT / 2;
+        const srId = `source-right-${col.name}`;
+        const slId = `source-left-${col.name}`;
+        const trId = `target-right-${col.name}`;
+        const tlId = `target-left-${col.name}`;
+        const hasAny = isConnected(srId) || isConnected(slId) || isConnected(trId) || isConnected(tlId);
+        if (!hasAny) return null;
+        return (
+          <div key={col.name}>
+            {isConnected(srId) && (
+              <Handle type="source" position={Position.Right} id={srId}
+                className="!w-2.5 !h-2.5 !bg-violet-500 !border-2 !border-surface" style={{ top: topPx }} />
+            )}
+            {isConnected(slId) && (
+              <Handle type="source" position={Position.Left} id={slId}
+                className="!w-2.5 !h-2.5 !bg-violet-500 !border-2 !border-surface" style={{ top: topPx }} />
+            )}
+            {isConnected(trId) && (
+              <Handle type="target" position={Position.Right} id={trId}
+                className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-surface" style={{ top: topPx }} />
+            )}
+            {isConnected(tlId) && (
+              <Handle type="target" position={Position.Left} id={tlId}
+                className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-surface" style={{ top: topPx }} />
+            )}
+          </div>
+        );
+      })}
 
       {/* Header */}
       <div className={cn('px-3 py-2 flex items-center gap-2', headerBg)}>
@@ -94,7 +121,7 @@ function TableNode({ data }: { data: TableNodeData }) {
         </Badge>
       </div>
 
-      {/* Columns - both tables and collection schemas have columns */}
+      {/* Columns */}
       <div>
         {table.columns.map((col: TableColumnInfo) => (
           <div
@@ -173,14 +200,55 @@ function detectRelationships(tables: TableInfo[]): { edges: Edge[]; foreignKeyMa
   const edges: Edge[] = [];
   const foreignKeyMap = new Map<string, string[]>();
   const tableNames = new Set(tables.map(t => t.name));
+  const tableMap = new Map(tables.map(t => [t.name, t]));
+
+  // Find the primary key column name for a table
+  function getPkColumn(tableName: string): string {
+    const table = tableMap.get(tableName);
+    const pk = table?.columns.find(c => c.is_primary);
+    return pk?.name || 'id';
+  }
+
+  function addEdge(sourceTable: string, sourceCol: string, targetTable: string) {
+    const targetCol = getPkColumn(targetTable);
+    edges.push({
+      id: `${sourceTable}-${sourceCol}-${targetTable}`,
+      source: `table-${sourceTable}`,
+      target: `table-${targetTable}`,
+      sourceHandle: null,
+      targetHandle: null,
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#8b5cf6',
+        width: 20,
+        height: 20,
+      },
+      label: sourceCol,
+      labelStyle: {
+        fill: '#a1a1aa',
+        fontSize: 10,
+        fontWeight: 500,
+      },
+      labelBgStyle: {
+        fill: '#18181b',
+        fillOpacity: 0.9,
+      },
+      labelBgPadding: [4, 2] as [number, number],
+      labelBgBorderRadius: 4,
+      data: { sourceColumn: sourceCol, targetColumn: targetCol },
+    });
+  }
 
   tables.forEach((table) => {
     const fkColumns: string[] = [];
 
-    table.columns.forEach((col) => {
-      // Check for common FK patterns: xxx_id, xxxId
-      if (col.name.endsWith('_id') && col.data_type.toLowerCase().includes('uuid')) {
-        const referencedTableName = col.name.slice(0, -3); // Remove '_id'
+    table.columns.forEach((c) => {
+      // Check for common FK patterns: xxx_id
+      if (c.name.endsWith('_id') && c.data_type.toLowerCase().includes('uuid')) {
+        const referencedTableName = c.name.slice(0, -3); // Remove '_id'
 
         // Try to find matching table (singular or plural forms)
         const possibleNames = [
@@ -190,82 +258,32 @@ function detectRelationships(tables: TableInfo[]): { edges: Edge[]; foreignKeyMa
           referencedTableName.replace(/y$/, 'ies'),
         ];
 
+        let found = false;
         for (const possibleName of possibleNames) {
           if (tableNames.has(possibleName) && possibleName !== table.name) {
-            fkColumns.push(col.name);
-            edges.push({
-              id: `${table.name}-${col.name}-${possibleName}`,
-              source: `table-${table.name}`,
-              target: `table-${possibleName}`,
-              sourceHandle: null,
-              targetHandle: null,
-              type: 'smoothstep',
-              animated: true,
-              style: { stroke: '#8b5cf6', strokeWidth: 2 },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                color: '#8b5cf6',
-                width: 20,
-                height: 20,
-              },
-              label: col.name,
-              labelStyle: {
-                fill: '#a1a1aa',
-                fontSize: 10,
-                fontWeight: 500,
-              },
-              labelBgStyle: {
-                fill: '#18181b',
-                fillOpacity: 0.9,
-              },
-              labelBgPadding: [4, 2] as [number, number],
-              labelBgBorderRadius: 4,
-            });
+            fkColumns.push(c.name);
+            addEdge(table.name, c.name, possibleName);
+            found = true;
             break;
           }
         }
 
         // Special case mappings
-        const specialMappings: Record<string, string> = {
-          'approved_by': 'employees',
-          'approver_id': 'employees',
-          'manager_id': 'employees',
-          'user_id': 'employees',
-          'report_id': 'expense_reports',
-          'document_id': 'documents',
-        };
+        if (!found) {
+          const specialMappings: Record<string, string> = {
+            'approved_by': 'employees',
+            'approver_id': 'employees',
+            'manager_id': 'employees',
+            'user_id': 'employees',
+            'report_id': 'expense_reports',
+            'document_id': 'documents',
+          };
 
-        if (specialMappings[col.name] && tableNames.has(specialMappings[col.name])) {
-          if (!fkColumns.includes(col.name)) {
-            fkColumns.push(col.name);
-            edges.push({
-              id: `${table.name}-${col.name}-${specialMappings[col.name]}`,
-              source: `table-${table.name}`,
-              target: `table-${specialMappings[col.name]}`,
-              sourceHandle: null,
-              targetHandle: null,
-              type: 'smoothstep',
-              animated: true,
-              style: { stroke: '#8b5cf6', strokeWidth: 2 },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                color: '#8b5cf6',
-                width: 20,
-                height: 20,
-              },
-              label: col.name,
-              labelStyle: {
-                fill: '#a1a1aa',
-                fontSize: 10,
-                fontWeight: 500,
-              },
-              labelBgStyle: {
-                fill: '#18181b',
-                fillOpacity: 0.9,
-              },
-              labelBgPadding: [4, 2] as [number, number],
-              labelBgBorderRadius: 4,
-            });
+          if (specialMappings[c.name] && tableNames.has(specialMappings[c.name])) {
+            if (!fkColumns.includes(c.name)) {
+              fkColumns.push(c.name);
+              addEdge(table.name, c.name, specialMappings[c.name]);
+            }
           }
         }
       }
@@ -312,6 +330,112 @@ function buildRelationshipGraph(tables: TableInfo[], edges: Edge[]): Relationshi
   return { references, referencedBy };
 }
 
+// Find connected components in the table graph
+function findConnectedComponents(tables: TableInfo[], graph: RelationshipGraph): string[][] {
+  const visited = new Set<string>();
+  const components: string[][] = [];
+  const tableNames = new Set(tables.map(t => t.name));
+
+  function dfs(name: string, component: string[]) {
+    if (visited.has(name) || !tableNames.has(name)) return;
+    visited.add(name);
+    component.push(name);
+    graph.references.get(name)?.forEach(ref => dfs(ref, component));
+    graph.referencedBy.get(name)?.forEach(ref => dfs(ref, component));
+  }
+
+  tables.forEach(t => {
+    if (!visited.has(t.name)) {
+      const component: string[] = [];
+      dfs(t.name, component);
+      components.push(component);
+    }
+  });
+
+  // Sort: larger connected groups first, standalone tables last
+  components.sort((a, b) => b.length - a.length);
+  return components;
+}
+
+// Barycenter ordering: reorder nodes within a layer to minimize edge crossings
+function barycentricOrder(
+  layers: string[][],
+  graph: RelationshipGraph,
+  tableMap: Map<string, TableInfo>
+) {
+  // Run multiple passes to converge
+  for (let pass = 0; pass < 4; pass++) {
+    // Forward pass: order each layer based on connected nodes in previous layer
+    for (let i = 1; i < layers.length; i++) {
+      const prevLayer = layers[i - 1];
+      const prevPositions = new Map(prevLayer.map((name, idx) => [name, idx]));
+
+      layers[i].sort((a, b) => {
+        const aRefs = graph.references.get(a) || new Set();
+        const bRefs = graph.references.get(b) || new Set();
+
+        // Calculate barycenter (average position of connected nodes in previous layer)
+        let aSum = 0, aCount = 0;
+        aRefs.forEach(ref => {
+          if (prevPositions.has(ref)) { aSum += prevPositions.get(ref)!; aCount++; }
+        });
+        let bSum = 0, bCount = 0;
+        bRefs.forEach(ref => {
+          if (prevPositions.has(ref)) { bSum += prevPositions.get(ref)!; bCount++; }
+        });
+
+        const aBarycenter = aCount > 0 ? aSum / aCount : Infinity;
+        const bBarycenter = bCount > 0 ? bSum / bCount : Infinity;
+        return aBarycenter - bBarycenter;
+      });
+    }
+
+    // Backward pass: order each layer based on connected nodes in next layer
+    for (let i = layers.length - 2; i >= 0; i--) {
+      const nextLayer = layers[i + 1];
+      const nextPositions = new Map(nextLayer.map((name, idx) => [name, idx]));
+
+      layers[i].sort((a, b) => {
+        const aRefBy = graph.referencedBy.get(a) || new Set();
+        const bRefBy = graph.referencedBy.get(b) || new Set();
+
+        let aSum = 0, aCount = 0;
+        aRefBy.forEach(ref => {
+          if (nextPositions.has(ref)) { aSum += nextPositions.get(ref)!; aCount++; }
+        });
+        let bSum = 0, bCount = 0;
+        bRefBy.forEach(ref => {
+          if (nextPositions.has(ref)) { bSum += nextPositions.get(ref)!; bCount++; }
+        });
+
+        const aBarycenter = aCount > 0 ? aSum / aCount : Infinity;
+        const bBarycenter = bCount > 0 ? bSum / bCount : Infinity;
+        return aBarycenter - bBarycenter;
+      });
+    }
+  }
+}
+
+// Resolve vertical overlaps within a layer by pushing nodes apart
+function resolveOverlaps(
+  layer: string[],
+  positions: Map<string, { x: number; y: number }>,
+  heights: Map<string, number>,
+  gap: number
+) {
+  // Sort by current Y position
+  const sorted = [...layer].sort((a, b) => positions.get(a)!.y - positions.get(b)!.y);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const curr = sorted[i];
+    const prevBottom = positions.get(prev)!.y + heights.get(prev)!;
+    const currTop = positions.get(curr)!.y;
+    if (currTop < prevBottom + gap) {
+      positions.get(curr)!.y = prevBottom + gap;
+    }
+  }
+}
+
 // Calculate hierarchical layout - tables flow left to right based on dependencies
 function calculateHierarchicalLayout(
   tables: TableInfo[],
@@ -325,15 +449,22 @@ function calculateHierarchicalLayout(
   const nodeWidth = 280;
   const horizontalGap = 120;
   const verticalGap = 40;
+  const groupGap = 80; // Extra gap between connected components
 
   if (!showTables || tables.length === 0) {
-    // Just show collections in a row
+    // Just show collections in a grid
     if (showCollections) {
+      const cols = Math.ceil(Math.sqrt(collections.length));
       collections.forEach((collection, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
         nodes.push({
           id: `collection-${collection.name}`,
           type: 'tableNode',
-          position: { x: i * (nodeWidth + horizontalGap), y: 0 },
+          position: {
+            x: col * (nodeWidth + horizontalGap),
+            y: row * (calculateNodeHeight(collection.columns.length) + verticalGap),
+          },
           data: { table: collection, type: 'collection', foreignKeys: [] },
         });
       });
@@ -344,116 +475,194 @@ function calculateHierarchicalLayout(
   const graph = buildRelationshipGraph(tables, edges);
   const tableMap = new Map(tables.map(t => [t.name, t]));
 
-  // Assign layers using topological sort
-  // Layer 0: Root tables (referenced by others but reference nothing or few tables)
-  // Higher layers: Tables that reference tables in lower layers
-  const layers: string[][] = [];
-  const tableLayer = new Map<string, number>();
-  const visited = new Set<string>();
+  // Split tables into connected components
+  const components = findConnectedComponents(tables, graph);
 
-  // Calculate layer for each table based on dependencies
-  function getLayer(tableName: string, visiting: Set<string> = new Set()): number {
-    if (tableLayer.has(tableName)) {
-      return tableLayer.get(tableName)!;
+  // Separate connected groups (>1 table) from standalone tables
+  const connectedGroups = components.filter(c => c.length > 1);
+  const standaloneTables = components.filter(c => c.length === 1).map(c => c[0]);
+
+  let globalYOffset = 0;
+
+  // Layout each connected group independently
+  connectedGroups.forEach((component) => {
+    const componentTables = component.map(name => tableMap.get(name)!).filter(Boolean);
+    const componentEdges = edges.filter(e => {
+      const src = e.source.replace('table-', '');
+      const tgt = e.target.replace('table-', '');
+      return component.includes(src) && component.includes(tgt);
+    });
+    const componentGraph = buildRelationshipGraph(componentTables, componentEdges);
+    const componentTableMap = new Map(componentTables.map(t => [t.name, t]));
+
+    // Assign layers using topological sort
+    const tableLayer = new Map<string, number>();
+
+    function getLayer(tableName: string, visiting: Set<string> = new Set()): number {
+      if (tableLayer.has(tableName)) return tableLayer.get(tableName)!;
+      if (visiting.has(tableName)) return 0; // Circular dependency
+      visiting.add(tableName);
+
+      const refs = componentGraph.references.get(tableName) || new Set();
+      let maxRefLayer = -1;
+      refs.forEach(ref => {
+        if (componentTableMap.has(ref)) {
+          maxRefLayer = Math.max(maxRefLayer, getLayer(ref, visiting));
+        }
+      });
+
+      const layer = maxRefLayer < 0 ? 0 : maxRefLayer + 1;
+      tableLayer.set(tableName, layer);
+      return layer;
     }
 
-    if (visiting.has(tableName)) {
-      // Circular dependency, break the cycle
-      return 0;
-    }
+    componentTables.forEach(t => getLayer(t.name));
 
-    visiting.add(tableName);
+    // Group tables by layer
+    const maxLayer = Math.max(...Array.from(tableLayer.values()), 0);
+    const layers: string[][] = Array.from({ length: maxLayer + 1 }, () => []);
+    componentTables.forEach(t => {
+      const layer = tableLayer.get(t.name) || 0;
+      layers[layer].push(t.name);
+    });
 
-    const refs = graph.references.get(tableName) || new Set();
-    if (refs.size === 0) {
-      tableLayer.set(tableName, 0);
-      return 0;
-    }
+    // Apply barycentric ordering to minimize edge crossings
+    barycentricOrder(layers, componentGraph, componentTableMap);
 
-    let maxRefLayer = -1;
-    refs.forEach(ref => {
-      if (tableMap.has(ref)) {
-        maxRefLayer = Math.max(maxRefLayer, getLayer(ref, visiting));
+    // Phase 1: Initial stacked positioning per layer
+    let xOffset = 0;
+    const nodePositions = new Map<string, { x: number; y: number }>();
+    const nodeHeights = new Map<string, number>();
+
+    layers.forEach((layer) => {
+      let yOffset = globalYOffset;
+      layer.forEach((tableName) => {
+        const table = componentTableMap.get(tableName)!;
+        const height = calculateNodeHeight(table.columns.length);
+        nodeHeights.set(tableName, height);
+        nodePositions.set(tableName, { x: xOffset, y: yOffset });
+        yOffset += height + verticalGap;
+      });
+      xOffset += nodeWidth + horizontalGap;
+    });
+
+    // Phase 2: Iterative Y-relaxation — move each node toward the barycenter of its neighbors
+    for (let iter = 0; iter < 6; iter++) {
+      // Forward pass (left-to-right): adjust based on referenced tables
+      for (let li = 1; li < layers.length; li++) {
+        layers[li].forEach((tableName) => {
+          const refs = componentGraph.references.get(tableName) || new Set();
+          const neighbors = [...refs].filter(r => componentTableMap.has(r));
+          if (neighbors.length === 0) return;
+          const avgY = neighbors.reduce((sum, n) => {
+            const pos = nodePositions.get(n)!;
+            const h = nodeHeights.get(n)!;
+            return sum + pos.y + h / 2;
+          }, 0) / neighbors.length;
+          const h = nodeHeights.get(tableName)!;
+          nodePositions.get(tableName)!.y = avgY - h / 2;
+        });
+        // Resolve vertical overlaps within this layer
+        resolveOverlaps(layers[li], nodePositions, nodeHeights, verticalGap);
       }
+
+      // Backward pass (right-to-left): adjust based on tables that reference this one
+      for (let li = layers.length - 2; li >= 0; li--) {
+        layers[li].forEach((tableName) => {
+          const refBy = componentGraph.referencedBy.get(tableName) || new Set();
+          const neighbors = [...refBy].filter(r => componentTableMap.has(r));
+          if (neighbors.length === 0) return;
+          const avgY = neighbors.reduce((sum, n) => {
+            const pos = nodePositions.get(n)!;
+            const h = nodeHeights.get(n)!;
+            return sum + pos.y + h / 2;
+          }, 0) / neighbors.length;
+          const h = nodeHeights.get(tableName)!;
+          nodePositions.get(tableName)!.y = avgY - h / 2;
+        });
+        resolveOverlaps(layers[li], nodePositions, nodeHeights, verticalGap);
+      }
+    }
+
+    // Phase 3: Normalize Y positions so the topmost node starts at globalYOffset
+    let minY = Infinity;
+    let maxY = -Infinity;
+    component.forEach(name => {
+      const pos = nodePositions.get(name)!;
+      const h = nodeHeights.get(name)!;
+      minY = Math.min(minY, pos.y);
+      maxY = Math.max(maxY, pos.y + h);
+    });
+    const yShift = globalYOffset - minY;
+    component.forEach(name => {
+      nodePositions.get(name)!.y += yShift;
     });
 
-    const layer = maxRefLayer + 1;
-    tableLayer.set(tableName, layer);
-    return layer;
-  }
-
-  // Calculate layers for all tables
-  tables.forEach(t => getLayer(t.name));
-
-  // Group tables by layer
-  const maxLayer = Math.max(...Array.from(tableLayer.values()), 0);
-  for (let i = 0; i <= maxLayer; i++) {
-    layers.push([]);
-  }
-
-  tables.forEach(t => {
-    const layer = tableLayer.get(t.name) || 0;
-    layers[layer].push(t.name);
-  });
-
-  // Sort tables within each layer by number of connections (more connected = center)
-  layers.forEach(layer => {
-    layer.sort((a, b) => {
-      const aConnections = (graph.references.get(a)?.size || 0) + (graph.referencedBy.get(a)?.size || 0);
-      const bConnections = (graph.references.get(b)?.size || 0) + (graph.referencedBy.get(b)?.size || 0);
-      return bConnections - aConnections;
+    // Phase 4: Push nodes into the node list
+    component.forEach(name => {
+      const table = componentTableMap.get(name)!;
+      const pos = nodePositions.get(name)!;
+      nodes.push({
+        id: `table-${table.name}`,
+        type: 'tableNode',
+        position: { x: pos.x, y: pos.y },
+        data: { table, type: 'table', foreignKeys: foreignKeyMap.get(table.name) || [] },
+      });
     });
+
+    globalYOffset += (maxY - minY) + groupGap;
   });
 
-  // Position tables - layers go left to right, tables within layer are stacked vertically
-  let xOffset = 0;
+  // Layout standalone tables in a compact grid below connected groups
+  if (standaloneTables.length > 0) {
+    const cols = Math.min(3, standaloneTables.length);
+    let rowY = globalYOffset;
+    let rowMaxHeight = 0;
 
-  layers.forEach((layer, layerIndex) => {
-    // Calculate total height for this layer
-    let totalHeight = 0;
-    const heights: number[] = [];
-
-    layer.forEach(tableName => {
+    standaloneTables.forEach((tableName, i) => {
       const table = tableMap.get(tableName)!;
+      const col = i % cols;
       const height = calculateNodeHeight(table.columns.length);
-      heights.push(height);
-      totalHeight += height;
-    });
 
-    totalHeight += (layer.length - 1) * verticalGap;
-
-    // Center vertically
-    let yOffset = -totalHeight / 2;
-
-    layer.forEach((tableName, indexInLayer) => {
-      const table = tableMap.get(tableName)!;
-      const height = heights[indexInLayer];
+      if (col === 0 && i > 0) {
+        rowY += rowMaxHeight + verticalGap;
+        rowMaxHeight = 0;
+      }
+      rowMaxHeight = Math.max(rowMaxHeight, height);
 
       nodes.push({
         id: `table-${table.name}`,
         type: 'tableNode',
-        position: { x: xOffset, y: yOffset },
-        data: { table, type: 'table', foreignKeys: foreignKeyMap.get(table.name) || [] },
+        position: { x: col * (nodeWidth + horizontalGap), y: rowY },
+        data: { table, type: 'table', foreignKeys: [] },
       });
-
-      yOffset += height + verticalGap;
     });
 
-    xOffset += nodeWidth + horizontalGap;
-  });
+    globalYOffset = rowY + rowMaxHeight + groupGap;
+  }
 
-  // Add collections after tables
+  // Layout collections in their own section
   if (showCollections && collections.length > 0) {
-    let collectionY = 0;
-    collections.forEach((collection) => {
+    const cols = Math.min(3, collections.length);
+    let rowY = globalYOffset;
+    let rowMaxHeight = 0;
+
+    collections.forEach((collection, i) => {
+      const col = i % cols;
       const height = calculateNodeHeight(collection.columns.length);
+
+      if (col === 0 && i > 0) {
+        rowY += rowMaxHeight + verticalGap;
+        rowMaxHeight = 0;
+      }
+      rowMaxHeight = Math.max(rowMaxHeight, height);
+
       nodes.push({
         id: `collection-${collection.name}`,
         type: 'tableNode',
-        position: { x: xOffset, y: collectionY },
+        position: { x: col * (nodeWidth + horizontalGap), y: rowY },
         data: { table: collection, type: 'collection', foreignKeys: [] },
       });
-      collectionY += height + verticalGap;
     });
   }
 
@@ -519,6 +728,34 @@ function calculateGridLayout(
   return nodes;
 }
 
+// Assign smart source/target handles based on relative node positions
+function assignSmartHandles(rawEdges: Edge[], nodeList: Node[]): Edge[] {
+  const posMap = new Map(nodeList.map(n => [n.id, n.position]));
+  return rawEdges.map(edge => {
+    const sp = posMap.get(edge.source);
+    const tp = posMap.get(edge.target);
+    if (!sp || !tp) return edge;
+
+    const dx = tp.x - sp.x;
+
+    let sourceHandle: string;
+    let targetHandle: string;
+
+    const srcCol = edge.data?.sourceColumn || 'id';
+    const tgtCol = edge.data?.targetColumn || 'id';
+
+    if (dx > 0) {
+      sourceHandle = `source-right-${srcCol}`;
+      targetHandle = `target-left-${tgtCol}`;
+    } else {
+      sourceHandle = `source-left-${srcCol}`;
+      targetHandle = `target-right-${tgtCol}`;
+    }
+
+    return { ...edge, sourceHandle, targetHandle };
+  });
+}
+
 export default function SchemaPage() {
   const { data: tables, isLoading: tablesLoading } = useTables();
   const { data: collections, isLoading: collectionsLoading } = useCollections();
@@ -570,12 +807,36 @@ export default function SchemaPage() {
         ? calculateHierarchicalLayout(tableList, collectionList, showTables, showCollections, foreignKeyMap, detectedEdges)
         : calculateGridLayout(tableList, collectionList, showTables, showCollections, foreignKeyMap);
 
-    setNodes(newNodes);
-
-    // Set edges based on detected relationships
+    // Compute edges with smart handles, then inject connected handle info into nodes
     if (showRelationships && showTables) {
-      setEdges(detectedEdges);
+      const smartEdges = assignSmartHandles(detectedEdges, newNodes);
+
+      // Build a map of nodeId -> Set of connected handle IDs
+      const handleMap = new Map<string, Set<string>>();
+      for (const edge of smartEdges) {
+        if (edge.sourceHandle) {
+          if (!handleMap.has(edge.source)) handleMap.set(edge.source, new Set());
+          handleMap.get(edge.source)!.add(edge.sourceHandle);
+        }
+        if (edge.targetHandle) {
+          if (!handleMap.has(edge.target)) handleMap.set(edge.target, new Set());
+          handleMap.get(edge.target)!.add(edge.targetHandle);
+        }
+      }
+
+      // Inject connectedHandles into node data
+      const updatedNodes = newNodes.map(node => {
+        const handles = handleMap.get(node.id);
+        if (handles) {
+          return { ...node, data: { ...node.data, connectedHandles: handles } };
+        }
+        return node;
+      });
+
+      setNodes(updatedNodes);
+      setEdges(smartEdges);
     } else {
+      setNodes(newNodes);
       setEdges([]);
     }
   }, [tables, collectionSchemas, isLoading, showTables, showCollections, showRelationships, layout, setNodes, setEdges, detectedEdges, foreignKeyMap]);
@@ -589,7 +850,27 @@ export default function SchemaPage() {
       layout === 'hierarchical'
         ? calculateHierarchicalLayout(tableList, collectionList, showTables, showCollections, foreignKeyMap, detectedEdges)
         : calculateGridLayout(tableList, collectionList, showTables, showCollections, foreignKeyMap);
-    setNodes(newNodes);
+    if (showRelationships && showTables) {
+      const smartEdges = assignSmartHandles(detectedEdges, newNodes);
+      const handleMap = new Map<string, Set<string>>();
+      for (const edge of smartEdges) {
+        if (edge.sourceHandle) {
+          if (!handleMap.has(edge.source)) handleMap.set(edge.source, new Set());
+          handleMap.get(edge.source)!.add(edge.sourceHandle);
+        }
+        if (edge.targetHandle) {
+          if (!handleMap.has(edge.target)) handleMap.set(edge.target, new Set());
+          handleMap.get(edge.target)!.add(edge.targetHandle);
+        }
+      }
+      setNodes(newNodes.map(node => {
+        const handles = handleMap.get(node.id);
+        return handles ? { ...node, data: { ...node.data, connectedHandles: handles } } : node;
+      }));
+      setEdges(smartEdges);
+    } else {
+      setNodes(newNodes);
+    }
   };
 
   const relationshipCount = detectedEdges.length;

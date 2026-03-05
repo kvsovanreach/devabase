@@ -399,9 +399,33 @@ export interface SearchResult {
   content: string;
   score: number;
   document_id: string;
-  document_name: string;
-  metadata: Record<string, unknown>;
+  document_name: string | null;
+  collection: string;
+  metadata: Record<string, unknown> | null;
   rerank_score?: number;
+}
+
+/**
+ * Result from low-level vector search (/collections/:name/vectors/search)
+ */
+export interface VectorMatch {
+  id: string;
+  external_id: string | null;
+  score: number;
+  metadata: Record<string, unknown> | null;
+}
+
+/**
+ * Result from hybrid search (/collections/:name/vectors/hybrid-search)
+ */
+export interface HybridSearchResult {
+  id: string;
+  document_id: string;
+  content: string;
+  score: number;
+  vector_score: number;
+  keyword_score: number;
+  metadata: Record<string, unknown> | null;
 }
 
 /**
@@ -467,19 +491,53 @@ export interface SearchOptions {
   filter?: Record<string, unknown>;
   /** Enable reranking */
   rerank?: boolean;
-  /** Include chunk content in results */
+  /** Include chunk content in results (default: true) */
   include_content?: boolean;
+  /** Include document metadata in results */
+  include_metadata?: boolean;
   /** Retrieval strategy to use (default: standard) */
   strategy?: RetrievalStrategy;
   /** Strategy-specific options */
   strategy_options?: StrategyOptions;
 }
 
-export interface HybridSearchOptions extends SearchOptions {
-  /** Weight for vector search (0-1) */
+/**
+ * Options for hybrid search (vector + keyword with RRF fusion)
+ * Uses a different endpoint: /collections/:name/vectors/hybrid-search
+ */
+export interface HybridSearchOptions {
+  /** Collection to search in */
+  collection: string;
+  /** Search query text (used for both embedding and keyword search) */
+  query: string;
+  /** Number of results to return (default: 10) */
+  top_k?: number;
+  /** Weight for vector search (0-1, default: 0.7) */
   vector_weight?: number;
-  /** Weight for keyword search (0-1) */
+  /** Weight for keyword search (0-1, default: 0.3) */
   keyword_weight?: number;
+  /** Filter by metadata */
+  filter?: Record<string, unknown>;
+}
+
+/**
+ * Options for multi-collection search
+ */
+export interface MultiSearchOptions {
+  /** Collections to search across */
+  collections: string[];
+  /** Search query */
+  query: string;
+  /** Number of results to return (default: 10) */
+  top_k?: number;
+  /** Metadata filter */
+  filter?: Record<string, unknown>;
+  /** Enable reranking */
+  rerank?: boolean;
+  /** Include chunk content in results (default: true) */
+  include_content?: boolean;
+  /** Include document metadata in results */
+  include_metadata?: boolean;
 }
 
 // ============================================================================
@@ -493,12 +551,11 @@ export interface ChatMessage {
 }
 
 export interface ChatSource {
-  chunk_id: string;
+  collection: string;
   document_id: string;
   document_name: string;
   content: string;
   score: number;
-  collection_name?: string;
 }
 
 /**
@@ -770,18 +827,59 @@ export type WebhookEvent =
   | 'table.row.updated'
   | 'table.row.deleted';
 
+export type WebhookStatus = 'active' | 'paused' | 'disabled';
+
 export interface Webhook {
   id: string;
+  project_id: string;
+  name: string;
   url: string;
-  events: WebhookEvent[];
-  secret: string;
-  is_active: boolean;
+  events: string[];
+  status: WebhookStatus;
+  headers: Record<string, string> | null;
+  retry_count: number;
+  timeout_ms: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookLog {
+  id: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  response_status: number | null;
+  latency_ms: number | null;
+  attempt: number;
+  success: boolean;
+  error_message: string | null;
   created_at: string;
 }
 
 export interface CreateWebhookInput {
+  name: string;
   url: string;
-  events: WebhookEvent[];
+  events: string[];
+  headers?: Record<string, string>;
+  retry_count?: number;
+  timeout_ms?: number;
+}
+
+export interface UpdateWebhookInput {
+  name?: string;
+  url?: string;
+  events?: string[];
+  status?: WebhookStatus;
+  headers?: Record<string, string>;
+  retry_count?: number;
+  timeout_ms?: number;
+}
+
+export interface TestWebhookResponse {
+  success: boolean;
+  status_code: number | null;
+  latency_ms: number;
+  response_body: string | null;
+  error: string | null;
 }
 
 // ============================================================================

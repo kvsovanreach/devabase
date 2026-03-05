@@ -120,6 +120,90 @@ export class ChatResource {
   }
 
   /**
+   * Send a chat message scoped to a single collection
+   * Uses the collection-specific endpoint for better error handling
+   * (e.g., returns error if RAG is not configured for that collection)
+   *
+   * @example
+   * const response = await client.chat.collection('my-docs', {
+   *   message: 'What is authentication?',
+   *   include_sources: true
+   * });
+   */
+  async collection(
+    collectionName: string,
+    options: Omit<RagChatOptions, 'collection' | 'stream'>,
+    requestOptions?: RequestOptions
+  ): Promise<RagChatResponse> {
+    return this.http.post<RagChatResponse>(
+      `/v1/collections/${collectionName}/chat`,
+      {
+        message: options.message,
+        conversation_id: options.conversation_id,
+        include_sources: options.include_sources ?? true,
+        top_k: options.top_k,
+        stream: false,
+      },
+      requestOptions
+    );
+  }
+
+  /**
+   * Stream a chat response scoped to a single collection
+   *
+   * @example
+   * await client.chat.streamCollection('my-docs', {
+   *   message: 'Explain the architecture',
+   * }, {
+   *   onContent: (chunk) => process.stdout.write(chunk),
+   *   onDone: (convId, tokens) => console.log('Done:', convId, tokens)
+   * });
+   */
+  async streamCollection(
+    collectionName: string,
+    options: Omit<RagChatOptions, 'collection' | 'stream'>,
+    callbacks: RagStreamCallbacks,
+    requestOptions?: RequestOptions
+  ): Promise<void> {
+    await this.http.stream(
+      `/v1/collections/${collectionName}/chat/stream`,
+      {
+        message: options.message,
+        conversation_id: options.conversation_id,
+        include_sources: options.include_sources ?? true,
+        top_k: options.top_k,
+        stream: true,
+      },
+      (data) => {
+        try {
+          const event = JSON.parse(data) as StreamEvent;
+
+          switch (event.type) {
+            case 'sources':
+              callbacks.onSources?.(event.sources);
+              break;
+            case 'thinking':
+              callbacks.onThinking?.(event.content);
+              break;
+            case 'content':
+              callbacks.onContent?.(event.content);
+              break;
+            case 'done':
+              callbacks.onDone?.(event.conversation_id, event.tokens_used);
+              break;
+            case 'error':
+              callbacks.onError?.(event.message);
+              break;
+          }
+        } catch {
+          // If not valid JSON, might be keep-alive or malformed
+        }
+      },
+      requestOptions
+    );
+  }
+
+  /**
    * Continue an existing conversation
    * @example
    * const response1 = await client.chat.send({

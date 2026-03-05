@@ -527,9 +527,9 @@ describe('Devabase SDK Integration Tests', () => {
       expect(Array.isArray(results)).toBe(true);
     });
 
-    it('should perform keyword search', async () => {
-      const results = await client.search.keyword({
-        collection: TEST_COLLECTION_NAME,
+    it('should perform multi-collection search', async () => {
+      const results = await client.search.multi({
+        collections: [TEST_COLLECTION_NAME],
         query: 'classes modules',
       });
       expect(Array.isArray(results)).toBe(true);

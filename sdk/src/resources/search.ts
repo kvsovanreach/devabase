@@ -3,6 +3,9 @@ import {
   SearchResult,
   SearchOptions,
   HybridSearchOptions,
+  HybridSearchResult,
+  MultiSearchOptions,
+  VectorMatch,
   RequestOptions,
 } from '../types';
 
@@ -30,7 +33,7 @@ export class SearchResource {
     options: SearchOptions,
     requestOptions?: RequestOptions
   ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
+    const response = await this.http.post<{ results: SearchResult[]; total: number; query: string }>(
       `/v1/collections/${options.collection}/search`,
       {
         query: options.query,
@@ -38,6 +41,7 @@ export class SearchResource {
         filter: options.filter,
         rerank: options.rerank,
         include_content: options.include_content ?? true,
+        include_metadata: options.include_metadata,
         strategy: options.strategy,
         strategy_options: options.strategy_options,
       },
@@ -47,7 +51,8 @@ export class SearchResource {
   }
 
   /**
-   * Perform hybrid search (vector + keyword)
+   * Perform hybrid search (vector + keyword with RRF fusion)
+   * Uses a separate low-level endpoint that combines vector similarity and BM25 keyword search.
    * @example
    * const results = await client.search.hybrid({
    *   collection: 'my-collection',
@@ -59,73 +64,18 @@ export class SearchResource {
   async hybrid(
     options: HybridSearchOptions,
     requestOptions?: RequestOptions
-  ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
-      `/v1/collections/${options.collection}/search`,
+  ): Promise<HybridSearchResult[]> {
+    return this.http.post<HybridSearchResult[]>(
+      `/v1/collections/${options.collection}/vectors/hybrid-search`,
       {
         query: options.query,
         top_k: options.top_k ?? 10,
+        vector_weight: options.vector_weight,
+        keyword_weight: options.keyword_weight,
         filter: options.filter,
-        rerank: options.rerank,
-        include_content: options.include_content ?? true,
-        search_type: 'hybrid',
-        vector_weight: options.vector_weight ?? 0.7,
-        keyword_weight: options.keyword_weight ?? 0.3,
       },
       requestOptions
     );
-    return response.results;
-  }
-
-  /**
-   * Perform keyword-only search (BM25)
-   * @example
-   * const results = await client.search.keyword({
-   *   collection: 'my-collection',
-   *   query: 'authentication',
-   *   top_k: 10
-   * });
-   */
-  async keyword(
-    options: SearchOptions,
-    requestOptions?: RequestOptions
-  ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
-      `/v1/collections/${options.collection}/search`,
-      {
-        query: options.query,
-        top_k: options.top_k ?? 10,
-        filter: options.filter,
-        include_content: options.include_content ?? true,
-        search_type: 'keyword',
-      },
-      requestOptions
-    );
-    return response.results;
-  }
-
-  /**
-   * Search across all collections
-   * @example
-   * const results = await client.search.global('authentication', { top_k: 20 });
-   */
-  async global(
-    query: string,
-    options?: Omit<SearchOptions, 'collection' | 'query'>,
-    requestOptions?: RequestOptions
-  ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
-      '/v1/search',
-      {
-        query,
-        top_k: options?.top_k ?? 10,
-        filter: options?.filter,
-        rerank: options?.rerank,
-        include_content: options?.include_content ?? true,
-      },
-      requestOptions
-    );
-    return response.results;
   }
 
   /**
@@ -136,41 +86,45 @@ export class SearchResource {
   async byVector(
     collection: string,
     vector: number[],
-    options?: { top_k?: number; filter?: Record<string, unknown> },
+    options?: { top_k?: number; filter?: Record<string, unknown>; include_metadata?: boolean },
     requestOptions?: RequestOptions
-  ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
+  ): Promise<VectorMatch[]> {
+    return this.http.post<VectorMatch[]>(
       `/v1/collections/${collection}/vectors/search`,
       {
         embedding: vector,
         top_k: options?.top_k ?? 10,
         filter: options?.filter,
+        include_metadata: options?.include_metadata,
       },
       requestOptions
     );
-    return response.results;
   }
 
   /**
    * Search across multiple collections
    * @example
-   * const results = await client.search.multi(['docs', 'faq'], 'How to login?', { top_k: 10 });
+   * const results = await client.search.multi({
+   *   collections: ['docs', 'faq'],
+   *   query: 'How to login?',
+   *   top_k: 10,
+   *   rerank: true
+   * });
    */
   async multi(
-    collections: string[],
-    query: string,
-    options?: Omit<SearchOptions, 'collection' | 'query'>,
+    options: MultiSearchOptions,
     requestOptions?: RequestOptions
   ): Promise<SearchResult[]> {
-    const response = await this.http.post<{ results: SearchResult[] }>(
+    const response = await this.http.post<{ results: SearchResult[]; total: number; query: string }>(
       '/v1/search',
       {
-        collections,
-        query,
-        top_k: options?.top_k ?? 10,
-        filter: options?.filter,
-        rerank: options?.rerank,
-        include_content: options?.include_content ?? true,
+        collections: options.collections,
+        query: options.query,
+        top_k: options.top_k ?? 10,
+        filter: options.filter,
+        rerank: options.rerank,
+        include_content: options.include_content ?? true,
+        include_metadata: options.include_metadata,
       },
       requestOptions
     );

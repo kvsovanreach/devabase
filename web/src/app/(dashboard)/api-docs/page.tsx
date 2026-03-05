@@ -21,6 +21,10 @@ import {
   Key,
   Zap,
   Share2,
+  Shield,
+  Users,
+  Radio,
+  BarChart3,
 } from 'lucide-react';
 import { API_CONFIG } from '@/lib/config';
 
@@ -120,11 +124,18 @@ function EndpointCard({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Replace path params with example values
+  // Replace path params with readable placeholders
   const displayPath = endpoint.path
     .replace(':name', '{collection_name}')
-    .replace(':id', '{id}')
-    .replace(':table', '{table_name}');
+    .replace(':table', '{table_name}')
+    .replace(':vid', '{vector_id}')
+    .replace(':entity_id', '{entity_id}')
+    .replace(':document_id', '{document_id}')
+    .replace(':iid', '{invitation_id}')
+    .replace(':uid', '{user_id}')
+    .replace(':token', '{token}')
+    .replace(':path', '{path}')
+    .replace(':id', '{id}');
 
   const curlExample = useMemo(() => {
     let curl = `curl -X ${endpoint.method} "${baseUrl}${endpoint.path}"`;
@@ -254,13 +265,194 @@ export default function ApiDocsPage() {
   const baseUrl = `${API_CONFIG.baseUrl}/v1`;
   const exampleCollection = collections?.[0]?.name || 'my_collection';
   const exampleTable = tables?.[0]?.name || 'my_table';
-  const apiKeyExample = apiKeys?.[0]?.prefix
-    ? `${apiKeys[0].prefix}...`
+  const firstKey = apiKeys?.data?.[0];
+  const apiKeyExample = firstKey?.prefix
+    ? `${firstKey.prefix}...`
     : 'deva_xxxxxxxxxxxx';
 
   // Define all endpoint categories with dynamic examples
   const categories: EndpointCategory[] = useMemo(
     () => [
+      {
+        name: 'App Authentication',
+        icon: <Shield className="w-5 h-5" />,
+        description: 'Authentication for end-users of apps built with Devabase',
+        endpoints: [
+          {
+            method: 'POST',
+            path: '/auth/app/register',
+            name: 'Register User',
+            description: 'Register a new app user with email and password',
+            requestBody: {
+              email: 'user@example.com',
+              password: 'securePassword123',
+              name: 'Jane Doe',
+            },
+            responseExample: {
+              user: { id: 'uuid', email: 'user@example.com', name: 'Jane Doe' },
+              access_token: 'eyJhbGciOi...',
+              refresh_token: 'eyJhbGciOi...',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/login',
+            name: 'Login',
+            description: 'Authenticate an app user and receive tokens',
+            requestBody: {
+              email: 'user@example.com',
+              password: 'securePassword123',
+            },
+            responseExample: {
+              user: { id: 'uuid', email: 'user@example.com', name: 'Jane Doe' },
+              access_token: 'eyJhbGciOi...',
+              refresh_token: 'eyJhbGciOi...',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/refresh',
+            name: 'Refresh Token',
+            description: 'Exchange a refresh token for a new access token',
+            requestBody: {
+              refresh_token: 'eyJhbGciOi...',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/logout',
+            name: 'Logout',
+            description: 'Invalidate the current session',
+          },
+          {
+            method: 'GET',
+            path: '/auth/app/me',
+            name: 'Get Current User',
+            description: 'Get the authenticated app user profile. Requires X-App-User-Token header.',
+          },
+          {
+            method: 'PATCH',
+            path: '/auth/app/me',
+            name: 'Update Profile',
+            description: 'Update the authenticated app user profile',
+            requestBody: {
+              name: 'Jane Updated',
+              metadata: { preferences: { theme: 'dark' } },
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/auth/app/me',
+            name: 'Delete Account',
+            description: 'Delete the authenticated app user account',
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/password',
+            name: 'Change Password',
+            description: 'Change password for the authenticated user',
+            requestBody: {
+              current_password: 'oldPassword123',
+              new_password: 'newPassword456',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/forgot-password',
+            name: 'Forgot Password',
+            description: 'Request a password reset email',
+            requestBody: {
+              email: 'user@example.com',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/reset-password',
+            name: 'Reset Password',
+            description: 'Reset password using a reset token',
+            requestBody: {
+              token: 'reset-token-from-email',
+              new_password: 'newPassword456',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/verify-email',
+            name: 'Verify Email',
+            description: 'Verify email address using a verification token',
+            requestBody: {
+              token: 'verification-token',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/resend-verification',
+            name: 'Resend Verification',
+            description: 'Resend the email verification link',
+            requestBody: {
+              email: 'user@example.com',
+            },
+          },
+          {
+            method: 'POST',
+            path: '/auth/app/introspect',
+            name: 'Introspect Token',
+            description: 'Stateless token introspection (OAuth2-style) for server-side validation',
+            requestBody: {
+              token: 'eyJhbGciOi...',
+            },
+            responseExample: {
+              active: true,
+              user_id: 'uuid',
+              email: 'user@example.com',
+              exp: 1700000000,
+            },
+          },
+        ],
+      },
+      {
+        name: 'App User Management',
+        icon: <Users className="w-5 h-5" />,
+        description: 'Admin endpoints for managing app users',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/auth/app/users',
+            name: 'List App Users',
+            description: 'List all app users in the project (admin only)',
+            queryParams: [
+              { name: 'limit', description: 'Number of results (default: 50)' },
+              { name: 'offset', description: 'Pagination offset' },
+              { name: 'search', description: 'Search by name or email' },
+            ],
+          },
+          {
+            method: 'GET',
+            path: '/auth/app/users/:id',
+            name: 'Get App User',
+            description: 'Get details of a specific app user',
+            pathParams: [{ name: 'id', description: 'User UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/auth/app/users/:id',
+            name: 'Update App User',
+            description: 'Update an app user (admin only)',
+            pathParams: [{ name: 'id', description: 'User UUID' }],
+            requestBody: {
+              name: 'Updated Name',
+              is_active: true,
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/auth/app/users/:id',
+            name: 'Delete App User',
+            description: 'Delete an app user account (admin only)',
+            pathParams: [{ name: 'id', description: 'User UUID' }],
+          },
+        ],
+      },
       {
         name: 'Collections',
         icon: <FolderOpen className="w-5 h-5" />,
@@ -295,49 +487,59 @@ export default function ApiDocsPage() {
           },
           {
             method: 'GET',
-            path: `/collections/:name`,
+            path: '/collections/:name',
             name: 'Get Collection',
             description: 'Get details of a specific collection',
             pathParams: [{ name: 'name', description: 'Collection name' }],
           },
           {
             method: 'PATCH',
-            path: `/collections/:name`,
+            path: '/collections/:name',
             name: 'Update Collection',
-            description: 'Update collection settings including RAG configuration',
+            description: 'Update collection settings',
             pathParams: [{ name: 'name', description: 'Collection name' }],
             requestBody: {
-              rag_enabled: true,
-              rag_config: {
-                llm_provider_id: 'openai-1',
-                model: 'gpt-4o-mini',
-                system_prompt: 'You are a helpful assistant.',
-                temperature: 0.7,
-                max_tokens: 1000,
-                top_k: 5,
-              },
+              description: 'Updated description',
             },
           },
           {
             method: 'DELETE',
-            path: `/collections/:name`,
+            path: '/collections/:name',
             name: 'Delete Collection',
             description: 'Delete a collection and all its vectors',
             pathParams: [{ name: 'name', description: 'Collection name' }],
           },
           {
             method: 'GET',
-            path: `/collections/:name/stats`,
+            path: '/collections/:name/stats',
             name: 'Get Collection Stats',
             description: 'Get detailed statistics for a collection including vector count and storage usage',
             pathParams: [{ name: 'name', description: 'Collection name' }],
             responseExample: {
-              name: 'my_collection',
+              name: exampleCollection,
               vector_count: 1500,
               document_count: 75,
               storage_bytes: 4500000,
               dimensions: 1536,
               metric: 'cosine',
+            },
+          },
+          {
+            method: 'PATCH',
+            path: '/collections/:name/config',
+            name: 'Update RAG Config',
+            description: 'Update the RAG configuration for a collection (LLM provider, prompt, retrieval settings)',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              rag_enabled: true,
+              rag_config: {
+                llm_provider_id: 'openai-1',
+                model: 'gpt-4o',
+                system_prompt: 'You are a helpful assistant.',
+                temperature: 0.7,
+                max_tokens: 1000,
+                top_k: 5,
+              },
             },
           },
         ],
@@ -372,6 +574,18 @@ export default function ApiDocsPage() {
           },
           {
             method: 'GET',
+            path: '/collections/:name/documents',
+            name: 'List Collection Documents',
+            description: 'List all documents in a specific collection',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            queryParams: [
+              { name: 'status', description: 'Filter by status (pending, processing, processed, failed)' },
+              { name: 'limit', description: 'Number of results (default: 50)' },
+              { name: 'offset', description: 'Pagination offset' },
+            ],
+          },
+          {
+            method: 'GET',
             path: '/documents/:id',
             name: 'Get Document',
             description: 'Get document details including processing status',
@@ -403,77 +617,6 @@ export default function ApiDocsPage() {
               message: 'Document reprocessing started',
             },
           },
-          {
-            method: 'GET',
-            path: '/collections/:name/documents',
-            name: 'List Collection Documents',
-            description: 'List all documents in a specific collection',
-            pathParams: [{ name: 'name', description: 'Collection name' }],
-            queryParams: [
-              { name: 'status', description: 'Filter by status (pending, processing, processed, failed)' },
-              { name: 'limit', description: 'Number of results (default: 50)' },
-              { name: 'offset', description: 'Pagination offset' },
-            ],
-          },
-        ],
-      },
-      {
-        name: 'Vectors (Low-Level)',
-        icon: <Database className="w-5 h-5" />,
-        description: 'Low-level vector operations for advanced users. For most use cases, use the Search endpoints instead.',
-        endpoints: [
-          {
-            method: 'POST',
-            path: '/collections/:name/vectors',
-            name: 'Upsert Vectors',
-            description: 'Insert or update vectors with their embeddings directly',
-            pathParams: [{ name: 'name', description: 'Collection name' }],
-            requestBody: {
-              vectors: [
-                {
-                  id: 'vec_1',
-                  embedding: [0.1, 0.2, '...'],
-                  metadata: { text: 'Hello world' },
-                },
-              ],
-            },
-          },
-          {
-            method: 'POST',
-            path: '/collections/:name/vectors/search',
-            name: 'Search by Embedding',
-            description: 'Search vectors using a raw embedding array',
-            pathParams: [{ name: 'name', description: 'Collection name' }],
-            requestBody: {
-              embedding: [0.1, 0.2, '...', 0.3],
-              top_k: 10,
-              filter: { category: 'docs' },
-            },
-          },
-          {
-            method: 'POST',
-            path: '/collections/:name/vectors/hybrid-search',
-            name: 'Hybrid Search by Embedding',
-            description: 'Search using both vector similarity and keyword matching with raw embeddings',
-            pathParams: [{ name: 'name', description: 'Collection name' }],
-            requestBody: {
-              embedding: [0.1, 0.2, '...', 0.3],
-              query: 'search keywords',
-              top_k: 10,
-              vector_weight: 0.7,
-              keyword_weight: 0.3,
-            },
-          },
-          {
-            method: 'DELETE',
-            path: '/collections/:name/vectors/:vid',
-            name: 'Delete Vector',
-            description: 'Delete a specific vector by ID',
-            pathParams: [
-              { name: 'name', description: 'Collection name' },
-              { name: 'vid', description: 'Vector UUID' },
-            ],
-          },
         ],
       },
       {
@@ -485,15 +628,13 @@ export default function ApiDocsPage() {
             method: 'POST',
             path: '/search',
             name: 'Unified Search',
-            description: 'Search across one or multiple collections. Automatically generates embeddings from your query. Supports vector, keyword, or hybrid search modes with optional reranking.',
+            description: 'Search across one or multiple collections. Automatically generates embeddings from your query text. Supports optional reranking and advanced retrieval strategies.',
             requestBody: {
               collections: [exampleCollection],
               query: 'What is the return policy?',
               top_k: 5,
-              mode: 'hybrid',
-              vector_weight: 0.7,
-              keyword_weight: 0.3,
               rerank: true,
+              filter: { category: 'support' },
             },
             responseExample: {
               results: [
@@ -501,44 +642,45 @@ export default function ApiDocsPage() {
                   id: 'chunk_uuid',
                   collection: exampleCollection,
                   document_id: 'doc_uuid',
+                  document_name: 'policy.pdf',
                   content: 'Our return policy allows...',
                   score: 0.94,
-                  vector_score: 0.92,
-                  keyword_score: 0.88,
                   rerank_score: 0.97,
                   metadata: { document_name: 'policy.pdf' },
                 },
               ],
+              total: 1,
+              query: 'What is the return policy?',
             },
           },
           {
             method: 'POST',
-            path: `/collections/:name/search`,
+            path: '/collections/:name/search',
             name: 'Collection Search',
-            description: 'Search within a specific collection using vector, keyword, or hybrid search modes.',
+            description: 'Search within a specific collection. Automatically generates embeddings from your query text. Supports filtering, reranking, and retrieval strategies.',
             pathParams: [{ name: 'name', description: 'Collection name' }],
             requestBody: {
               query: 'authentication best practices',
               top_k: 10,
-              mode: 'hybrid',
-              vector_weight: 0.7,
-              keyword_weight: 0.3,
               filter: { category: 'security' },
               rerank: true,
+              include_content: true,
+              include_metadata: true,
             },
             responseExample: {
               results: [
                 {
                   id: 'chunk_uuid',
                   document_id: 'doc_uuid',
+                  document_name: 'security-guide.pdf',
+                  collection: exampleCollection,
                   content: 'Authentication best practices include...',
                   score: 0.94,
-                  vector_score: 0.92,
-                  keyword_score: 0.88,
-                  rerank_score: 0.97,
                   metadata: { document_name: 'security-guide.pdf' },
                 },
               ],
+              total: 1,
+              query: 'authentication best practices',
             },
           },
         ],
@@ -546,14 +688,13 @@ export default function ApiDocsPage() {
       {
         name: 'RAG Chat',
         icon: <MessageSquare className="w-5 h-5" />,
-        description: 'Chat with your documents using RAG-enabled collections. Unified endpoint supports single or multiple collections.',
+        description: 'Chat with your documents using RAG. Unified endpoint supports single or multiple collections.',
         endpoints: [
           {
             method: 'POST',
             path: '/rag',
             name: 'Single Collection Chat',
-            description:
-              'Send a message and get an AI response grounded in your documents. Pass collection as a string for single collection. Requires RAG to be enabled on the collection.',
+            description: 'Send a message and get an AI response grounded in your documents. Pass collection as a string for single collection.',
             requestBody: {
               collection: exampleCollection,
               message: 'What products do you offer?',
@@ -564,14 +705,13 @@ export default function ApiDocsPage() {
             },
             responseExample: {
               answer: 'Based on the documentation, we offer...',
-              thinking: 'Let me analyze the relevant documents...',
               sources: [
                 {
-                  collection_name: exampleCollection,
+                  collection: exampleCollection,
                   document_id: 'doc_uuid',
                   document_name: 'products.pdf',
-                  chunk_content: 'We offer a wide range...',
-                  relevance_score: 0.95,
+                  content: 'We offer a wide range...',
+                  score: 0.95,
                 },
               ],
               collections_used: [exampleCollection],
@@ -583,8 +723,7 @@ export default function ApiDocsPage() {
             method: 'POST',
             path: '/rag',
             name: 'Multi-Collection Chat',
-            description:
-              'Chat across multiple collections by passing collection as an array. Sources from all collections are retrieved and merged by relevance.',
+            description: 'Chat across multiple collections by passing collection as an array. Sources from all collections are merged by relevance.',
             requestBody: {
               collection: [exampleCollection, 'faq', 'support_docs'],
               message: 'How do I reset my password?',
@@ -596,18 +735,11 @@ export default function ApiDocsPage() {
               answer: 'To reset your password, follow these steps...',
               sources: [
                 {
-                  collection_name: 'faq',
+                  collection: 'faq',
                   document_id: 'doc_uuid',
                   document_name: 'account-faq.pdf',
-                  chunk_content: 'Password reset instructions...',
-                  relevance_score: 0.98,
-                },
-                {
-                  collection_name: exampleCollection,
-                  document_id: 'doc_uuid2',
-                  document_name: 'user-guide.pdf',
-                  chunk_content: 'Account security settings...',
-                  relevance_score: 0.92,
+                  content: 'To reset your password...',
+                  score: 0.98,
                 },
               ],
               collections_used: ['faq', exampleCollection],
@@ -619,10 +751,9 @@ export default function ApiDocsPage() {
             method: 'POST',
             path: '/rag',
             name: 'Streaming Chat (SSE)',
-            description:
-              'Enable real-time streaming responses using Server-Sent Events. Set stream: true to receive incremental content. Works with both single and multiple collections.',
+            description: 'Enable real-time streaming responses using Server-Sent Events. Set stream: true to receive incremental content.',
             requestBody: {
-              collection: [exampleCollection, 'faq'],
+              collection: exampleCollection,
               message: 'Explain our pricing tiers',
               include_sources: true,
               stream: true,
@@ -650,12 +781,6 @@ export default function ApiDocsPage() {
               include_sources: true,
               top_k: 5,
             },
-            responseExample: {
-              answer: 'The key features include...',
-              sources: [{ document_name: 'features.pdf', relevance_score: 0.94 }],
-              conversation_id: 'conv_123',
-              tokens_used: 320,
-            },
           },
           {
             method: 'POST',
@@ -668,15 +793,14 @@ export default function ApiDocsPage() {
               include_sources: true,
               top_k: 5,
             },
-            responseExample: {
-              _note: 'Server-Sent Events stream',
-              events: [
-                { type: 'sources', sources: [{ document_name: 'arch.pdf', score: 0.95 }] },
-                { type: 'content', content: 'The architecture consists of...' },
-                { type: 'done', conversation_id: 'conv_123', tokens_used: 280 },
-              ],
-            },
           },
+        ],
+      },
+      {
+        name: 'Conversations',
+        icon: <MessageSquare className="w-5 h-5" />,
+        description: 'Manage chat conversation history',
+        endpoints: [
           {
             method: 'GET',
             path: '/conversations',
@@ -724,6 +848,76 @@ export default function ApiDocsPage() {
         ],
       },
       {
+        name: 'Vectors (Low-Level)',
+        icon: <Database className="w-5 h-5" />,
+        description: 'Low-level vector operations for advanced users. For most use cases, use the Search endpoints.',
+        endpoints: [
+          {
+            method: 'POST',
+            path: '/collections/:name/vectors',
+            name: 'Upsert Vectors',
+            description: 'Insert or update vectors with their embeddings directly',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              vectors: [
+                {
+                  id: 'vec_1',
+                  embedding: [0.1, 0.2, '...'],
+                  metadata: { text: 'Hello world' },
+                },
+              ],
+            },
+          },
+          {
+            method: 'POST',
+            path: '/collections/:name/vectors/search',
+            name: 'Search by Embedding',
+            description: 'Search vectors using a raw embedding array',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              embedding: [0.1, 0.2, '...', 0.3],
+              top_k: 10,
+              filter: { category: 'docs' },
+            },
+          },
+          {
+            method: 'POST',
+            path: '/collections/:name/vectors/hybrid-search',
+            name: 'Hybrid Search',
+            description: 'Combine vector similarity and keyword matching (BM25) with RRF fusion. Embeddings are generated automatically from your query text.',
+            pathParams: [{ name: 'name', description: 'Collection name' }],
+            requestBody: {
+              query: 'search keywords',
+              top_k: 10,
+              vector_weight: 0.7,
+              keyword_weight: 0.3,
+              filter: { category: 'docs' },
+            },
+            responseExample: [
+              {
+                id: 'uuid',
+                document_id: 'doc_uuid',
+                content: 'Matching document content...',
+                score: 0.042,
+                vector_score: 0.91,
+                keyword_score: 0.85,
+                metadata: { document_name: 'guide.pdf' },
+              },
+            ],
+          },
+          {
+            method: 'DELETE',
+            path: '/collections/:name/vectors/:vid',
+            name: 'Delete Vector',
+            description: 'Delete a specific vector by ID',
+            pathParams: [
+              { name: 'name', description: 'Collection name' },
+              { name: 'vid', description: 'Vector UUID' },
+            ],
+          },
+        ],
+      },
+      {
         name: 'Knowledge Graph',
         icon: <Share2 className="w-5 h-5" />,
         description: 'Extract and manage entities and relationships from documents',
@@ -739,15 +933,6 @@ export default function ApiDocsPage() {
               { name: 'limit', description: 'Number of results (default: 50)' },
               { name: 'offset', description: 'Pagination offset' },
             ],
-            responseExample: [
-              {
-                id: 'uuid',
-                name: 'Acme Corp',
-                entity_type: 'organization',
-                description: 'A technology company',
-                aliases: ['Acme', 'Acme Corporation'],
-              },
-            ],
           },
           {
             method: 'POST',
@@ -759,6 +944,27 @@ export default function ApiDocsPage() {
               entity_type: 'person',
               description: 'Software engineer',
               aliases: ['JD'],
+            },
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/entities/search',
+            name: 'Search Entities',
+            description: 'Search entities by name (fuzzy match)',
+            requestBody: {
+              query: 'acme',
+              entity_type: 'organization',
+              limit: 10,
+            },
+          },
+          {
+            method: 'POST',
+            path: '/knowledge/entities/merge',
+            name: 'Merge Entities',
+            description: 'Merge two duplicate entities into one',
+            requestBody: {
+              source_id: 'uuid-to-merge',
+              target_id: 'uuid-to-keep',
             },
           },
           {
@@ -785,27 +991,6 @@ export default function ApiDocsPage() {
             name: 'Delete Entity',
             description: 'Delete an entity and its relationships',
             pathParams: [{ name: 'id', description: 'Entity UUID' }],
-          },
-          {
-            method: 'POST',
-            path: '/knowledge/entities/search',
-            name: 'Search Entities',
-            description: 'Search entities by name (fuzzy match)',
-            requestBody: {
-              query: 'acme',
-              entity_type: 'organization',
-              limit: 10,
-            },
-          },
-          {
-            method: 'POST',
-            path: '/knowledge/entities/merge',
-            name: 'Merge Entities',
-            description: 'Merge two duplicate entities into one',
-            requestBody: {
-              source_id: 'uuid-to-merge',
-              target_id: 'uuid-to-keep',
-            },
           },
           {
             method: 'GET',
@@ -880,7 +1065,6 @@ export default function ApiDocsPage() {
               document_id: 'uuid',
               entities_extracted: 12,
               relationships_extracted: 8,
-              message: 'Extracted 12 entities and 8 relationships',
             },
           },
         ],
@@ -913,21 +1097,21 @@ export default function ApiDocsPage() {
           },
           {
             method: 'GET',
-            path: `/tables/:table`,
+            path: '/tables/:table',
             name: 'Get Table Schema',
             description: 'Get table schema and column definitions',
             pathParams: [{ name: 'table', description: 'Table name' }],
           },
           {
             method: 'DELETE',
-            path: `/tables/:table`,
+            path: '/tables/:table',
             name: 'Delete Table',
             description: 'Delete a table and all its data',
             pathParams: [{ name: 'table', description: 'Table name' }],
           },
           {
             method: 'GET',
-            path: `/tables/:table/rows`,
+            path: '/tables/:table/rows',
             name: 'List Rows',
             description: 'Query rows with filtering, sorting, and pagination',
             pathParams: [{ name: 'table', description: 'Table name' }],
@@ -941,7 +1125,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'POST',
-            path: `/tables/:table/rows`,
+            path: '/tables/:table/rows',
             name: 'Insert Row',
             description: 'Insert a new row into the table',
             pathParams: [{ name: 'table', description: 'Table name' }],
@@ -952,7 +1136,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'GET',
-            path: `/tables/:table/rows/:id`,
+            path: '/tables/:table/rows/:id',
             name: 'Get Row',
             description: 'Get a single row by ID',
             pathParams: [
@@ -962,7 +1146,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'PATCH',
-            path: `/tables/:table/rows/:id`,
+            path: '/tables/:table/rows/:id',
             name: 'Update Row',
             description: 'Update specific fields in a row',
             pathParams: [
@@ -975,7 +1159,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'DELETE',
-            path: `/tables/:table/rows/:id`,
+            path: '/tables/:table/rows/:id',
             name: 'Delete Row',
             description: 'Delete a row by ID',
             pathParams: [
@@ -985,7 +1169,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'GET',
-            path: `/tables/:table/export`,
+            path: '/tables/:table/export',
             name: 'Export Table',
             description: 'Export table data as CSV or JSON',
             pathParams: [{ name: 'table', description: 'Table name' }],
@@ -993,7 +1177,7 @@ export default function ApiDocsPage() {
           },
           {
             method: 'POST',
-            path: `/tables/:table/import`,
+            path: '/tables/:table/import',
             name: 'Import Data',
             description: 'Import data from CSV or JSON file',
             pathParams: [{ name: 'table', description: 'Table name' }],
@@ -1036,187 +1220,6 @@ export default function ApiDocsPage() {
             path: '/sql/schema',
             name: 'Get Schema',
             description: 'Get schema information for all tables (useful for autocomplete)',
-          },
-        ],
-      },
-      {
-        name: 'API Keys',
-        icon: <Key className="w-5 h-5" />,
-        description: 'Manage API keys for authentication',
-        endpoints: [
-          {
-            method: 'GET',
-            path: '/keys',
-            name: 'List API Keys',
-            description: 'List all API keys for the project',
-          },
-          {
-            method: 'POST',
-            path: '/keys',
-            name: 'Create API Key',
-            description: 'Create a new API key. The full key is only shown once.',
-            requestBody: {
-              name: 'Production Key',
-              scopes: ['read', 'write'],
-              expires_at: '2025-12-31T23:59:59Z',
-            },
-            responseExample: {
-              id: 'uuid',
-              name: 'Production Key',
-              key: 'deva_xxxxxxxxxxxxxxxxxxxx',
-              prefix: 'deva_xxxx',
-              scopes: ['read', 'write'],
-            },
-          },
-          {
-            method: 'GET',
-            path: '/keys/:id',
-            name: 'Get API Key',
-            description: 'Get API key details (key value is not returned)',
-            pathParams: [{ name: 'id', description: 'API key UUID' }],
-            responseExample: {
-              id: 'uuid',
-              name: 'Production Key',
-              prefix: 'deva_xxxx',
-              scopes: ['read', 'write'],
-              last_used_at: '2024-01-15T10:30:00Z',
-              expires_at: '2025-12-31T23:59:59Z',
-            },
-          },
-          {
-            method: 'DELETE',
-            path: '/keys/:id',
-            name: 'Revoke API Key',
-            description: 'Revoke/delete an API key',
-            pathParams: [{ name: 'id', description: 'API key UUID' }],
-          },
-        ],
-      },
-      {
-        name: 'Evaluation',
-        icon: <Zap className="w-5 h-5" />,
-        description: 'Evaluate RAG retrieval quality with datasets and metrics',
-        endpoints: [
-          {
-            method: 'GET',
-            path: '/evaluation/datasets',
-            name: 'List Datasets',
-            description: 'List all evaluation datasets in the project',
-            responseExample: [
-              {
-                id: 'uuid',
-                name: 'Product FAQ Evaluation',
-                collection_id: 'uuid',
-                collection_name: exampleCollection,
-                case_count: 25,
-                run_count: 3,
-                last_run: '2024-01-15T10:30:00Z',
-              },
-            ],
-          },
-          {
-            method: 'POST',
-            path: '/evaluation/datasets',
-            name: 'Create Dataset',
-            description: 'Create a new evaluation dataset linked to a collection',
-            requestBody: {
-              collection_name: exampleCollection,
-              name: 'Customer Support Evaluation',
-              description: 'Test queries for customer support documentation',
-            },
-          },
-          {
-            method: 'GET',
-            path: '/evaluation/datasets/:id',
-            name: 'Get Dataset',
-            description: 'Get dataset details including all test cases',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
-          },
-          {
-            method: 'PATCH',
-            path: '/evaluation/datasets/:id',
-            name: 'Update Dataset',
-            description: 'Update dataset name or description',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
-            requestBody: {
-              name: 'Updated Dataset Name',
-              description: 'Updated description',
-            },
-          },
-          {
-            method: 'POST',
-            path: '/evaluation/datasets/:id/cases',
-            name: 'Add Test Case',
-            description: 'Add a test case with query and expected relevant chunk IDs',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
-            requestBody: {
-              query: 'How do I reset my password?',
-              expected_chunk_ids: ['chunk_uuid_1', 'chunk_uuid_2'],
-              metadata: { category: 'account' },
-            },
-          },
-          {
-            method: 'POST',
-            path: '/evaluation/datasets/:id/run',
-            name: 'Run Evaluation',
-            description: 'Execute evaluation and compute retrieval metrics (Precision@K, Recall@K, MRR, NDCG)',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
-            requestBody: {
-              search_mode: 'hybrid',
-              top_k: 5,
-              vector_weight: 0.7,
-              keyword_weight: 0.3,
-            },
-            responseExample: {
-              run: { id: 'uuid', dataset_id: 'uuid', search_mode: 'hybrid' },
-              metrics: {
-                precision_at_k: 0.82,
-                recall_at_k: 0.75,
-                mrr: 0.88,
-                ndcg: 0.84,
-                cases_evaluated: 25,
-                k: 5,
-              },
-            },
-          },
-          {
-            method: 'GET',
-            path: '/evaluation/datasets/:id/runs',
-            name: 'List Runs',
-            description: 'Get all evaluation runs for a dataset',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
-          },
-          {
-            method: 'GET',
-            path: '/evaluation/runs/:id',
-            name: 'Get Run Details',
-            description: 'Get detailed results for an evaluation run including per-case metrics',
-            pathParams: [{ name: 'id', description: 'Run UUID' }],
-          },
-          {
-            method: 'PATCH',
-            path: '/evaluation/cases/:id',
-            name: 'Update Test Case',
-            description: 'Update a test case query or expected chunk IDs',
-            pathParams: [{ name: 'id', description: 'Case UUID' }],
-            requestBody: {
-              query: 'Updated test query?',
-              expected_chunk_ids: ['chunk_uuid_1', 'chunk_uuid_2', 'chunk_uuid_3'],
-            },
-          },
-          {
-            method: 'DELETE',
-            path: '/evaluation/cases/:id',
-            name: 'Delete Test Case',
-            description: 'Delete a test case from a dataset',
-            pathParams: [{ name: 'id', description: 'Case UUID' }],
-          },
-          {
-            method: 'DELETE',
-            path: '/evaluation/datasets/:id',
-            name: 'Delete Dataset',
-            description: 'Delete a dataset and all its test cases and runs',
-            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
           },
         ],
       },
@@ -1296,6 +1299,66 @@ export default function ApiDocsPage() {
         ],
       },
       {
+        name: 'API Keys',
+        icon: <Key className="w-5 h-5" />,
+        description: 'Manage API keys for authentication',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/keys',
+            name: 'List API Keys',
+            description: 'List all API keys for the project',
+            queryParams: [
+              { name: 'limit', description: 'Number of results (default: 10)' },
+              { name: 'offset', description: 'Pagination offset' },
+            ],
+          },
+          {
+            method: 'POST',
+            path: '/keys',
+            name: 'Create API Key',
+            description: 'Create a new API key. The full key is only shown once.',
+            requestBody: {
+              name: 'Production Key',
+              scopes: ['read', 'write'],
+              expires_at: '2026-12-31T23:59:59Z',
+            },
+            responseExample: {
+              id: 'uuid',
+              name: 'Production Key',
+              key: 'deva_xxxxxxxxxxxxxxxxxxxx',
+              prefix: 'deva_xxxx',
+              scopes: ['read', 'write'],
+              is_active: true,
+            },
+          },
+          {
+            method: 'GET',
+            path: '/keys/:id',
+            name: 'Get API Key',
+            description: 'Get API key details (key value is not returned)',
+            pathParams: [{ name: 'id', description: 'API key UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/keys/:id',
+            name: 'Toggle API Key',
+            description: 'Enable or disable an API key. Disabled keys are immediately rejected.',
+            pathParams: [{ name: 'id', description: 'API key UUID' }],
+            requestBody: {
+              is_active: false,
+            },
+          },
+          {
+            method: 'DELETE',
+            path: '/keys/:id',
+            name: 'Revoke API Key',
+            description: 'Permanently delete an API key',
+            pathParams: [{ name: 'id', description: 'API key UUID' }],
+          },
+        ],
+      },
+      {
         name: 'Storage',
         icon: <FolderOpen className="w-5 h-5" />,
         description: 'Generic file storage for assets, images, and documents',
@@ -1342,15 +1405,6 @@ export default function ApiDocsPage() {
             path: '/webhooks',
             name: 'List Webhooks',
             description: 'List all webhooks configured for the project',
-            responseExample: [
-              {
-                id: 'uuid',
-                name: 'Document Processed',
-                url: 'https://api.example.com/webhooks/devabase',
-                events: ['document.processed', 'document.failed'],
-                is_active: true,
-              },
-            ],
           },
           {
             method: 'POST',
@@ -1424,25 +1478,15 @@ export default function ApiDocsPage() {
             path: '/prompts',
             name: 'List Prompts',
             description: 'List all prompt templates in the project',
-            responseExample: [
-              {
-                id: 'uuid',
-                name: 'rag_system_prompt',
-                version: 3,
-                content: 'You are a helpful assistant...',
-                variables: ['context', 'question'],
-                is_active: true,
-              },
-            ],
           },
           {
             method: 'POST',
             path: '/prompts',
             name: 'Create Prompt',
-            description: 'Create a new prompt template with variable placeholders',
+            description: 'Create a new prompt template with variable placeholders ({{variable}})',
             requestBody: {
               name: 'customer_support',
-              content: 'You are a customer support agent for {{company}}. Answer questions based on:\n\n{{context}}\n\nQuestion: {{question}}',
+              content: 'You are a support agent for {{company}}.\n\nContext: {{context}}\n\nQuestion: {{question}}',
               description: 'Customer support RAG prompt',
             },
           },
@@ -1460,7 +1504,7 @@ export default function ApiDocsPage() {
             description: 'Update a prompt template (creates a new version)',
             pathParams: [{ name: 'name', description: 'Prompt name' }],
             requestBody: {
-              content: 'Updated prompt content with {{variables}}...',
+              content: 'Updated prompt with {{variables}}...',
             },
           },
           {
@@ -1479,13 +1523,222 @@ export default function ApiDocsPage() {
             requestBody: {
               variables: {
                 company: 'Acme Corp',
-                context: 'Product documentation content...',
+                context: 'Product documentation...',
                 question: 'What is the return policy?',
               },
             },
             responseExample: {
-              rendered: 'You are a customer support agent for Acme Corp. Answer questions based on:\n\nProduct documentation content...\n\nQuestion: What is the return policy?',
+              rendered: 'You are a support agent for Acme Corp...',
               variables_used: ['company', 'context', 'question'],
+            },
+          },
+        ],
+      },
+      {
+        name: 'Evaluation',
+        icon: <Zap className="w-5 h-5" />,
+        description: 'Evaluate RAG retrieval quality with datasets and metrics',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/evaluation/datasets',
+            name: 'List Datasets',
+            description: 'List all evaluation datasets in the project',
+          },
+          {
+            method: 'POST',
+            path: '/evaluation/datasets',
+            name: 'Create Dataset',
+            description: 'Create a new evaluation dataset linked to a collection',
+            requestBody: {
+              collection_name: exampleCollection,
+              name: 'Customer Support Evaluation',
+              description: 'Test queries for support docs',
+            },
+          },
+          {
+            method: 'GET',
+            path: '/evaluation/datasets/:id',
+            name: 'Get Dataset',
+            description: 'Get dataset details including all test cases',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/evaluation/datasets/:id',
+            name: 'Update Dataset',
+            description: 'Update dataset name or description',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+          },
+          {
+            method: 'DELETE',
+            path: '/evaluation/datasets/:id',
+            name: 'Delete Dataset',
+            description: 'Delete a dataset and all its test cases and runs',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+          },
+          {
+            method: 'POST',
+            path: '/evaluation/datasets/:id/cases',
+            name: 'Add Test Case',
+            description: 'Add a test case with query and expected relevant chunk IDs',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+            requestBody: {
+              query: 'How do I reset my password?',
+              expected_chunk_ids: ['chunk_uuid_1', 'chunk_uuid_2'],
+            },
+          },
+          {
+            method: 'POST',
+            path: '/evaluation/datasets/:id/run',
+            name: 'Run Evaluation',
+            description: 'Execute evaluation and compute retrieval metrics (Precision@K, Recall@K, MRR, NDCG)',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+            requestBody: {
+              search_mode: 'hybrid',
+              top_k: 5,
+              vector_weight: 0.7,
+              keyword_weight: 0.3,
+            },
+            responseExample: {
+              metrics: {
+                precision_at_k: 0.82,
+                recall_at_k: 0.75,
+                mrr: 0.88,
+                ndcg: 0.84,
+                cases_evaluated: 25,
+              },
+            },
+          },
+          {
+            method: 'GET',
+            path: '/evaluation/datasets/:id/runs',
+            name: 'List Runs',
+            description: 'Get all evaluation runs for a dataset',
+            pathParams: [{ name: 'id', description: 'Dataset UUID' }],
+          },
+          {
+            method: 'GET',
+            path: '/evaluation/runs/:id',
+            name: 'Get Run Details',
+            description: 'Get detailed results for an evaluation run including per-case metrics',
+            pathParams: [{ name: 'id', description: 'Run UUID' }],
+          },
+          {
+            method: 'PATCH',
+            path: '/evaluation/cases/:id',
+            name: 'Update Test Case',
+            description: 'Update a test case query or expected chunk IDs',
+            pathParams: [{ name: 'id', description: 'Case UUID' }],
+          },
+          {
+            method: 'DELETE',
+            path: '/evaluation/cases/:id',
+            name: 'Delete Test Case',
+            description: 'Delete a test case from a dataset',
+            pathParams: [{ name: 'id', description: 'Case UUID' }],
+          },
+        ],
+      },
+      {
+        name: 'Benchmarks',
+        icon: <BarChart3 className="w-5 h-5" />,
+        description: 'Run academic-style RAG benchmarks against standard datasets',
+        endpoints: [
+          {
+            method: 'POST',
+            path: '/benchmarks/run',
+            name: 'Run Benchmark',
+            description: 'Run a benchmark evaluation against a dataset with specified configuration',
+            requestBody: {
+              dataset: 'ms_marco',
+              config: {
+                search_mode: 'hybrid',
+                top_k: 10,
+                collection_name: exampleCollection,
+              },
+            },
+          },
+          {
+            method: 'GET',
+            path: '/benchmarks',
+            name: 'List Benchmarks',
+            description: 'List all benchmark runs for the project',
+          },
+          {
+            method: 'GET',
+            path: '/benchmarks/:id',
+            name: 'Get Benchmark',
+            description: 'Get detailed results for a benchmark run',
+            pathParams: [{ name: 'id', description: 'Benchmark UUID' }],
+          },
+          {
+            method: 'DELETE',
+            path: '/benchmarks/:id',
+            name: 'Delete Benchmark',
+            description: 'Delete a benchmark run',
+            pathParams: [{ name: 'id', description: 'Benchmark UUID' }],
+          },
+          {
+            method: 'GET',
+            path: '/benchmarks/:id/export',
+            name: 'Export Benchmark',
+            description: 'Export benchmark results as JSON',
+            pathParams: [{ name: 'id', description: 'Benchmark UUID' }],
+          },
+          {
+            method: 'GET',
+            path: '/benchmarks/datasets',
+            name: 'List Available Datasets',
+            description: 'List available benchmark datasets (MS MARCO, NQ, etc.)',
+          },
+          {
+            method: 'POST',
+            path: '/benchmarks/datasets/download',
+            name: 'Download Dataset',
+            description: 'Download a benchmark dataset for local use',
+            requestBody: {
+              dataset: 'ms_marco',
+              split: 'dev',
+            },
+          },
+          {
+            method: 'GET',
+            path: '/benchmarks/configs',
+            name: 'Get Preset Configs',
+            description: 'Get preset benchmark configurations',
+          },
+          {
+            method: 'POST',
+            path: '/benchmarks/compare',
+            name: 'Compare Benchmarks',
+            description: 'Compare results across multiple benchmark runs',
+            requestBody: {
+              benchmark_ids: ['uuid1', 'uuid2'],
+            },
+          },
+        ],
+      },
+      {
+        name: 'Realtime',
+        icon: <Radio className="w-5 h-5" />,
+        description: 'WebSocket endpoint for real-time data subscriptions',
+        endpoints: [
+          {
+            method: 'GET',
+            path: '/realtime',
+            name: 'WebSocket Connection',
+            description: 'Upgrade to WebSocket for real-time event subscriptions. Subscribe to collection changes, document processing events, and more.',
+            responseExample: {
+              _note: 'WebSocket upgrade - not a REST endpoint',
+              example_message: {
+                type: 'subscribe',
+                channel: 'collection:my_collection',
+              },
+              example_event: {
+                type: 'document.processed',
+                data: { document_id: 'uuid', collection: exampleCollection },
+              },
             },
           },
         ],

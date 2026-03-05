@@ -6,15 +6,19 @@ import { CollectionsResource } from '../resources/collections';
 import { DocumentsResource } from '../resources/documents';
 import { TablesResource } from '../resources/tables';
 import { SearchResource } from '../resources/search';
+import { VectorsResource } from '../resources/vectors';
 import { ChatResource } from '../resources/chat';
 import { KnowledgeResource } from '../resources/knowledge';
 import { ChunksResource } from '../resources/chunks';
 import { EvaluationResource } from '../resources/evaluation';
+import { BenchmarksResource } from '../resources/benchmarks';
 import { PromptsResource } from '../resources/prompts';
 import { WebhooksResource } from '../resources/webhooks';
 import { SqlResource } from '../resources/sql';
 import { StorageResource } from '../resources/storage';
 import { ProvidersResource } from '../resources/providers';
+import { AdminResource } from '../resources/admin';
+import { RealtimeResource } from '../resources/realtime';
 import { DevabaseConfig } from '../types';
 
 export class DevabaseClient {
@@ -34,6 +38,8 @@ export class DevabaseClient {
   public readonly tables: TablesResource;
   /** Vector and hybrid search */
   public readonly search: SearchResource;
+  /** Low-level vector operations (upsert, search, delete) */
+  public readonly vectors: VectorsResource;
   /** RAG chat operations */
   public readonly chat: ChatResource;
   /** Knowledge graph operations */
@@ -42,6 +48,8 @@ export class DevabaseClient {
   public readonly chunks: ChunksResource;
   /** RAG evaluation */
   public readonly evaluation: EvaluationResource;
+  /** Academic benchmarks (BEIR, etc.) */
+  public readonly benchmarks: BenchmarksResource;
   /** Prompt templates */
   public readonly prompts: PromptsResource;
   /** Webhook subscriptions */
@@ -52,6 +60,10 @@ export class DevabaseClient {
   public readonly storage: StorageResource;
   /** LLM, Embedding, and Rerank provider management */
   public readonly providers: ProvidersResource;
+  /** Admin operations (cache, usage analytics) */
+  public readonly admin: AdminResource;
+  /** Real-time event streaming via WebSocket */
+  public readonly realtime: RealtimeResource;
 
   /**
    * Create a new Devabase client
@@ -93,15 +105,37 @@ export class DevabaseClient {
     this.documents = new DocumentsResource(this.http);
     this.tables = new TablesResource(this.http);
     this.search = new SearchResource(this.http);
+    this.vectors = new VectorsResource(this.http);
     this.chat = new ChatResource(this.http);
     this.knowledge = new KnowledgeResource(this.http);
     this.chunks = new ChunksResource(this.http);
     this.evaluation = new EvaluationResource(this.http);
+    this.benchmarks = new BenchmarksResource(this.http);
     this.prompts = new PromptsResource(this.http);
     this.webhooks = new WebhooksResource(this.http);
     this.sql = new SqlResource(this.http);
     this.storage = new StorageResource(this.http);
     this.providers = new ProvidersResource(this.http);
+    this.admin = new AdminResource(this.http);
+    this.realtime = new RealtimeResource(this.http);
+  }
+
+  /**
+   * Check if the server is healthy
+   * @example
+   * const healthy = await client.healthCheck();
+   */
+  async healthCheck(): Promise<{ status: string }> {
+    return this.http.get<{ status: string }>('/v1/health');
+  }
+
+  /**
+   * Check if the server is ready (database connected, etc.)
+   * @example
+   * const ready = await client.readyCheck();
+   */
+  async readyCheck(): Promise<{ status: string }> {
+    return this.http.get<{ status: string }>('/v1/ready');
   }
 
   /**

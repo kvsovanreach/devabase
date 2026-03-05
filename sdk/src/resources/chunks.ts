@@ -4,12 +4,10 @@ import { RequestOptions } from '../types';
 export interface Chunk {
   id: string;
   document_id: string;
-  collection_id: string;
   content: string;
   chunk_index: number;
   token_count: number;
-  metadata: Record<string, unknown>;
-  created_at: string;
+  metadata: Record<string, unknown> | null;
 }
 
 export class ChunksResource {
@@ -51,21 +49,20 @@ export class ChunksResource {
   }
 
   /**
-   * Split a chunk into multiple smaller chunks
+   * Split a chunk into two at a given character position
    * @example
-   * const result = await client.chunks.split('chunk-id', [100, 250]);
+   * const result = await client.chunks.split('chunk-id', 250);
    */
   async split(
     chunkId: string,
-    splitPositions: number[],
+    splitAt: number,
     options?: RequestOptions
   ): Promise<{
-    original_chunk_id: string;
-    new_chunks: Chunk[];
+    chunks: Chunk[];
   }> {
     return this.http.post(
       `/v1/chunks/${chunkId}/split`,
-      { split_positions: splitPositions },
+      { split_at: splitAt },
       options
     );
   }
@@ -77,10 +74,12 @@ export class ChunksResource {
    */
   async merge(
     chunkIds: string[],
-    options?: RequestOptions
+    options?: { separator?: string } & RequestOptions
   ): Promise<{
-    merged_chunk: Chunk;
+    chunk: Chunk;
+    merged_count: number;
   }> {
-    return this.http.post('/v1/chunks/merge', { chunk_ids: chunkIds }, options);
+    const { separator, ...reqOptions } = options ?? {};
+    return this.http.post('/v1/chunks/merge', { chunk_ids: chunkIds, separator }, reqOptions);
   }
 }

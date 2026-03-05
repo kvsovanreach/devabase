@@ -1,37 +1,26 @@
 import { HttpClient } from '../utils/http';
-import { RequestOptions } from '../types';
-
-export interface Webhook {
-  id: string;
-  name: string;
-  url: string;
-  events: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WebhookLog {
-  id: string;
-  webhook_id: string;
-  event: string;
-  status: 'success' | 'failed';
-  status_code?: number;
-  response_time_ms?: number;
-  error?: string;
-  created_at: string;
-}
+import {
+  Webhook,
+  WebhookLog,
+  CreateWebhookInput,
+  UpdateWebhookInput,
+  TestWebhookResponse,
+  PaginatedResponse,
+  QueryOptions,
+  RequestOptions,
+} from '../types';
 
 export class WebhooksResource {
   constructor(private http: HttpClient) {}
 
   /**
-   * List all webhooks
+   * List all webhooks with pagination
    * @example
-   * const webhooks = await client.webhooks.list();
+   * const result = await client.webhooks.list();
+   * console.log(result.data); // Array of webhooks
    */
-  async list(options?: RequestOptions): Promise<Webhook[]> {
-    return this.http.get<Webhook[]>('/v1/webhooks', undefined, options);
+  async list(query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<Webhook>> {
+    return this.http.get<PaginatedResponse<Webhook>>('/v1/webhooks', query, options);
   }
 
   /**
@@ -49,17 +38,11 @@ export class WebhooksResource {
    * const webhook = await client.webhooks.create({
    *   name: 'Document Events',
    *   url: 'https://api.example.com/webhooks/devabase',
-   *   events: ['document.processed', 'document.failed'],
-   *   secret: 'whsec_xxxxx'
+   *   events: ['document.processed', 'document.failed']
    * });
    */
   async create(
-    data: {
-      name: string;
-      url: string;
-      events: string[];
-      secret?: string;
-    },
+    data: CreateWebhookInput,
     options?: RequestOptions
   ): Promise<Webhook> {
     return this.http.post<Webhook>('/v1/webhooks', data, options);
@@ -70,17 +53,12 @@ export class WebhooksResource {
    * @example
    * const webhook = await client.webhooks.update('webhook-id', {
    *   events: ['document.processed'],
-   *   is_active: false
+   *   status: 'paused'
    * });
    */
   async update(
     webhookId: string,
-    data: {
-      name?: string;
-      url?: string;
-      events?: string[];
-      is_active?: boolean;
-    },
+    data: UpdateWebhookInput,
     options?: RequestOptions
   ): Promise<Webhook> {
     return this.http.patch<Webhook>(`/v1/webhooks/${webhookId}`, data, options);
@@ -96,17 +74,13 @@ export class WebhooksResource {
   }
 
   /**
-   * Test a webhook
+   * Test a webhook by sending a test event
    * @example
    * const result = await client.webhooks.test('webhook-id');
+   * console.log(result.success, result.latency_ms);
    */
-  async test(webhookId: string, options?: RequestOptions): Promise<{
-    success: boolean;
-    status_code?: number;
-    response_time_ms?: number;
-    error?: string;
-  }> {
-    return this.http.post(`/v1/webhooks/${webhookId}/test`, undefined, options);
+  async test(webhookId: string, options?: RequestOptions): Promise<TestWebhookResponse> {
+    return this.http.post<TestWebhookResponse>(`/v1/webhooks/${webhookId}/test`, undefined, options);
   }
 
   /**
@@ -116,7 +90,7 @@ export class WebhooksResource {
    */
   async getLogs(
     webhookId: string,
-    query?: { limit?: number; status?: 'success' | 'failed' },
+    query?: { limit?: number; offset?: number },
     options?: RequestOptions
   ): Promise<WebhookLog[]> {
     return this.http.get<WebhookLog[]>(`/v1/webhooks/${webhookId}/logs`, query, options);

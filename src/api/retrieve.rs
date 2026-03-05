@@ -54,7 +54,7 @@ fn default_top_k() -> i32 { 10 }
 fn default_true() -> bool { true }
 
 /// Search result with source information
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SearchResult {
     pub id: String,
     pub content: String,
@@ -184,6 +184,13 @@ pub async fn unified_search(
     let settings = project.settings.unwrap_or_default();
     let embedding_provider = get_project_embedding_provider(&settings)?;
 
+    // Get reranker if reranking is requested
+    let reranker = if req.rerank {
+        get_project_reranker(&settings).ok()
+    } else {
+        None
+    };
+
     // Build multi-collection query
     let query = MultiCollectionQuery {
         collections,
@@ -195,7 +202,7 @@ pub async fn unified_search(
     let result = rag::retrieve_multi_collection_with_provider(&state.pool, embedding_provider.as_ref(), query, Some(project_id)).await?;
 
     // Convert to unified search response
-    let search_results: Vec<SearchResult> = result.results
+    let mut search_results: Vec<SearchResult> = result.results
         .into_iter()
         .map(|r| {
             // Extract document name from metadata if available
@@ -209,7 +216,7 @@ pub async fn unified_search(
                 id: r.id.to_string(),
                 content: r.content,
                 score: r.score,
-                rerank_score: None, // Multi-collection search doesn't support reranking yet
+                rerank_score: None,
                 document_id: r.document_id.to_string(),
                 document_name: doc_name,
                 collection: r.collection_name,
@@ -217,6 +224,32 @@ pub async fn unified_search(
             }
         })
         .collect();
+
+    // Apply reranking if available
+    if let Some(reranker) = reranker {
+        if !search_results.is_empty() {
+            let documents: Vec<String> = search_results.iter().map(|r| r.content.clone()).collect();
+            let reranked = reranker.rerank(&req.query, documents, None).await?;
+
+            let mut reranked_results: Vec<SearchResult> = reranked
+                .into_iter()
+                .map(|r| {
+                    let mut result = search_results[r.index].clone();
+                    result.rerank_score = Some(r.score);
+                    result
+                })
+                .collect();
+
+            reranked_results.sort_by(|a, b| {
+                b.rerank_score
+                    .unwrap_or(0.0)
+                    .partial_cmp(&a.rerank_score.unwrap_or(0.0))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            search_results = reranked_results;
+        }
+    }
 
     let total = search_results.len();
 

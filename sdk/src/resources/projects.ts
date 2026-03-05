@@ -106,7 +106,14 @@ export class ProjectsResource {
     list: async (projectId?: string, query?: QueryOptions, options?: RequestOptions): Promise<PaginatedResponse<ApiKey>> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.get<PaginatedResponse<ApiKey>>(`/v1/keys`, query, options);
+      return this.http.get<PaginatedResponse<ApiKey>>('/v1/keys', query, options);
+    },
+
+    /**
+     * Get a specific API key by ID
+     */
+    get: async (keyId: string, options?: RequestOptions): Promise<ApiKey> => {
+      return this.http.get<ApiKey>(`/v1/keys/${keyId}`, undefined, options);
     },
 
     create: async (
@@ -116,7 +123,16 @@ export class ProjectsResource {
     ): Promise<CreateApiKeyResponse> => {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
-      return this.http.post<CreateApiKeyResponse>(`/v1/keys`, input, options);
+      return this.http.post<CreateApiKeyResponse>('/v1/keys', input, options);
+    },
+
+    /**
+     * Toggle an API key's active status
+     * @example
+     * await client.projects.apiKeys.toggle('key-id', false); // Disable
+     */
+    toggle: async (keyId: string, isActive: boolean, options?: RequestOptions): Promise<ApiKey> => {
+      return this.http.patch<ApiKey>(`/v1/keys/${keyId}`, { is_active: isActive }, options);
     },
 
     revoke: async (keyId: string, projectId?: string, options?: RequestOptions): Promise<void> => {
@@ -187,6 +203,15 @@ export class ProjectsResource {
       const id = projectId ?? this.currentProjectId;
       if (!id) throw new Error('No project ID provided');
       await this.http.delete(`/v1/projects/${id}/invitations/${invitationId}`, options);
+    },
+
+    /**
+     * Accept a project invitation using the token from the invitation email
+     * @example
+     * await client.projects.invitations.accept('invitation-token');
+     */
+    accept: async (token: string, options?: RequestOptions): Promise<void> => {
+      await this.http.post<void>(`/v1/invitations/${token}/accept`, undefined, options);
     },
   };
 }

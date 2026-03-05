@@ -322,6 +322,7 @@ struct AppUserTokenClaims {
     sub: String,
     project_id: String,
     email: String,
+    #[allow(dead_code)]
     exp: i64,
     token_type: String,
 }

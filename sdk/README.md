@@ -5,14 +5,14 @@
 <h1 align="center">Devabase SDK</h1>
 
 <p align="center">
-  <strong>The complete backend SDK for RAG and LLM applications</strong>
+  <strong>The complete TypeScript SDK for building AI-powered applications</strong>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/devabase-sdk"><img src="https://img.shields.io/npm/v/devabase-sdk.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/devabase-sdk"><img src="https://img.shields.io/npm/dm/devabase-sdk.svg" alt="npm downloads"></a>
   <a href="https://github.com/kvsovanreach/devabase/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://sovanreach.com/projects/devabase"><img src="https://img.shields.io/badge/docs-documentation-blue.svg" alt="Documentation"></a>
+  <a href="https://sovanreach.com/projects/devabase/docs"><img src="https://img.shields.io/badge/docs-documentation-blue.svg" alt="Documentation"></a>
 </p>
 
 <p align="center">
@@ -44,8 +44,6 @@ pnpm add devabase-sdk
 ---
 
 ## Quick Start
-
-Get up and running in under 5 minutes.
 
 ```typescript
 import { createClient } from 'devabase-sdk';
@@ -90,13 +88,20 @@ console.log(response.sources);
 | Feature | Description |
 |---------|-------------|
 | **Vector Collections** | Store and query millions of embeddings with cosine, L2, or inner product similarity |
-| **Document Processing** | Upload PDF, DOCX, TXT, MD, HTML, CSV, JSON files with automatic chunking and embedding |
-| **Semantic Search** | Vector search, keyword search, hybrid retrieval, and cross-encoder reranking |
+| **Document Processing** | Upload PDF, DOCX, TXT, MD files with automatic chunking and embedding |
+| **Semantic Search** | Vector search, hybrid retrieval (vector + BM25), and cross-encoder reranking |
 | **Advanced Retrieval** | HyDE, Multi-Query, Self-Query, Parent-Child, and Compression strategies |
 | **RAG Chat** | Conversational AI with source attribution, streaming, and conversation memory |
 | **Knowledge Graphs** | Extract entities and relationships from documents, traverse connections |
 | **Tables & REST API** | Create PostgreSQL tables with auto-generated CRUD endpoints |
-| **App Authentication** | Complete auth system for your end-users with JWT, password reset, and email verification |
+| **App Authentication** | Complete auth system for end-users with JWT, password reset, email verification |
+| **SQL Queries** | Execute parameterized SQL with history and schema introspection |
+| **File Storage** | Upload, download, and manage files with project isolation |
+| **Webhooks** | Subscribe to events with retry logic and delivery logs |
+| **Prompt Templates** | Version-controlled prompts with variable substitution |
+| **Real-Time Events** | WebSocket subscriptions for live data changes |
+| **Evaluation & Benchmarks** | RAG quality evaluation datasets and BEIR academic benchmarks |
+| **Admin & Analytics** | Cache management and usage analytics |
 
 ---
 
@@ -116,6 +121,83 @@ const client = createClient({
 
 // Set active project (required before operations)
 client.useProject(projectId: string);
+```
+
+---
+
+### Projects & API Keys
+
+```typescript
+// Projects
+const projects = await client.projects.list();
+const project = await client.projects.create({ name: 'My App' });
+await client.projects.update(project.id, { description: 'Updated' });
+await client.projects.delete(project.id);
+client.useProject(project.id);
+
+// API Keys
+const keys = await client.projects.apiKeys.list(projectId);
+const key = await client.projects.apiKeys.create(projectId, {
+  name: 'Production',
+  scopes: ['read', 'write']
+});  // Save key.key - only shown once!
+await client.projects.apiKeys.toggle(projectId, keyId);
+await client.projects.apiKeys.revoke(projectId, keyId);
+
+// Team Members
+const members = await client.projects.members.list(projectId);
+await client.projects.members.invite('dev@team.com', 'member', projectId);
+await client.projects.members.updateRole(memberId, 'admin', projectId);
+await client.projects.members.remove(memberId, projectId);
+
+// Invitations
+const invitations = await client.projects.invitations.list(projectId);
+await client.projects.invitations.revoke(invitationId, projectId);
+await client.projects.invitations.accept(invitationId);
+```
+
+---
+
+### Providers
+
+Configure LLM, embedding, and rerank providers.
+
+```typescript
+// LLM providers
+await client.providers.llm.upsert({
+  id: 'my-openai',
+  type: 'openai',       // 'openai' | 'anthropic' | 'google' | 'custom'
+  api_key: 'sk-...',
+  model: 'gpt-4o-mini'
+});
+const llmProviders = await client.providers.llm.list();
+await client.providers.llm.test({ type: 'openai', api_key: 'sk-...', model: 'gpt-4o-mini' });
+await client.providers.llm.delete('my-openai');
+
+// Embedding providers
+await client.providers.embedding.upsert({
+  id: 'my-embeddings',
+  type: 'openai',       // 'openai' | 'cohere' | 'voyage' | 'custom'
+  api_key: 'sk-...',
+  model: 'text-embedding-3-small',
+  dimensions: 1536
+});
+
+// Rerank providers
+await client.providers.rerank.upsert({
+  id: 'my-reranker',
+  type: 'cohere',       // 'cohere' | 'jina' | 'custom'
+  api_key: 'co-...',
+  model: 'rerank-v3.5'
+});
+
+// Project settings (default providers)
+const settings = await client.providers.getSettings();
+await client.providers.updateSettings({
+  default_llm_provider: 'my-openai',
+  default_embedding_provider: 'my-embeddings',
+  default_rerank_provider: 'my-reranker'
+});
 ```
 
 ---
@@ -144,11 +226,15 @@ const stats = await client.collections.stats('docs');
 // Update
 await client.collections.update('docs', { description: 'Updated description' });
 
+// Update RAG config
+await client.collections.updateRagConfig('docs', {
+  llm_provider_id: 'my-llm',
+  model: 'gpt-4o-mini',
+  system_prompt: 'You are a helpful assistant.'
+});
+
 // Delete
 await client.collections.delete('docs');
-
-// Clear (remove documents, keep collection)
-await client.collections.clear('docs');
 ```
 
 <details>
@@ -160,7 +246,6 @@ await client.collections.clear('docs');
 | OpenAI | text-embedding-3-large | 3072 |
 | Cohere | embed-english-v3.0 | 1024 |
 | Local | all-MiniLM-L6-v2 | 384 |
-| Local | bge-small-en | 384 |
 
 </details>
 
@@ -191,6 +276,9 @@ const { data } = await client.documents.list('collection-name', {
   limit: 50
 });
 
+// List all documents across collections
+const allDocs = await client.documents.listAll({ status: 'processed' });
+
 // Get document
 const doc = await client.documents.get('document-id');
 
@@ -211,12 +299,78 @@ await client.documents.delete('document-id');
 
 ---
 
-### Search
+### Chunks
 
-Semantic search with multiple retrieval modes.
+Fine-grained control over document chunks.
 
 ```typescript
-// Vector search
+// Get a chunk
+const chunk = await client.chunks.get('chunk-id');
+// { id, document_id, content, chunk_index, token_count, metadata }
+
+// Update chunk content or metadata
+await client.chunks.update('chunk-id', {
+  content: 'Updated text',
+  metadata: { reviewed: true }
+});
+
+// Delete a chunk
+await client.chunks.delete('chunk-id');
+
+// Split a chunk at a character position
+const { chunks } = await client.chunks.split('chunk-id', 500);
+
+// Merge multiple chunks into one
+const { chunk, merged_count } = await client.chunks.merge(
+  ['chunk-1', 'chunk-2', 'chunk-3'],
+  { separator: '\n\n' }
+);
+```
+
+---
+
+### Vectors
+
+Low-level vector operations for pre-computed embeddings.
+
+```typescript
+// Upsert vectors
+await client.vectors.upsert('collection-name', [
+  {
+    id: 'vec-1',                    // Optional: auto-generated if omitted
+    embedding: [0.1, 0.2, ...],     // Float array matching collection dimensions
+    metadata: { source: 'api' },
+    chunk_id: 'chunk-id'            // Optional: link to a chunk
+  }
+]);
+
+// Search by raw embedding
+const results = await client.vectors.search('collection-name', {
+  embedding: [0.1, 0.2, ...],
+  top_k: 10,
+  include_metadata: true,
+  filter: { source: 'api' }
+});
+
+// Hybrid search (vector + keyword)
+const hybrid = await client.vectors.hybridSearch('collection-name', {
+  embedding: [0.1, 0.2, ...],
+  query: 'search text',
+  top_k: 10
+});
+
+// Delete a vector
+await client.vectors.delete('collection-name', 'vec-1');
+```
+
+---
+
+### Search
+
+High-level text search with automatic embedding.
+
+```typescript
+// Semantic search
 const results = await client.search.query({
   collection: 'docs',
   query: 'authentication best practices',
@@ -226,51 +380,42 @@ const results = await client.search.query({
 });
 // Returns: Array<{ id, content, score, document_id, document_name, metadata }>
 
-// Hybrid search (vector + keyword)
+// Hybrid search (vector + BM25 with RRF fusion)
 const results = await client.search.hybrid({
   collection: 'docs',
   query: 'JWT refresh tokens',
+  top_k: 10,
   vector_weight: 0.7,
   keyword_weight: 0.3,
+  filter: { type: 'guide' }
+});
+
+// Search by pre-computed vector
+const results = await client.search.byVector('docs', [0.1, 0.2, ...], {
+  top_k: 10,
+  filter: { status: 'published' }
+});
+
+// Multi-collection search
+const results = await client.search.multi({
+  collections: ['docs', 'faq', 'tutorials'],
+  query: 'authentication',
+  top_k: 20,
   rerank: true
 });
-
-// Keyword search (BM25)
-const results = await client.search.keyword({
-  collection: 'docs',
-  query: 'authentication',
-  top_k: 10
-});
-
-// Search across all collections
-const results = await client.search.global('query', {
-  top_k: 20
-});
-
-// Generate embeddings
-const vectors = await client.search.embed(['text 1', 'text 2']);
-
-// Search by vector
-const results = await client.search.byVector('docs', vector, { top_k: 10 });
-
-// Similar chunks
-const similar = await client.search.similar('chunk-id', 'docs', 5);
 ```
 
 **Advanced Retrieval Strategies:**
 
 ```typescript
 // HyDE - Hypothetical Document Embeddings
-// Generates a hypothetical answer, embeds it, then searches
 const results = await client.search.hyde({
   collection: 'docs',
   query: 'What causes memory leaks in JavaScript?',
-  rerank: true,
   strategy_options: { hyde_num_hypotheticals: 2 }
 });
 
-// Multi-Query - Expands query into variations
-// Generates N variations, searches each, merges results
+// Multi-Query - Generates query variations, merges results
 const results = await client.search.multiQuery({
   collection: 'docs',
   query: 'authentication best practices',
@@ -278,7 +423,6 @@ const results = await client.search.multiQuery({
 });
 
 // Self-Query - Extracts filters from natural language
-// Parses "Python docs from 2023" → query="docs" + filter={language:"Python", year:2023}
 const results = await client.search.selfQuery({
   collection: 'docs',
   query: 'Python tutorials from 2023',
@@ -309,17 +453,17 @@ const results = await client.search.compressed({
 
 ### RAG Chat
 
-Conversational AI with document context.
+Conversational AI with document context, source attribution, and streaming.
 
 ```typescript
-// Basic chat
+// Basic chat (single or multiple collections)
 const response = await client.chat.send({
   collection: 'docs',                    // string or string[]
   message: 'How do I implement OAuth?',
   include_sources: true,
   top_k: 5
 });
-// Returns: { answer, sources, collections_used, conversation_id, tokens_used }
+// Returns: { answer, sources, conversation_id, tokens_used }
 
 // Streaming
 await client.chat.stream({
@@ -333,6 +477,20 @@ await client.chat.stream({
   onError: (err) => console.error(err)
 });
 
+// Collection-scoped chat (better error handling)
+const response = await client.chat.collection('docs', {
+  message: 'What is authentication?',
+  include_sources: true
+});
+
+// Collection-scoped streaming
+await client.chat.streamCollection('docs', {
+  message: 'Explain the architecture'
+}, {
+  onContent: (chunk) => process.stdout.write(chunk),
+  onDone: (id, tokens) => console.log('Done', tokens)
+});
+
 // Continue conversation
 const response2 = await client.chat.continue(
   response.conversation_id,
@@ -342,7 +500,91 @@ const response2 = await client.chat.continue(
 // Conversation management
 const conversations = await client.chat.listConversations({ limit: 20 });
 const conversation = await client.chat.getConversation('conv-id');
+await client.chat.createConversation({ collection_id: 'uuid', title: 'Chat' });
+await client.chat.updateConversation('conv-id', { title: 'Updated' });
 await client.chat.deleteConversation('conv-id');
+```
+
+---
+
+### Knowledge Graph
+
+Extract and explore entities and relationships from documents.
+
+```typescript
+// Extract knowledge from a document
+const result = await client.knowledge.extractFromDocument('document-id');
+// { document_id, entities_extracted, relationships_extracted, message }
+
+// Get stats
+const stats = await client.knowledge.getStats();
+// { total_entities, total_relationships, entities_by_type }
+```
+
+**Entities:**
+
+```typescript
+// List entities
+const { data, pagination } = await client.knowledge.entities.list({
+  entity_type: 'person',
+  limit: 50
+});
+
+// Get entity with relationships
+const entity = await client.knowledge.entities.get('entity-id');
+
+// Search entities by name
+const results = await client.knowledge.entities.search('John Doe', {
+  entity_type: 'person',
+  limit: 10
+});
+
+// Create entity
+const entity = await client.knowledge.entities.create({
+  name: 'OAuth 2.0',
+  entity_type: 'technology',
+  description: 'Authorization framework'
+});
+
+// Update entity
+await client.knowledge.entities.update('entity-id', {
+  description: 'Updated',
+  aliases: ['OAuth2']
+});
+
+// Merge duplicates
+const merged = await client.knowledge.entities.merge(
+  'primary-id',
+  ['duplicate-1', 'duplicate-2']
+);
+
+// Delete
+await client.knowledge.entities.delete('entity-id');
+```
+
+**Relationships & Graph:**
+
+```typescript
+// List relationships
+const { data } = await client.knowledge.relationships.list({
+  entity_id: 'entity-id',
+  limit: 50
+});
+
+// Create relationship
+await client.knowledge.relationships.create({
+  source_entity_id: 'entity-1',
+  target_entity_id: 'entity-2',
+  relationship_type: 'works_at',
+  description: 'Senior Engineer since 2020'
+});
+
+// Delete relationship
+await client.knowledge.relationships.delete('relationship-id');
+
+// Get entity subgraph (N-hop neighborhood)
+const graph = await client.knowledge.getGraph('entity-id', { depth: 2 });
+// { entities: Entity[], relationships: Relationship[] }
 ```
 
 ---
@@ -431,6 +673,31 @@ Combine with `&`: `age.gte=18&status.eq=active`
 
 ---
 
+### SQL Queries
+
+Execute raw SQL when you need full database control.
+
+```typescript
+// Execute parameterized query
+const result = await client.sql.execute(
+  'SELECT * FROM articles WHERE category = $1 ORDER BY created_at DESC',
+  ['technology'],
+  { limit: 100 }
+);
+// { columns, rows, row_count, execution_time_ms }
+
+// Get query history
+const history = await client.sql.getHistory({ limit: 50 });
+
+// Get database schema
+const schema = await client.sql.getSchema();
+// Array<{ table_name, columns: [{ name, type, nullable }] }>
+```
+
+> **Security:** Always use parameterized queries (`$1`, `$2`) to prevent SQL injection.
+
+---
+
 ### App Authentication
 
 Complete auth system for your application's end-users.
@@ -451,17 +718,15 @@ const auth = await client.appAuth.login({
   password: 'securePassword123'
 });
 
-// Current user
+// Current user & profile
 const user = await client.appAuth.me();
-
-// Profile management
 await client.appAuth.updateProfile({ name: 'Jane Doe' });
+
+// Password management
 await client.appAuth.changePassword({
   current_password: 'old',
   new_password: 'new'
 });
-
-// Password reset flow
 await client.appAuth.forgotPassword('user@example.com');
 await client.appAuth.resetPassword(token, 'newPassword');
 
@@ -471,11 +736,47 @@ await client.appAuth.resendVerification();
 
 // Token management
 await client.appAuth.refresh(refreshToken);
-client.appAuth.setToken(accessToken);
 await client.appAuth.logout();
 
 // Delete account
 await client.appAuth.deleteAccount();
+```
+
+**Server-Side Token Verification:**
+
+```typescript
+// OAuth2-style introspection
+const result = await client.appAuth.verifyToken(userToken);
+if (result.active) {
+  console.log(result.user_id, result.email);
+}
+
+// Convenience method (throws on invalid)
+const user = await client.appAuth.getUserFromToken(userToken);
+```
+
+**Dual-Auth (API Key + User Context for RLS):**
+
+```typescript
+// API key authorizes project access
+// User token identifies WHO is making the request
+client.asUser(userToken);
+
+// Queries now respect row-level security
+const articles = await client.tables.rows('articles').query();
+
+client.clearUserContext();
+```
+
+**Session Helper:**
+
+```typescript
+const auth = await client.appAuth.login({ email, password });
+const session = client.appAuth.createSession(auth);
+
+session.isExpired();          // Check if expired
+session.expiresWithin(300);   // Expiring within 5 minutes?
+session.getPayload();         // Decoded JWT payload
 ```
 
 **Admin Operations:**
@@ -489,135 +790,175 @@ await client.appAuth.users.delete('user-id');
 
 ---
 
-### Projects & API Keys
+### File Storage
 
 ```typescript
-// Projects
-const projects = await client.projects.list();
-const project = await client.projects.create({ name: 'My App' });
-client.useProject(project.id);
+// Upload
+const file = await client.storage.upload({
+  file: buffer,                        // Buffer, Blob, or File
+  path: 'uploads/profile.jpg',
+  contentType: 'image/jpeg'            // Optional
+});
+// { path, size, content_type, url, created_at }
 
-// API Keys
-const keys = await client.projects.apiKeys.list();
-const { key } = await client.projects.apiKeys.create({
-  name: 'Production',
-  scopes: ['read', 'write']
-});  // Save this key - only shown once!
-await client.projects.apiKeys.revoke('key-id');
+// Download
+const blob = await client.storage.get('uploads/profile.jpg');
 
-// Team Members
-const members = await client.projects.members.list();
-await client.projects.members.invite('email@example.com', 'member');
-await client.projects.members.updateRole('member-id', 'admin');
-await client.projects.members.remove('member-id');
+// Get public URL
+const url = client.storage.getUrl('uploads/profile.jpg');
+
+// Delete
+await client.storage.delete('uploads/profile.jpg');
 ```
 
 ---
 
-### Knowledge Graph
-
-Extract and explore entities and relationships from your documents.
-
-**Entity Operations:**
+### Webhooks
 
 ```typescript
-// List entities
-const { data, pagination } = await client.knowledge.entities.list({
-  entity_type: 'person',
-  limit: 50
+// Create
+const webhook = await client.webhooks.create({
+  url: 'https://yourapp.com/webhooks/devabase',
+  events: ['document.processed', 'row.created', 'row.updated'],
+  secret: 'whsec_your_secret'
 });
 
-// Get entity with relationships
-const entity = await client.knowledge.entities.get('entity-id');
+// List, get, update
+const webhooks = await client.webhooks.list();
+const webhook = await client.webhooks.get(webhookId);
+await client.webhooks.update(webhookId, { events: ['document.processed'] });
 
-// Search entities
-const results = await client.knowledge.entities.search('John Doe', {
-  entity_type: 'person',
-  limit: 10
-});
+// Test (sends a test event)
+const result = await client.webhooks.test(webhookId);
 
-// Update entity
-await client.knowledge.entities.update('entity-id', {
-  description: 'Updated description',
-  aliases: ['Johnny', 'J. Doe']
-});
+// Delivery logs
+const logs = await client.webhooks.getLogs(webhookId, { limit: 50 });
 
-// Merge duplicate entities
-const merged = await client.knowledge.entities.merge(
-  'primary-entity-id',
-  ['duplicate-id-1', 'duplicate-id-2']
-);
-
-// Delete entity
-await client.knowledge.entities.delete('entity-id');
+// Delete
+await client.webhooks.delete(webhookId);
 ```
 
-**Relationship Operations:**
+---
+
+### Prompt Templates
 
 ```typescript
-// List relationships
-const { data } = await client.knowledge.relationships.list({
-  entity_id: 'entity-id',
-  limit: 50
+// Create
+await client.prompts.create({
+  name: 'summarize',
+  content: 'Summarize the following {{topic}} article:\n\n{{content}}',
+  description: 'Article summarizer'
 });
 
-// Create relationship
-const relationship = await client.knowledge.relationships.create({
-  source_entity_id: 'person-1',
-  target_entity_id: 'company-1',
-  relationship_type: 'works_at',
-  description: 'Senior Engineer since 2020'
+// Render with variables
+const { rendered, variables_used } = await client.prompts.render('summarize', {
+  topic: 'AI',
+  content: 'Long article text...'
 });
 
-// Delete relationship
-await client.knowledge.relationships.delete('relationship-id');
+// List, get, update, delete
+const prompts = await client.prompts.list();
+const prompt = await client.prompts.get('summarize');
+await client.prompts.update('summarize', { content: 'Updated: {{content}}' });
+await client.prompts.delete('summarize');
 ```
 
-**Graph Operations:**
+---
+
+### Real-Time Events
 
 ```typescript
-// Get entity subgraph (N-hop neighborhood)
-const graph = await client.knowledge.getGraph('entity-id', { depth: 2 });
-// Returns: { entities: Entity[], relationships: Relationship[] }
+// Connect to WebSocket
+const connection = client.realtime.connect({
+  onOpen: () => console.log('Connected'),
+  onMessage: (event) => console.log(event.type, event.payload),
+  onError: (err) => console.error(err),
+  onClose: () => console.log('Disconnected')
+});
 
-// Find paths between entities
-const paths = await client.knowledge.findPath(
-  'entity-1',
-  'entity-2',
-  { max_depth: 5 }
-);
+// Subscribe to channels
+client.realtime.subscribe(['documents', 'rows:articles']);
+
+// Unsubscribe
+client.realtime.unsubscribe(['documents']);
+
+// Check status & disconnect
+console.log(client.realtime.isConnected);
+client.realtime.disconnect();
 ```
 
-**Knowledge Extraction:**
+---
+
+### Evaluation & Benchmarks
+
+**RAG Evaluation:**
 
 ```typescript
-// Extract knowledge from a document
-const knowledge = await client.knowledge.extractFromDocument('document-id');
-// Returns: { entities: Entity[], relationships: Relationship[] }
+// Create dataset with test cases
+const dataset = await client.evaluation.datasets.create({
+  name: 'qa-suite',
+  description: 'Quality assurance'
+});
 
-// Extract from all documents in a collection (async job)
-const job = await client.knowledge.extractFromCollection('my-collection');
-// Returns: { job_id: string, status: string }
+await client.evaluation.cases.add(dataset.id, {
+  query: 'What is OAuth?',
+  expected_answer: 'OAuth is an authorization framework...',
+  context: 'OAuth 2.0 enables...'
+});
 
-// Check extraction job status
-const status = await client.knowledge.getExtractionStatus(job.job_id);
-// Returns: { status: 'pending'|'processing'|'completed'|'failed', progress: number, ... }
+// Run evaluation
+const run = await client.evaluation.runs.run(dataset.id, { collection: 'docs' });
+const result = await client.evaluation.runs.getRun(run.id);
+const runs = await client.evaluation.runs.listRuns(dataset.id);
+
+// Dataset management
+const datasets = await client.evaluation.datasets.list();
+await client.evaluation.datasets.update(dataset.id, { name: 'updated' });
+await client.evaluation.datasets.delete(dataset.id);
 ```
 
-<details>
-<summary><strong>Entity Types</strong></summary>
+**Academic Benchmarks (BEIR):**
 
-| Type | Description |
-|------|-------------|
-| `person` | People, individuals |
-| `organization` | Companies, institutions |
-| `location` | Places, addresses |
-| `concept` | Ideas, topics |
-| `product` | Products, services |
-| `event` | Events, occurrences |
-| `technology` | Technologies, tools |
+```typescript
+// List available datasets
+const datasets = await client.benchmarks.listDatasets();
 
-</details>
+// Run a benchmark
+const run = await client.benchmarks.run({
+  dataset: { source: 'beir', name: 'scifact' },
+  config: { collection: 'bench-test', top_k: 10 }
+});
+
+// Results
+const runs = await client.benchmarks.list();
+const result = await client.benchmarks.get(run.id);
+const comparison = await client.benchmarks.compare([run1.id, run2.id]);
+const exported = await client.benchmarks.export(run.id);
+const presets = await client.benchmarks.getPresetConfigs();
+```
+
+---
+
+### Admin & Analytics
+
+```typescript
+// Cache management
+const stats = await client.admin.cache.getStats();
+await client.admin.cache.clear();
+await client.admin.cache.delete('cache-key');
+
+// Usage analytics
+const usage = await client.admin.usage.get({
+  start_date: '2025-01-01',
+  end_date: '2025-01-31',
+  limit: 100
+});
+const exported = await client.admin.usage.export({
+  start_date: '2025-01-01',
+  end_date: '2025-01-31',
+  format: 'csv'
+});
+```
 
 ---
 
@@ -630,7 +971,10 @@ import {
   AuthorizationError,
   NotFoundError,
   ValidationError,
-  RateLimitError
+  RateLimitError,
+  DatabaseError,
+  ConfigurationError,
+  ExternalServiceError
 } from 'devabase-sdk';
 
 try {
@@ -686,37 +1030,31 @@ setTimeout(() => controller.abort(), 10000);
 
 ## TypeScript Support
 
-Full type definitions included. Import types directly:
+Full type definitions included:
 
 ```typescript
 import type {
-  // Core
-  Collection,
-  Document,
-  SearchResult,
-  Table,
-  PaginatedResponse,
+  // Config
+  DevabaseConfig, RequestOptions,
 
-  // RAG
-  RagChatResponse,
-  RagChatOptions,
-  ChatMessage,
-  ChatSource,
-  RagStreamCallbacks,
+  // Resources
+  Collection, Document, Table, Project,
 
-  // Knowledge Graph
-  Entity,
-  Relationship,
-  EntityGraph,
+  // Search & AI
+  SearchResult, HybridSearchResult, SearchOptions,
+  RagChatResponse, RagChatOptions, RagStreamCallbacks,
+  ChatMessage, ChatSource,
+  Entity, Relationship, EntityGraph,
 
   // Auth
-  AppUser,
-  AuthResponse,
-  ApiKey,
+  AppUser, AppAuthResponse, TokenIntrospectionResult, ApiKey,
 
-  // Webhooks
-  Webhook,
-  WebhookEvent,
+  // Data
+  PaginatedResponse, PaginationMeta, QueryOptions,
+
+  // Platform
+  Webhook, WebhookEvent, Prompt,
+  LLMProvider, EmbeddingProvider, RerankProvider,
 } from 'devabase-sdk';
 ```
 
@@ -740,7 +1078,7 @@ await client.documents.upload('support-docs', {
   filename: 'faq.pdf'
 });
 
-// Chat endpoint
+// Chat
 async function chat(message: string, conversationId?: string) {
   return client.chat.send({
     collection: 'support-docs',
@@ -751,76 +1089,53 @@ async function chat(message: string, conversationId?: string) {
 }
 ```
 
-### CRUD API
+### Full-Stack App with User Auth & RLS
 
 ```typescript
-// Create table
-await client.tables.create({
-  name: 'posts',
-  columns: [
-    { name: 'id', type: 'uuid', primary: true, default: 'gen_random_uuid()' },
-    { name: 'title', type: 'text', nullable: false },
-    { name: 'content', type: 'text' },
-    { name: 'author_id', type: 'uuid', references_table: 'users' },
-    { name: 'published', type: 'boolean', default: 'false' },
-    { name: 'created_at', type: 'timestamptz', default: 'now()' }
-  ]
+import { createClient } from 'devabase-sdk';
+
+const db = createClient({
+  baseUrl: process.env.DEVABASE_URL!,
+  apiKey: process.env.DEVABASE_API_KEY!
+});
+db.useProject(process.env.PROJECT_ID!);
+
+// Register endpoint
+app.post('/api/register', async (req, res) => {
+  const auth = await db.appAuth.register({
+    email: req.body.email,
+    password: req.body.password,
+    name: req.body.name
+  });
+  res.json(auth);
 });
 
-// CRUD operations
-const post = await client.tables.rows('posts').insert({
-  title: 'Hello World',
-  content: 'My first post'
+// Protected endpoint with RLS
+app.get('/api/my-articles', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const user = await db.appAuth.getUserFromToken(token);
+
+  db.asUser(token);
+  const { rows } = await db.tables.rows('articles').query({
+    order: 'created_at:desc',
+    limit: 20
+  });
+  db.clearUserContext();
+
+  res.json(rows);
 });
-
-const { rows } = await client.tables.rows('posts').query({
-  filter: 'published.eq=true',
-  order: 'created_at:desc',
-  limit: 10
-});
-```
-
-### Knowledge Graph Analysis
-
-```typescript
-// Extract knowledge from documents
-await client.knowledge.extractFromDocument('document-id');
-
-// Search for a person
-const [person] = await client.knowledge.entities.search('Elon Musk', {
-  entity_type: 'person'
-});
-
-// Get their connections (2-hop)
-const graph = await client.knowledge.getGraph(person.id, { depth: 2 });
-
-// Find connections between entities
-const paths = await client.knowledge.findPath(
-  'person-id',
-  'company-id',
-  { max_depth: 3 }
-);
-
-// Visualize
-console.log(`Found ${graph.entities.length} entities`);
-console.log(`Found ${graph.relationships.length} relationships`);
 ```
 
 ### Advanced Search Pipeline
 
 ```typescript
-// Combine strategies for best results
 async function intelligentSearch(query: string) {
-  // Try HyDE for complex questions
+  // HyDE for complex questions
   if (query.includes('how') || query.includes('why')) {
-    return client.search.hyde({
-      collection: 'docs',
-      query,
-      rerank: true
-    });
+    return client.search.hyde({ collection: 'docs', query, rerank: true });
   }
 
-  // Use self-query for filtered searches
+  // Self-query for filtered searches
   if (query.match(/from \d{4}|in \w+/)) {
     return client.search.selfQuery({
       collection: 'docs',
@@ -834,13 +1149,12 @@ async function intelligentSearch(query: string) {
     });
   }
 
-  // Default to hybrid search
+  // Default: hybrid search
   return client.search.hybrid({
     collection: 'docs',
     query,
     vector_weight: 0.7,
-    keyword_weight: 0.3,
-    rerank: true
+    keyword_weight: 0.3
   });
 }
 ```
@@ -858,13 +1172,13 @@ async function intelligentSearch(query: string) {
 | **Dimensions** | Collection dimensions must match your embedding model |
 | **Knowledge Extraction** | Requires LLM provider configured in project settings |
 | **Advanced Strategies** | HyDE, Multi-Query, Self-Query, Compression require LLM provider |
-| **Reranking** | Requires reranking provider (Cohere, Jina, or Voyage) configured |
+| **Reranking** | Requires reranking provider (Cohere, Jina, or custom) configured |
 
 ---
 
 ## Support
 
-- **Documentation:** [sovanreach.com/projects/devabase](https://sovanreach.com/projects/devabase)
+- **Documentation:** [sovanreach.com/projects/devabase/docs](https://sovanreach.com/projects/devabase/docs)
 - **Issues:** [GitHub Issues](https://github.com/kvsovanreach/devabase/issues)
 
 ---

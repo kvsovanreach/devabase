@@ -489,6 +489,14 @@ select:focus {
   box-shadow: 0 0 0 4px var(--primary-muted);
 }
 
+/* Interactive elements should show pointer cursor */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+a[href],
+summary {
+  cursor: pointer;
+}
+
 /* Placeholder styles */
 input::placeholder,
 textarea::placeholder {
