@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[sqlx(type_name = "document_status", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentStatus {
+    Uploaded,
     Pending,
     Processing,
     Processed,
@@ -16,6 +17,7 @@ pub enum DocumentStatus {
 impl std::fmt::Display for DocumentStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            DocumentStatus::Uploaded => write!(f, "uploaded"),
             DocumentStatus::Pending => write!(f, "pending"),
             DocumentStatus::Processing => write!(f, "processing"),
             DocumentStatus::Processed => write!(f, "processed"),

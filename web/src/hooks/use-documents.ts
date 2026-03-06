@@ -66,14 +66,26 @@ export function useUploadDocument(collection: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ file, name, onProgress }: { file: File; name?: string; onProgress?: (p: number) => void }) =>
-      api.uploadDocument(collection, file, name, onProgress),
+    mutationFn: ({ file, name, onProgress, process }: { file: File; name?: string; onProgress?: (p: number) => void; process?: boolean }) =>
+      api.uploadDocument(collection, file, name, onProgress, process),
     onSuccess: () => {
       // Invalidate the specific collection's documents
       queryClient.invalidateQueries({ queryKey: ['documents', collection] });
       // Also invalidate all documents queries to ensure any view is updated
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+    },
+  });
+}
+
+export function useReprocessDocument(collection: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.reprocessDocument(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', collection] });
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 }

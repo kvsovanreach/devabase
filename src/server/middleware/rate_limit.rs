@@ -144,12 +144,12 @@ where
                 return inner.call(req).await;
             }
 
-            // Get client identifier (prefer X-Forwarded-For, fallback to remote addr)
-            let client_ip = get_client_ip(&req);
+            // Get client identifier: prefer auth token (per-user), fallback to IP
+            let client_key = get_client_key(&req);
 
             // Check rate limit
-            if !limiter.check(&client_ip).await {
-                let remaining = limiter.remaining(&client_ip).await;
+            if !limiter.check(&client_key).await {
+                let remaining = limiter.remaining(&client_key).await;
                 // Build rate limit response - this should never fail with valid inputs
                 let response = Response::builder()
                     .status(StatusCode::TOO_MANY_REQUESTS)
@@ -175,12 +175,41 @@ where
     }
 }
 
+/// Extract client key for rate limiting.
+/// Uses auth token (per-user granularity) when available, falls back to IP.
+fn get_client_key<B>(req: &Request<B>) -> String {
+    // Prefer auth token for per-user rate limiting
+    if let Some(auth) = req.headers().get("authorization") {
+        if let Ok(value) = auth.to_str() {
+            // Use a hash-like prefix to keep the key short but unique
+            let token = value.strip_prefix("Bearer ").unwrap_or(value);
+            if !token.is_empty() {
+                // Use last 16 chars of token as key (unique enough, avoids storing full token)
+                let suffix = if token.len() > 16 { &token[token.len()-16..] } else { token };
+                return format!("auth:{}", suffix);
+            }
+        }
+    }
+
+    // Check API key header
+    if let Some(api_key) = req.headers().get("x-api-key") {
+        if let Ok(value) = api_key.to_str() {
+            if !value.is_empty() {
+                let suffix = if value.len() > 16 { &value[value.len()-16..] } else { value };
+                return format!("key:{}", suffix);
+            }
+        }
+    }
+
+    // Fallback to IP-based rate limiting
+    get_client_ip(req)
+}
+
 /// Extract client IP from request headers or connection info
 fn get_client_ip<B>(req: &Request<B>) -> String {
     // Check X-Forwarded-For header (for proxied requests)
     if let Some(forwarded) = req.headers().get("x-forwarded-for") {
         if let Ok(value) = forwarded.to_str() {
-            // Take the first IP in the chain (original client)
             if let Some(first_ip) = value.split(',').next() {
                 return first_ip.trim().to_string();
             }
@@ -199,6 +228,5 @@ fn get_client_ip<B>(req: &Request<B>) -> String {
         return addr.0.ip().to_string();
     }
 
-    // Default fallback
     "unknown".to_string()
 }

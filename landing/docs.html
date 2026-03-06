@@ -1409,8 +1409,8 @@
                                     <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
                             </div>
-                            <h3>Document Processing</h3>
-                            <p>Upload PDFs, DOCX, and more. Automatic chunking, embedding, and indexing.</p>
+                            <h3>Document Storage & Processing</h3>
+                            <p>Upload PDFs, DOCX, and more. Store raw files or opt-in to automatic chunking, embedding, and indexing.</p>
                         </div>
                         <div class="card">
                             <div class="card-icon">
@@ -1889,14 +1889,22 @@ console.<span class="token-function">log</span>(key.key); <span class="token-com
                         </div>
                         <pre><code><span class="token-keyword">import</span> { readFileSync } <span class="token-keyword">from</span> <span class="token-string">'fs'</span>;
 
+<span class="token-comment">// Upload document (stored only, no processing by default)</span>
 <span class="token-keyword">const</span> doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, {
   file: <span class="token-function">readFileSync</span>(<span class="token-string">'document.pdf'</span>),  <span class="token-comment">// Buffer, Blob, or ReadableStream</span>
   filename: <span class="token-string">'document.pdf'</span>,           <span class="token-comment">// Original filename</span>
   metadata: { author: <span class="token-string">'John'</span> }        <span class="token-comment">// Optional metadata</span>
 });
+<span class="token-comment">// doc.status === 'uploaded' (stored but not processed)</span>
 
-<span class="token-comment">// Document status: 'pending' | 'processing' | 'processed' | 'failed'</span>
-console.<span class="token-function">log</span>(doc.status);</code></pre>
+<span class="token-comment">// Upload with processing enabled (auto chunk + embed)</span>
+<span class="token-keyword">const</span> processedDoc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, {
+  file: <span class="token-function">readFileSync</span>(<span class="token-string">'document.pdf'</span>),
+  filename: <span class="token-string">'document.pdf'</span>,
+  process: <span class="token-keyword">true</span>                      <span class="token-comment">// Enable chunking &amp; embedding</span>
+});
+<span class="token-comment">// Status: 'pending' | 'processing' | 'processed' | 'failed'</span>
+console.<span class="token-function">log</span>(processedDoc.status);</code></pre>
                     </div>
 
                     <div class="callout callout-warning">
@@ -1904,8 +1912,8 @@ console.<span class="token-function">log</span>(doc.status);</code></pre>
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                         </svg>
                         <div class="callout-content">
-                            <div class="callout-title">Async Processing</div>
-                            <p>Document processing happens in the background. Poll the document status or use webhooks to know when processing completes.</p>
+                            <div class="callout-title">Processing is opt-in</div>
+                            <p>By default, uploaded documents are stored without processing (<code>status: 'uploaded'</code>). Set <code>process: true</code> to enable automatic chunking and embedding. When enabled, processing runs asynchronously — poll the status or use webhooks.</p>
                         </div>
                     </div>
 
@@ -1915,8 +1923,8 @@ console.<span class="token-function">log</span>(doc.status);</code></pre>
                             <span class="code-block-title">TypeScript</span>
                             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
                         </div>
-                        <pre><code><span class="token-comment">// Poll until processed</span>
-<span class="token-keyword">let</span> doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, { file, filename });
+                        <pre><code><span class="token-comment">// Upload with processing and poll until done</span>
+<span class="token-keyword">let</span> doc = <span class="token-keyword">await</span> client.documents.<span class="token-function">upload</span>(<span class="token-string">'my-docs'</span>, { file, filename, process: <span class="token-keyword">true</span> });
 
 <span class="token-keyword">while</span> (doc.status === <span class="token-string">'pending'</span> || doc.status === <span class="token-string">'processing'</span>) {
   <span class="token-keyword">await</span> <span class="token-keyword">new</span> <span class="token-type">Promise</span>(r => <span class="token-function">setTimeout</span>(r, <span class="token-number">2000</span>));

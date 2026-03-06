@@ -88,7 +88,7 @@ console.log(response.sources);
 | Feature | Description |
 |---------|-------------|
 | **Vector Collections** | Store and query millions of embeddings with cosine, L2, or inner product similarity |
-| **Document Processing** | Upload PDF, DOCX, TXT, MD files with automatic chunking and embedding |
+| **Document Storage & Processing** | Upload PDF, DOCX, TXT, MD files with optional chunking and embedding (processing disabled by default) |
 | **Semantic Search** | Vector search, hybrid retrieval (vector + BM25), and cross-encoder reranking |
 | **Advanced Retrieval** | HyDE, Multi-Query, Self-Query, Parent-Child, and Compression strategies |
 | **RAG Chat** | Conversational AI with source attribution, streaming, and conversation memory |
@@ -256,18 +256,28 @@ await client.collections.delete('docs');
 Upload and manage documents. Supported formats: PDF, DOCX, TXT, Markdown.
 
 ```typescript
-// Upload single document
+// Upload document (stored only, no processing by default)
 const doc = await client.documents.upload('collection-name', {
   file: Buffer | Blob | ReadableStream,
   filename: 'document.pdf',
   metadata: { author: 'John', category: 'technical' }
 });
-// Returns: { id, status: 'pending' | 'processing' | 'processed' | 'failed', ... }
+// Returns: { id, status: 'uploaded', ... }
+// Document is stored but NOT chunked or embedded
+
+// Upload with processing enabled (auto chunk + embed)
+const doc = await client.documents.upload('collection-name', {
+  file: pdfBuffer,
+  filename: 'document.pdf',
+  process: true  // Enable chunking & embedding
+});
+// Returns: { id, status: 'pending', ... }
+// Document will be processed asynchronously
 
 // Upload multiple
 const docs = await client.documents.uploadMany('collection-name', [
   { file: buffer1, filename: 'doc1.pdf' },
-  { file: buffer2, filename: 'doc2.pdf' }
+  { file: buffer2, filename: 'doc2.pdf', process: true }
 ]);
 
 // List documents
@@ -295,7 +305,7 @@ await client.documents.reprocess('document-id');
 await client.documents.delete('document-id');
 ```
 
-> **Note:** Document processing is asynchronous. Poll the document status or use webhooks to know when processing completes.
+> **Note:** By default, uploaded documents are stored without processing (`status: 'uploaded'`). Set `process: true` to enable automatic chunking and embedding. When processing is enabled, it runs asynchronously — poll the document status or use webhooks to know when it completes.
 
 ---
 

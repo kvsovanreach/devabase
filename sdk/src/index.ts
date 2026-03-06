@@ -46,6 +46,7 @@ export type {
   TableColumn,
   ColumnDefinition,
   CreateTableInput,
+  BatchInsertResponse,
 
   // Pagination
   PaginationMeta,

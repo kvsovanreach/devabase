@@ -110,13 +110,19 @@ pub async fn create_table(
         ));
     }
 
-    // Check if table already exists
+    // Build CREATE TABLE SQL
+    let create_sql = rest_gen::build_create_table_sql(project_id, &input.name, &input.columns)?;
+
+    // Execute in a transaction (existence check inside tx to prevent race conditions)
+    let mut tx = state.pool.inner().begin().await?;
+
+    // Check if table already exists (inside transaction for atomicity)
     let existing: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2",
+        "SELECT 1 FROM sys_user_tables WHERE project_id = $1 AND table_name = $2 FOR UPDATE",
     )
     .bind(project_id)
     .bind(&input.name)
-    .fetch_optional(state.pool.inner())
+    .fetch_optional(&mut *tx)
     .await?;
 
     if existing.is_some() {
@@ -125,12 +131,6 @@ pub async fn create_table(
             input.name
         )));
     }
-
-    // Build CREATE TABLE SQL
-    let create_sql = rest_gen::build_create_table_sql(project_id, &input.name, &input.columns)?;
-
-    // Execute in a transaction
-    let mut tx = state.pool.inner().begin().await?;
 
     // Create the table and indexes (semicolon-separated statements)
     for stmt in create_sql.split(';') {
@@ -409,6 +409,58 @@ pub async fn create_row(
     let _ = state.events.publish(event);
 
     Ok((StatusCode::CREATED, Json(RowResponse { row: rows[0].clone() })))
+}
+
+/// Batch insert multiple rows
+pub async fn create_rows_batch(
+    State(state): State<Arc<AppState>>,
+    auth: AuthContext,
+    Path(table_name): Path<String>,
+    Json(input): Json<BatchInsertRequest>,
+) -> Result<(StatusCode, Json<BatchInsertResponse>)> {
+    let project_id = auth.require_project()?;
+    auth.require_write()?;
+
+    rest_gen::validate_table_name(&table_name)?;
+
+    let rows = &input.rows;
+    if rows.is_empty() {
+        return Err(Error::Validation("At least one row is required".into()));
+    }
+    if rows.len() > 1000 {
+        return Err(Error::Validation("Maximum 1000 rows per batch".into()));
+    }
+
+    // Get table info with cache for preprocessing
+    let table_info = get_table_info_cached(&state, project_id, &table_name).await?;
+
+    // Preprocess each row (auto-generate UUIDs, handle empty values)
+    let mut processed_rows = Vec::with_capacity(rows.len());
+    for row in rows {
+        processed_rows.push(preprocess_row_data(row, &table_info.columns)?);
+    }
+
+    let (sql, params) = rest_gen::build_batch_insert_query(project_id, &table_name, &processed_rows)?;
+    let inserted_rows = execute_returning_query(state.pool.inner(), &sql, &params).await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(BatchInsertResponse {
+            rows: inserted_rows,
+            count: rows.len(),
+        }),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchInsertRequest {
+    pub rows: Vec<Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchInsertResponse {
+    pub rows: Vec<Value>,
+    pub count: usize,
 }
 
 /// Update a row

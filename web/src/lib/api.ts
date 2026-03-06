@@ -306,12 +306,16 @@ class ApiClient {
     collection: string,
     file: File,
     name?: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    process?: boolean
   ): Promise<Document> {
     const formData = new FormData();
     formData.append('file', file);
     if (name) {
       formData.append('name', name);
+    }
+    if (process !== undefined) {
+      formData.append('process', process ? 'true' : 'false');
     }
 
     const response = await this.client.post<Document>(
@@ -340,6 +344,11 @@ class ApiClient {
 
   async deleteDocument(collection: string, id: string): Promise<void> {
     await this.client.delete(`/documents/${id}`);
+  }
+
+  async reprocessDocument(id: string): Promise<{ message: string }> {
+    const response = await this.client.post<{ message: string }>(`/documents/${id}/reprocess`);
+    return response.data;
   }
 
   async getDocumentChunks(id: string): Promise<Chunk[]> {

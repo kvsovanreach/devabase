@@ -230,6 +230,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/tables/:table", delete(api::tables::delete_table))
         .route("/tables/:table/rows", get(api::tables::list_rows))
         .route("/tables/:table/rows", post(api::tables::create_row))
+        .route("/tables/:table/rows/batch", post(api::tables::create_rows_batch))
         .route("/tables/:table/rows/:id", get(api::tables::get_row))
         .route("/tables/:table/rows/:id", patch(api::tables::update_row))
         .route("/tables/:table/rows/:id", delete(api::tables::delete_row))

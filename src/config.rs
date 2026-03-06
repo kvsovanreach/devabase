@@ -63,7 +63,7 @@ impl Default for RateLimitConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            requests_per_window: 100,
+            requests_per_window: 500,
             window_seconds: 60,
         }
     }
@@ -344,7 +344,7 @@ fn default_rate_limit_enabled() -> bool {
 }
 
 fn default_rate_limit_requests() -> usize {
-    100
+    500
 }
 
 fn default_rate_limit_window() -> u64 {
@@ -497,7 +497,7 @@ max_age_secs = 3600
 
 [rate_limit]
 enabled = true
-requests_per_window = 100
+requests_per_window = 500
 window_seconds = 60
 "#
     }

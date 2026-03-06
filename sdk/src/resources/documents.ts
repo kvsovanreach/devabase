@@ -9,7 +9,7 @@ import {
 
 export interface ListDocumentsOptions extends QueryOptions {
   /** Filter by status */
-  status?: 'pending' | 'processing' | 'processed' | 'failed';
+  status?: 'uploaded' | 'pending' | 'processing' | 'processed' | 'failed';
 }
 
 export class DocumentsResource {
@@ -91,6 +91,10 @@ export class DocumentsResource {
 
     if (input.extract_knowledge) {
       formData.append('extract_knowledge', 'true');
+    }
+
+    if (input.process) {
+      formData.append('process', 'true');
     }
 
     return this.http.upload<Document>(

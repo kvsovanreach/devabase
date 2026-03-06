@@ -91,7 +91,7 @@ export interface CreateCollectionRequest {
 }
 
 // Document types
-export type DocumentStatus = 'pending' | 'processing' | 'processed' | 'failed';
+export type DocumentStatus = 'uploaded' | 'pending' | 'processing' | 'processed' | 'failed';
 
 export interface Document {
   id: string;

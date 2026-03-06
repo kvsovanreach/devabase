@@ -5,6 +5,7 @@ import {
   QueryOptions,
   PaginatedResponse,
   PaginatedRowsResponse,
+  BatchInsertResponse,
   RequestOptions,
 } from '../types';
 
@@ -215,7 +216,7 @@ export class TableRowsClient {
   }
 
   /**
-   * Insert multiple rows
+   * Insert multiple rows in a single batch request
    * @example
    * const users = await client.tables.rows('users').insertMany([
    *   { email: 'user1@example.com', name: 'User 1' },
@@ -226,10 +227,15 @@ export class TableRowsClient {
     rows: Record<string, unknown>[],
     options?: RequestOptions
   ): Promise<T[]> {
-    const results = await Promise.all(
-      rows.map((data) => this.insert<T>(data, options))
+    if (rows.length === 0) return [];
+    if (rows.length === 1) return [await this.insert<T>(rows[0], options)];
+
+    const result = await this.http.post<BatchInsertResponse<T>>(
+      `/v1/tables/${this.tableName}/rows/batch`,
+      { rows },
+      options
     );
-    return results;
+    return result.rows;
   }
 
   /**

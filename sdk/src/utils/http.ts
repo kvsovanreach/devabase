@@ -181,9 +181,9 @@ export class HttpClient {
     const headers = new Headers({
       'Content-Type': 'application/json',
       ...this.config.headers,
-      ...options?.headers,
     });
 
+    // Set default auth from API key or token
     const auth = this.getAuthHeader();
     if (auth) {
       headers.set('Authorization', auth);
@@ -197,6 +197,14 @@ export class HttpClient {
     // This allows API key for project auth + user token for user identification
     if (this.userToken) {
       headers.set('X-App-User-Token', this.userToken);
+    }
+
+    // Apply request-level headers LAST so they can override defaults
+    // This is critical for appAuth methods that set their own Authorization header
+    if (options?.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        headers.set(key, value);
+      }
     }
 
     return headers;

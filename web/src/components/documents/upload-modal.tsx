@@ -9,9 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useCollections } from '@/hooks/use-collections';
 import { useUploadDocument } from '@/hooks/use-documents';
-import { Upload, X, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { useProjectStore } from '@/stores/project-store';
+import { ProjectSettings } from '@/types';
+import { Upload, X, FileText, CheckCircle, AlertCircle, Loader2, Settings } from 'lucide-react';
 import { cn, formatFileSize } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -37,9 +41,15 @@ function getNameWithoutExtension(filename: string): string {
 export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComplete }: UploadModalProps) {
   const { data: collections } = useCollections();
   const queryClient = useQueryClient();
+  const { currentProject } = useProjectStore();
   const [selectedCollection, setSelectedCollection] = useState(defaultCollection || '');
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [processDocuments, setProcessDocuments] = useState(false);
+
+  // Check if embedding provider is configured
+  const projectSettings = currentProject?.settings as unknown as ProjectSettings | undefined;
+  const hasEmbeddingProvider = (projectSettings?.embedding_providers?.length || 0) > 0;
 
   // Sync selectedCollection when defaultCollection changes
   useEffect(() => {
@@ -100,6 +110,7 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
         await uploadDocument.mutateAsync({
           file: files[i].file,
           name: files[i].name,
+          process: processDocuments,
           onProgress: (progress) => {
             setFiles((prev) =>
               prev.map((f, idx) => (idx === i ? { ...f, progress } : f))
@@ -133,7 +144,11 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
     await queryClient.invalidateQueries({ queryKey: ['collections'] });
 
     if (errorCount === 0 && successCount > 0) {
-      toast.success(`${successCount} file(s) uploaded successfully. Processing...`);
+      toast.success(
+        processDocuments
+          ? `${successCount} file(s) uploaded successfully. Processing...`
+          : `${successCount} file(s) uploaded successfully.`
+      );
       // Notify parent of the collection used for upload
       onUploadComplete?.(selectedCollection);
       setTimeout(() => {
@@ -152,6 +167,7 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
     if (isUploading) return;
     setFiles([]);
     setSelectedCollection(defaultCollection || '');
+    setProcessDocuments(false);
     onClose();
   };
 
@@ -167,7 +183,7 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
       isOpen={isOpen}
       onClose={handleClose}
       title="Upload Documents"
-      description="Upload documents to be processed and indexed."
+      description="Upload documents to a collection. Optionally process them for chunking and embedding."
       size="lg"
     >
       <div className="space-y-5">
@@ -178,6 +194,37 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
           onChange={(e) => setSelectedCollection(e.target.value)}
           placeholder="Select a collection"
         />
+
+        {/* Process toggle */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-border-light bg-surface-secondary/50">
+          <div className="flex-1 mr-3">
+            <p className="text-[14px] font-medium text-foreground">Process documents</p>
+            <p className="text-[12px] text-text-secondary mt-0.5">
+              Parse, chunk, and generate embeddings after upload
+            </p>
+          </div>
+          <Switch
+            checked={processDocuments}
+            onCheckedChange={setProcessDocuments}
+          />
+        </div>
+
+        {processDocuments && !hasEmbeddingProvider && (
+          <div className="p-3 bg-warning/10 border border-warning/30 rounded-xl flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[13px] text-text-secondary">
+                An embedding provider is required for processing.
+              </p>
+              <Link href="/settings/providers">
+                <span className="text-[13px] text-primary hover:underline inline-flex items-center gap-1 mt-1">
+                  <Settings className="w-3 h-3" />
+                  Configure Provider
+                </span>
+              </Link>
+            </div>
+          </div>
+        )}
 
         <div
           {...getRootProps()}
@@ -289,7 +336,7 @@ export function UploadModal({ isOpen, onClose, defaultCollection, onUploadComple
         </Button>
         <Button
           onClick={handleUpload}
-          disabled={!selectedCollection || pendingFiles.length === 0}
+          disabled={!selectedCollection || pendingFiles.length === 0 || (processDocuments && !hasEmbeddingProvider)}
           isLoading={isUploading}
         >
           Upload {pendingFiles.length > 0 ? `(${pendingFiles.length})` : ''}

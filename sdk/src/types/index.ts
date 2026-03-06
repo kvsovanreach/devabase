@@ -278,14 +278,14 @@ export interface CollectionStats {
 // Document Types
 // ============================================================================
 
-export type DocumentStatus = 'pending' | 'processing' | 'processed' | 'failed';
+export type DocumentStatus = 'uploaded' | 'pending' | 'processing' | 'processed' | 'failed';
 
 export interface Document {
   id: string;
   collection_id: string;
   filename: string;
   content_type: string;
-  size_bytes: number;
+  file_size: number;
   status: DocumentStatus;
   chunk_count: number;
   metadata: Record<string, unknown>;
@@ -303,6 +303,14 @@ export interface UploadDocumentInput {
   metadata?: Record<string, unknown>;
   /** Extract knowledge graph entities */
   extract_knowledge?: boolean;
+  /**
+   * Whether to process the document (chunk + embed) after upload.
+   * When `false` (default), the file is stored but not processed —
+   * the document status will be `'uploaded'` and no vectors are created.
+   * Set to `true` to automatically chunk, embed, and store vectors in the collection.
+   * @default false
+   */
+  process?: boolean;
 }
 
 // ============================================================================
@@ -339,6 +347,11 @@ export interface ColumnDefinition {
 export interface CreateTableInput {
   name: string;
   columns: ColumnDefinition[];
+}
+
+export interface BatchInsertResponse<T = Record<string, unknown>> {
+  rows: T[];
+  count: number;
 }
 
 // ============================================================================

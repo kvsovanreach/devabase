@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::api::pagination::PaginatedResponse;
 use crate::auth::AuthContext;
-use crate::db::models::{Chunk, ChunkResponse, Document, DocumentResponse, Project};
+use crate::db::models::{Chunk, ChunkResponse, Document, DocumentResponse, DocumentStatus, Project};
 use crate::rag::{Chunker, EmbeddingProvider, get_project_embedding_provider};
 use crate::server::AppState;
 use crate::vector;
@@ -357,6 +357,7 @@ pub async fn upload_document(
     let mut document_name: Option<String> = None;
     let mut content: Option<Vec<u8>> = None;
     let mut metadata: Option<serde_json::Value> = None;
+    let mut process = false;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         Error::BadRequest(format!("Failed to read multipart field: {}", e))
@@ -386,6 +387,10 @@ pub async fn upload_document(
                 })?;
                 metadata = Some(serde_json::from_str(&text)?);
             }
+            "process" => {
+                let text = field.text().await.unwrap_or_default();
+                process = text == "true" || text == "1";
+            }
             _ => {}
         }
     }
@@ -404,7 +409,7 @@ pub async fn upload_document(
     let collection = vector::get_collection(&state.pool, &collection_name, Some(project_id)).await?;
 
     // Use internal upload function
-    upload_document_internal(&state, collection, filename, display_name, content, metadata).await
+    upload_document_internal(&state, collection, filename, display_name, content, metadata, process).await
 }
 
 /// Internal helper for uploading document to a collection
@@ -418,6 +423,7 @@ async fn upload_document_to_collection(
     let mut document_name: Option<String> = None;
     let mut content: Option<Vec<u8>> = None;
     let mut metadata: Option<serde_json::Value> = None;
+    let mut process = false;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         Error::BadRequest(format!("Failed to read multipart field: {}", e))
@@ -442,6 +448,10 @@ async fn upload_document_to_collection(
                 })?;
                 metadata = Some(serde_json::from_str(&text)?);
             }
+            "process" => {
+                let text = field.text().await.unwrap_or_default();
+                process = text == "true" || text == "1";
+            }
             _ => {}
         }
     }
@@ -453,7 +463,7 @@ async fn upload_document_to_collection(
 
     let display_name = document_name.unwrap_or_else(|| filename.clone());
 
-    upload_document_internal(state, collection, filename, display_name, content, metadata).await
+    upload_document_internal(state, collection, filename, display_name, content, metadata, process).await
 }
 
 /// Core upload logic shared by all upload endpoints
@@ -464,6 +474,7 @@ async fn upload_document_internal(
     display_name: String,
     content: Vec<u8>,
     metadata: Option<serde_json::Value>,
+    process: bool,
 ) -> Result<Json<DocumentResponse>> {
 
     // Store file
@@ -474,12 +485,19 @@ async fn upload_document_internal(
         .first_or_octet_stream()
         .to_string();
 
+    // When processing is disabled, store with 'uploaded' status (raw storage only)
+    let initial_status = if process {
+        DocumentStatus::Pending
+    } else {
+        DocumentStatus::Uploaded
+    };
+
     // Create document record
     let doc_id = Uuid::new_v4();
     let _document: Document = sqlx::query_as(
         r#"
         INSERT INTO sys_documents (id, collection_id, filename, content_type, file_path, file_size, metadata, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
         "#,
     )
@@ -490,26 +508,28 @@ async fn upload_document_internal(
     .bind(&stored.file_path)
     .bind(content.len() as i64)
     .bind(&metadata)
+    .bind(initial_status)
     .fetch_one(state.pool.inner())
     .await?;
 
-    // Process document asynchronously
-    let doc_id_clone = doc_id;
-    let state_clone = state.clone();
-    tokio::spawn(async move {
-        if let Err(e) = process_document(state_clone.clone(), doc_id_clone).await {
-            // Update document with error status
-            let _ = sqlx::query(
-                "UPDATE sys_documents SET status = 'failed', error_message = $2 WHERE id = $1"
-            )
-            .bind(doc_id_clone)
-            .bind(e.to_string())
-            .execute(state_clone.pool.inner())
-            .await;
-        }
-    });
+    // Only process document if processing is enabled
+    if process {
+        let doc_id_clone = doc_id;
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = process_document(state_clone.clone(), doc_id_clone).await {
+                // Update document with error status
+                let _ = sqlx::query(
+                    "UPDATE sys_documents SET status = 'failed', error_message = $2 WHERE id = $1"
+                )
+                .bind(doc_id_clone)
+                .bind(e.to_string())
+                .execute(state_clone.pool.inner())
+                .await;
+            }
+        });
+    }
 
-    // Return document in pending/processing state - UI will poll for status
     let updated: Document = sqlx::query_as("SELECT * FROM sys_documents WHERE id = $1")
         .bind(doc_id)
         .fetch_one(state.pool.inner())

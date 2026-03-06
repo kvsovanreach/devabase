@@ -18,6 +18,7 @@ import {
   Loader2,
   Trash2,
   MoreVertical,
+  Play,
 } from 'lucide-react';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -30,7 +31,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { UploadModal } from '@/components/documents/upload-modal';
 import { useCollection } from '@/hooks/use-collections';
-import { useDocumentsWithPolling, useDeleteDocument } from '@/hooks/use-documents';
+import { useDocumentsWithPolling, useDeleteDocument, useReprocessDocument } from '@/hooks/use-documents';
 import { useDisableRag } from '@/hooks/use-rag';
 import { RagConfigModal } from '@/components/collections/rag-config-modal';
 import { RagChatPreview } from '@/components/collections/rag-chat-preview';
@@ -49,6 +50,7 @@ export default function CollectionDetailPage() {
   const { data: collection, isLoading, error } = useCollection(collectionName);
   const { data: documents, isFetching: isDocumentsFetching } = useDocumentsWithPolling(collectionName);
   const deleteDocument = useDeleteDocument(collectionName);
+  const reprocessDocument = useReprocessDocument(collectionName);
 
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -67,6 +69,16 @@ export default function CollectionDetailPage() {
     (doc) => doc.status === 'pending' || doc.status === 'processing'
   ).length || 0;
 
+  const handleProcessDocument = async (docId: string) => {
+    try {
+      await reprocessDocument.mutateAsync(docId);
+      toast.success('Document processing started');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to start processing';
+      toast.error(message);
+    }
+  };
+
   const handleDeleteDocument = async () => {
     if (!deleteTarget) return;
     try {
@@ -80,6 +92,14 @@ export default function CollectionDetailPage() {
   };
 
   const getStatusBadge = (status: string) => {
+    if (status === 'uploaded') {
+      return (
+        <Badge variant="default" className="flex items-center gap-1">
+          <Upload className="w-3 h-3" />
+          uploaded
+        </Badge>
+      );
+    }
     if (status === 'processing') {
       return (
         <Badge variant="warning" className="flex items-center gap-1">
@@ -410,6 +430,22 @@ export default function CollectionDetailPage() {
                       leaveTo="opacity-0 scale-95"
                     >
                       <MenuItems className="absolute right-0 mt-1 w-36 bg-surface border border-border-light rounded-xl shadow-lg overflow-hidden z-10">
+                        {(doc.status === 'uploaded' || doc.status === 'failed') && (
+                          <MenuItem>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => handleProcessDocument(doc.id)}
+                                className={cn(
+                                  'w-full flex items-center gap-2 px-3 py-2 text-[14px] text-foreground',
+                                  focus ? 'bg-surface-hover' : ''
+                                )}
+                              >
+                                <Play className="w-4 h-4" />
+                                Process
+                              </button>
+                            )}
+                          </MenuItem>
+                        )}
                         <MenuItem>
                           {({ focus }) => (
                             <button

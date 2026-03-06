@@ -2,9 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useCollections } from '@/hooks/use-collections';
-import { useDocumentsWithPolling, useDeleteDocument } from '@/hooks/use-documents';
-import { useProjectStore } from '@/stores/project-store';
-import { ProjectSettings } from '@/types';
+import { useDocumentsWithPolling, useDeleteDocument, useReprocessDocument } from '@/hooks/use-documents';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -14,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { UploadModal } from '@/components/documents/upload-modal';
-import { FileText, Upload, Trash2, MoreVertical, AlertCircle, Settings, Loader2, FolderOpen, Eye } from 'lucide-react';
+import { FileText, Upload, Trash2, MoreVertical, AlertCircle, Loader2, FolderOpen, Eye, Play } from 'lucide-react';
 import Link from 'next/link';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -28,7 +26,6 @@ interface DeleteTarget {
 
 export default function DocumentsPage() {
   const { data: collections, isLoading: collectionsLoading } = useCollections();
-  const { currentProject } = useProjectStore();
   const [selectedCollection, setSelectedCollection] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -45,10 +42,7 @@ export default function DocumentsPage() {
 
   const { data: documents, isLoading: documentsLoading, isFetching } = useDocumentsWithPolling(effectiveCollection);
   const deleteDocument = useDeleteDocument(effectiveCollection);
-
-  // Check if embedding providers are configured
-  const projectSettings = currentProject?.settings as unknown as ProjectSettings | undefined;
-  const hasEmbeddingProvider = (projectSettings?.embedding_providers?.length || 0) > 0;
+  const reprocessDocument = useReprocessDocument(effectiveCollection);
 
   // Check if collections exist
   const hasCollections = (collections?.length || 0) > 0;
@@ -57,6 +51,16 @@ export default function DocumentsPage() {
   const processingCount = documents?.filter(
     (doc) => doc.status === 'pending' || doc.status === 'processing'
   ).length || 0;
+
+  const handleProcess = async (docId: string) => {
+    try {
+      await reprocessDocument.mutateAsync(docId);
+      toast.success('Document processing started');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start processing';
+      toast.error(message);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -78,6 +82,13 @@ export default function DocumentsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'uploaded':
+        return (
+          <Badge variant="default" className="flex items-center gap-1.5">
+            <Upload className="w-3 h-3" />
+            Uploaded
+          </Badge>
+        );
       case 'processing':
         return (
           <Badge variant="warning" className="flex items-center gap-1.5">
@@ -120,27 +131,7 @@ export default function DocumentsPage() {
       <Header />
       <div className="p-4 md:p-8">
         {/* Warning banners */}
-        {!hasEmbeddingProvider && (
-          <div className="mb-4 p-4 bg-warning/10 border border-warning/30 rounded-xl flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="text-[14px] font-medium text-foreground">
-                No Embedding Provider Configured
-              </h4>
-              <p className="text-[13px] text-text-secondary mt-1">
-                Configure an embedding provider to upload and process documents.
-              </p>
-              <Link href="/settings/providers">
-                <Button size="sm" variant="secondary" className="mt-3">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Configure Provider
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {hasEmbeddingProvider && !hasCollections && !collectionsLoading && (
+        {!hasCollections && !collectionsLoading && (
           <div className="mb-4 p-4 bg-warning/10 border border-warning/30 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -170,7 +161,7 @@ export default function DocumentsPage() {
           <Button
             onClick={() => setIsUploadModalOpen(true)}
             className="w-full sm:w-auto"
-            disabled={!hasEmbeddingProvider || !hasCollections}
+            disabled={!hasCollections}
           >
             <Upload className="w-4 h-4 mr-2" />
             Upload
@@ -263,6 +254,22 @@ export default function DocumentsPage() {
                             </Link>
                           )}
                         </MenuItem>
+                        {(doc.status === 'uploaded' || doc.status === 'failed') && (
+                          <MenuItem>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => handleProcess(doc.id)}
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-4 py-2.5 text-[14px] md:text-[15px] text-foreground transition-colors',
+                                  focus ? 'bg-surface-hover' : ''
+                                )}
+                              >
+                                <Play className="w-4 h-4" />
+                                Process
+                              </button>
+                            )}
+                          </MenuItem>
+                        )}
                         <MenuItem>
                           {({ focus }) => (
                             <button
@@ -292,7 +299,7 @@ export default function DocumentsPage() {
             action={
               <Button
                 onClick={() => setIsUploadModalOpen(true)}
-                disabled={!hasEmbeddingProvider || !hasCollections}
+                disabled={!hasCollections}
               >
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Documents

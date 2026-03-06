@@ -218,6 +218,68 @@ pub fn build_insert_query(
     Ok((query, params))
 }
 
+/// Build batch INSERT query for multiple rows
+pub fn build_batch_insert_query(
+    project_id: Uuid,
+    table_name: &str,
+    rows: &[serde_json::Value],
+) -> Result<(String, Vec<serde_json::Value>)> {
+    let full_table_name = super::schema::get_full_table_name(project_id, table_name);
+
+    if rows.is_empty() {
+        return Err(crate::Error::Validation("At least one row is required".into()));
+    }
+
+    // Collect all unique column names from all rows
+    let first_obj = rows[0].as_object().ok_or_else(|| {
+        crate::Error::Validation("Each row must be a JSON object".into())
+    })?;
+    let column_names: Vec<String> = first_obj.keys().cloned().collect();
+
+    for name in &column_names {
+        validate_identifier(name)?;
+    }
+
+    let mut columns = vec!["project_id".to_string()];
+    columns.extend(column_names.iter().map(|c| format!("\"{}\"", c)));
+
+    let mut all_placeholders = Vec::new();
+    let mut params: Vec<serde_json::Value> = Vec::new();
+
+    for row in rows {
+        let obj = row.as_object().ok_or_else(|| {
+            crate::Error::Validation("Each row must be a JSON object".into())
+        })?;
+
+        let mut row_placeholders = Vec::new();
+        // project_id param
+        params.push(serde_json::json!(project_id.to_string()));
+        row_placeholders.push(format!("${}", params.len()));
+
+        for col_name in &column_names {
+            let value = obj.get(col_name).unwrap_or(&serde_json::Value::Null);
+            params.push(value.clone());
+            let placeholder = if value.is_object() || value.is_array() {
+                format!("${}::jsonb", params.len())
+            } else {
+                format!("${}", params.len())
+            };
+            row_placeholders.push(placeholder);
+        }
+
+        all_placeholders.push(format!("({})", row_placeholders.join(", ")));
+    }
+
+    let query = format!(
+        "INSERT INTO \"{}\" ({}) VALUES {} RETURNING *",
+        full_table_name,
+        columns.join(", "),
+        all_placeholders.join(", ")
+    );
+
+    Ok((query, params))
+}
+
 /// Build UPDATE query
 pub fn build_update_query(
     project_id: Uuid,
@@ -370,14 +432,62 @@ fn parse_filters(filter_str: &str, param_offset: usize) -> Result<(String, Vec<s
         validate_identifier(column)?;
 
         let param_num = param_offset + params.len() + 1;
+
+        // Detect if value is a float (has decimal point, parses as f64 but not i64)
+        let is_float_value = value.contains('.') && value.parse::<f64>().is_ok();
+
         let condition = match op {
-            "eq" => format!("\"{}\" = ${}", column, param_num),
-            "neq" => format!("\"{}\" != ${}", column, param_num),
+            "eq" => {
+                // Use ::text cast for float equality to avoid float4/float8 precision mismatch
+                if is_float_value {
+                    format!("\"{}\"::text = ${}::text", column, param_num)
+                } else {
+                    format!("\"{}\" = ${}", column, param_num)
+                }
+            }
+            "neq" => {
+                if is_float_value {
+                    format!("\"{}\"::text != ${}::text", column, param_num)
+                } else {
+                    format!("\"{}\" != ${}", column, param_num)
+                }
+            }
             "gt" => format!("\"{}\" > ${}", column, param_num),
             "gte" => format!("\"{}\" >= ${}", column, param_num),
             "lt" => format!("\"{}\" < ${}", column, param_num),
             "lte" => format!("\"{}\" <= ${}", column, param_num),
             "like" => format!("\"{}\" ILIKE ${}", column, param_num),
+            "in" => {
+                // IN operator: value is comma-separated list
+                let values: Vec<&str> = value.split(',').collect();
+                if values.is_empty() {
+                    return Err(crate::Error::Validation("IN operator requires at least one value".into()));
+                }
+                let mut placeholders = Vec::new();
+                for v in &values {
+                    let pn = param_offset + params.len() + 1;
+                    placeholders.push(format!("${}", pn));
+                    params.push(parse_filter_value(v.trim()));
+                }
+                // IN doesn't add a single param below, so we skip the param push
+                conditions.push(format!("\"{}\" IN ({})", column, placeholders.join(", ")));
+                continue;
+            }
+            "nin" => {
+                // NOT IN operator: value is comma-separated list
+                let values: Vec<&str> = value.split(',').collect();
+                if values.is_empty() {
+                    return Err(crate::Error::Validation("NIN operator requires at least one value".into()));
+                }
+                let mut placeholders = Vec::new();
+                for v in &values {
+                    let pn = param_offset + params.len() + 1;
+                    placeholders.push(format!("${}", pn));
+                    params.push(parse_filter_value(v.trim()));
+                }
+                conditions.push(format!("\"{}\" NOT IN ({})", column, placeholders.join(", ")));
+                continue;
+            }
             "is" => {
                 if value == "null" {
                     format!("\"{}\" IS NULL", column)
@@ -394,26 +504,29 @@ fn parse_filters(filter_str: &str, param_offset: usize) -> Result<(String, Vec<s
 
         // Don't add param for IS conditions
         if op != "is" {
-            // Auto-cast boolean and numeric values from string
-            let typed_value = if value == "true" {
-                serde_json::json!(true)
-            } else if value == "false" {
-                serde_json::json!(false)
-            } else if value == "null" {
-                serde_json::json!(null)
-            } else if let Ok(n) = value.parse::<i64>() {
-                serde_json::json!(n)
-            } else if let Ok(n) = value.parse::<f64>() {
-                serde_json::json!(n)
-            } else {
-                serde_json::json!(value)
-            };
-            params.push(typed_value);
+            params.push(parse_filter_value(value));
         }
         conditions.push(condition);
     }
 
     Ok((conditions.join(" AND "), params))
+}
+
+/// Parse a filter value string into a typed JSON value
+fn parse_filter_value(value: &str) -> serde_json::Value {
+    if value == "true" {
+        serde_json::json!(true)
+    } else if value == "false" {
+        serde_json::json!(false)
+    } else if value == "null" {
+        serde_json::json!(null)
+    } else if let Ok(n) = value.parse::<i64>() {
+        serde_json::json!(n)
+    } else if let Ok(n) = value.parse::<f64>() {
+        serde_json::json!(n)
+    } else {
+        serde_json::json!(value)
+    }
 }
 
 /// Parse order string into ORDER BY clause

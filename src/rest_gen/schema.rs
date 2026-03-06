@@ -145,6 +145,8 @@ async fn get_table_columns(pool: &PgPool, full_table_name: &str) -> Result<Vec<T
     .await?;
 
     // Get primary key columns
+    // Quote the table name for ::regclass resolution (ut_* names need quoting)
+    let quoted_table = format!("\"{}\"", full_table_name);
     let pk_columns: Vec<(String,)> = sqlx::query_as(
         r#"
         SELECT a.attname
@@ -153,7 +155,7 @@ async fn get_table_columns(pool: &PgPool, full_table_name: &str) -> Result<Vec<T
         WHERE i.indrelid = $1::regclass AND i.indisprimary
         "#,
     )
-    .bind(full_table_name)
+    .bind(&quoted_table)
     .fetch_all(pool)
     .await
     .unwrap_or_default();
